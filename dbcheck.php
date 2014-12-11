@@ -97,7 +97,40 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung"
 
 }
 
+if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_urlaub"))
+{
 
+	$qry = "CREATE TABLE addon.tbl_casetime_urlaub
+			(
+				casetime_urlaub_id bigint NOT NULL,
+				uid varchar(32),
+				datum date
+			);
+
+	COMMENT ON TABLE addon.tbl_casetime_urlaub IS 'CaseTime Addon Synctabelle fuer Urlaub';
+
+	ALTER TABLE addon.tbl_casetime_urlaub ADD CONSTRAINT pk_casetime_urlaub PRIMARY KEY (casetime_urlaub_id);
+
+	CREATE SEQUENCE addon.tbl_casetime_urlaub_casetime_urlaub_id_seq
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 1;
+
+	ALTER TABLE addon.tbl_casetime_urlaub ALTER COLUMN casetime_urlaub_id SET DEFAULT nextval('addon.tbl_casetime_urlaub_casetime_urlaub_id_seq');
+
+	ALTER TABLE addon.tbl_casetime_urlaub ADD CONSTRAINT fk_benutzer_casetime_urlaub FOREIGN KEY (uid) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_urlaub TO vilesci;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_urlaub_casetime_urlaub_id_seq TO vilesci;			
+	";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_urlaub: '.$db->db_last_error().'</strong><br>';
+	else 
+		echo ' addon.tbl_casetime_urlaub: Tabelle addon.tbl_casetime_urlaub hinzugefuegt!<br>';
+
+}
 echo '<br>Aktualisierung abgeschlossen<br><br>';
 echo '<h2>Gegenprüfung</h2>';
 
@@ -105,6 +138,7 @@ echo '<h2>Gegenprüfung</h2>';
 // Liste der verwendeten Tabellen / Spalten des Addons
 $tabellen=array(
 	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id"),
+	"addon.tbl_casetime_urlaub"  => array("casetime_urlaub_id","uid","datum"),
 );
 
 

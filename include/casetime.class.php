@@ -94,5 +94,59 @@ class casetime extends basis_db
 		}
 	}
 
+	/**
+	 * Speichert die Uebertragenen Urlaube in die Sync-Tabelle
+	 * @param $new boolean default NULL
+	 * @return boolean true wenn ok, false im Fehlerfall
+	 */
+	public function saveUrlaub($new=null)
+	{
+		if(is_null($new))
+			$new = $this->new;
+
+		if($new)
+		{
+			$qry = "INSERT INTO addon.tbl_casetime_urlaub(uid, datum) VALUES(".
+					$this->db_add_param($this->uid).','.
+					$this->db_add_param($this->datum).');';
+		}
+		else
+		{
+			$this->errormsg = 'Not implemented';
+			return false;
+		}
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Speichern der Daten';
+			return false;
+		}
+	}
+
+	/**
+	 * Loescht die Eintraege eines Mitarbeiters an einem Tag aus der Sync Tabelle
+	 * @param $uid UID des Mitarbeiters
+	 * @param $datum Datum des Tages der entfernt werden soll
+	 * @return true wenn ok
+	 * @return false wenn fehler
+	 */
+	public function deleteDay($uid, $datum)
+	{
+		$qry = "DELETE FROM addon.tbl_casetime_zeitaufzeichnung WHERE uid=".$this->db_add_param($uid)." AND datum=".$this->db_add_param($datum);
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Loeschen der Daten';
+			return false;
+		}	
+	}
 }
 ?>

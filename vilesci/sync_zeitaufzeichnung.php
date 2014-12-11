@@ -25,6 +25,9 @@
  *
  * Der Status der Synchronisierung wird in der Tabelle addon.tbl_casetime_zeitaufzeichnung erfasst.
  *
+ * Bei Änderungen an den Eintraegen wird immer der gesamte Tag aus CaseTime und Synctabelle entfernt
+ * und der gesamte Tag neu gesynct.
+ *
  * Beispielaufruf fuer den Import:
  * http://localhost:8080/sync/rohdatem_import?sachb=oesi&bwart=ko&datumvon=20141108&zeitvon=071013&datumbis=20141108&zeitbis=173455
  */
@@ -58,6 +61,81 @@ $sync_datum_ende = $datum->format('Y-m-d');
 
 $user='oesi';
 
+// Loeschen von geaenderten oder geloeschten Eintraegen
+
+// Geloeschte Eintraege markieren
+$qry = "UPDATE 
+	addon.tbl_casetime_zeitaufzeichnung 
+SET 
+	delete=true 
+WHERE 
+	zeitaufzeichnung_id is not null
+	AND not exists(SELECT 1 FROM campus.tbl_zeitaufzeichnung 
+					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id);";
+
+// geaenderte Ko/Ge Eintraege markieren
+$qry.="
+UPDATE 
+	addon.tbl_casetime_zeitaufzeichnung 
+SET 
+	sync=true 
+WHERE
+	zeitaufzeichnung_id is null 
+	AND 
+	(zeit_start<>(SELECT min(start) FROM campus.tbl_zeitaufzeichnung 
+					WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND datum=tbl_casetime_zeitaufzeichnung.datum)
+	OR 
+	zeit_ende<>(SELECT max(ende) FROM campus.tbl_zeitaufzeichnung
+				WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND datum=tbl_casetime_zeitaufzeichnung.datum)
+	);";
+
+// geaenderte Ar/Pa/... Eintraege markieren
+$qry.="
+UPDATE 
+	addon.tbl_casetime_zeitaufzeichnung 
+SET 
+	sync=true 
+WHERE
+	zeitaufzeichnung_id is not null 
+	AND 
+	(zeit_start<>(SELECT start FROM campus.tbl_zeitaufzeichnung 
+					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
+	OR 
+	zeit_ende<>(SELECT ende FROM campus.tbl_zeitaufzeichnung
+					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
+	);
+";
+
+if(!$db->db_query($qry))
+	echo 'Fehler beim Markieren der Aktualisierungen!';
+
+// Eintraege holen die sich geaendert haben und aus CaseTime und Synctabelle entfernen
+$qry = "SELECT distinct datum, uid FROM addon.tbl_casetime_zeitaufzeichnung WHERE sync=true OR delete=true";
+
+if($result = $db->db_query($qry))
+{
+	while($row = $db->db_fetch_objecr($result))
+	{
+		echo '<br>Loesche Tageseintragungen '.$row->uid.' am '.$row->datum;
+
+		// Eintraege aus CaseTime entfernen
+		$retval = DeleteRecords($row->uid, $row->datum);
+		
+		if($retval===true)
+		{
+			// Eintraege aus Sync Tabelle entfernen
+			$ct = new casetime();
+			if(!$ct->deteleDay($row->uid, $row->datum))
+				echo 'Fehler beim Loeschen aus Sync Tabelle:'.$row->uid.' '.$row->datum;
+		}
+		else
+		{
+			echo 'Fehler beim Loeschen aus CaseTime:'.$retval;
+		}
+	}
+}
+
+// Anlegen von noch nicht uebertragenen Eintraegen
 // Kommt / Geht Eintraege
 $qry = "
 	SELECT * FROM (
@@ -223,6 +301,67 @@ function SendData($art, $uid, $datum, $beginn, $ende)
 		{
 			// OK, Ids werden zurueckgeliefert
 			return explode('_',$data->RESULT);
+		}
+		elseif(isset($data->STATUS) && $data->STATUS=='ERR')
+		{
+			// Error, Fehlermeldung wird zurueckgeliefert
+			return $data->RESULT;
+		}
+		else
+		{
+			return 'Invalid return from CaseTime:'.$result;
+		}
+	}
+	
+}
+
+/**
+ * Sendet einen Request an den CaseTime Server um die Daten eines Mitarbeiters und Tages zu entfernen
+ */
+function DeleteRecords($uid, $datum)
+{
+	$datum_obj = new datum();
+
+	$ch = curl_init();
+
+	$url = CASETIME_SERVER.'/sync/delete_??';
+
+	$datum = $datum_obj->formatDatum($datum,'Ymd');
+
+	$params = 'sachb='.$uid.'&datum='.$datum;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+    
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+		
+		/*
+		Der Import liefert einen JSON String mit Status als Returnwert. 
+		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
+
+		Beispiel fuer Fehlerfall:
+		{"STATUS": "ERR", "RESULT": "Fehlermeldung"}
+		
+		Beispiel fuer Erfolgsmeldung:
+		{"STATUS": "OK", "RESULT": "Erfolgreich geloescht"}
+		*/
+
+		if(isset($data->STATUS) && $data->STATUS=='OK')
+		{
+			return true;
 		}
 		elseif(isset($data->STATUS) && $data->STATUS=='ERR')
 		{
