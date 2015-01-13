@@ -82,11 +82,11 @@ SET
 WHERE
 	zeitaufzeichnung_id is null 
 	AND 
-	(zeit_start<>(SELECT min(start) FROM campus.tbl_zeitaufzeichnung 
-					WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND datum=tbl_casetime_zeitaufzeichnung.datum)
+	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung 
+					WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	OR 
-	zeit_ende<>(SELECT max(ende) FROM campus.tbl_zeitaufzeichnung
-				WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND datum=tbl_casetime_zeitaufzeichnung.datum)
+	zeit_ende<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
+				WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
 // geaenderte Ar/Pa/... Eintraege markieren
@@ -98,10 +98,10 @@ SET
 WHERE
 	zeitaufzeichnung_id is not null 
 	AND 
-	(zeit_start<>(SELECT start FROM campus.tbl_zeitaufzeichnung 
+	(zeit_start<>(SELECT start::time FROM campus.tbl_zeitaufzeichnung 
 					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
 	OR 
-	zeit_ende<>(SELECT ende FROM campus.tbl_zeitaufzeichnung
+	zeit_ende<>(SELECT ende::time FROM campus.tbl_zeitaufzeichnung
 					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
 	);
 ";
@@ -114,7 +114,7 @@ $qry = "SELECT distinct datum, uid FROM addon.tbl_casetime_zeitaufzeichnung WHER
 
 if($result = $db->db_query($qry))
 {
-	while($row = $db->db_fetch_objecr($result))
+	while($row = $db->db_fetch_object($result))
 	{
 		echo '<br>Loesche Tageseintragungen '.$row->uid.' am '.$row->datum;
 
@@ -125,7 +125,7 @@ if($result = $db->db_query($qry))
 		{
 			// Eintraege aus Sync Tabelle entfernen
 			$ct = new casetime();
-			if(!$ct->deteleDay($row->uid, $row->datum))
+			if(!$ct->deleteDay($row->uid, $row->datum))
 				echo 'Fehler beim Loeschen aus Sync Tabelle:'.$row->uid.' '.$row->datum;
 		}
 		else
@@ -324,7 +324,7 @@ function DeleteRecords($uid, $datum)
 
 	$ch = curl_init();
 
-	$url = CASETIME_SERVER.'/sync/delete_??';
+	$url = CASETIME_SERVER.'/sync/rohdaten_delete';
 
 	$datum = $datum_obj->formatDatum($datum,'Ymd');
 
