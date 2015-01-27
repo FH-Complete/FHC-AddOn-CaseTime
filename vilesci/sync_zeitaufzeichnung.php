@@ -59,7 +59,15 @@ $sync_datum_start = $datum->format('Y-m-d');
 $datum= new DateTime();
 $sync_datum_ende = $datum->format('Y-m-d');
 
-$user='oesi';
+$user_arr = array();
+
+if(isset($_GET['uid']))
+	$user_arr[] = $_GET['uid'];
+else
+{
+	$ct = new casetime();
+	$user_arr = $ct->getUserToSync();
+}
 
 // Loeschen von geaenderten oder geloeschten Eintraegen
 
@@ -146,8 +154,8 @@ $qry = "
 		WHERE 
 			start::date>=".$db->db_add_param($sync_datum_start)."
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
-if($user!='')
-	$qry.="AND uid=".$db->db_add_param($user);
+
+$qry.="AND uid in(".$db->db_implode4SQL($user_arr).")";
 
 $qry.="	GROUP BY uid, start::date
 	) za
@@ -201,8 +209,8 @@ $qry = "
 			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde')
 			AND start::date>=".$db->db_add_param($sync_datum_start)."
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
-if($user!='')
-	$qry.="AND uid=".$db->db_add_param($user);
+
+$qry.="AND uid IN(".$db->db_implode4SQL($user_arr).")";
 $qry.="
 	) za
 	WHERE NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung WHERE zeitaufzeichnung_id=za.zeitaufzeichnung_id)";

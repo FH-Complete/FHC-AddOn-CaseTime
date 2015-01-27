@@ -97,38 +97,77 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung"
 
 }
 
-if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_urlaub"))
+if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_zeitsperre"))
 {
 
-	$qry = "CREATE TABLE addon.tbl_casetime_urlaub
+	$qry = "CREATE TABLE addon.tbl_casetime_zeitsperre
 			(
-				casetime_urlaub_id bigint NOT NULL,
+				casetime_zeitsperre_id bigint NOT NULL,
 				uid varchar(32),
-				datum date
+				datum date,
+				typ varchar(8)
 			);
 
-	COMMENT ON TABLE addon.tbl_casetime_urlaub IS 'CaseTime Addon Synctabelle fuer Urlaub';
+	COMMENT ON TABLE addon.tbl_casetime_zeitsperre IS 'CaseTime Addon Synctabelle fuer Urlaub, Krankenstand, etc';
 
-	ALTER TABLE addon.tbl_casetime_urlaub ADD CONSTRAINT pk_casetime_urlaub PRIMARY KEY (casetime_urlaub_id);
+	ALTER TABLE addon.tbl_casetime_zeitsperre ADD CONSTRAINT pk_casetime_zeitsperre PRIMARY KEY (casetime_zeitsperre_id);
 
-	CREATE SEQUENCE addon.tbl_casetime_urlaub_casetime_urlaub_id_seq
+	CREATE SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq
 	INCREMENT BY 1
 	NO MAXVALUE
 	NO MINVALUE
 	CACHE 1;
 
-	ALTER TABLE addon.tbl_casetime_urlaub ALTER COLUMN casetime_urlaub_id SET DEFAULT nextval('addon.tbl_casetime_urlaub_casetime_urlaub_id_seq');
+	ALTER TABLE addon.tbl_casetime_zeitsperre ALTER COLUMN casetime_zeitsperre_id SET DEFAULT nextval('addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq');
 
-	ALTER TABLE addon.tbl_casetime_urlaub ADD CONSTRAINT fk_benutzer_casetime_urlaub FOREIGN KEY (uid) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
+	ALTER TABLE addon.tbl_casetime_zeitsperre ADD CONSTRAINT fk_benutzer_casetime_zeitsperre FOREIGN KEY (uid) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
 
-	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_urlaub TO vilesci;
-	GRANT SELECT, UPDATE ON addon.tbl_casetime_urlaub_casetime_urlaub_id_seq TO vilesci;			
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_zeitsperre TO vilesci;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq TO vilesci;			
 	";
 
 	if(!$db->db_query($qry))
-		echo '<strong>addon.tbl_casetime_urlaub: '.$db->db_last_error().'</strong><br>';
+		echo '<strong>addon.tbl_casetime_zeitsperre: '.$db->db_last_error().'</strong><br>';
 	else 
-		echo ' addon.tbl_casetime_urlaub: Tabelle addon.tbl_casetime_urlaub hinzugefuegt!<br>';
+		echo ' addon.tbl_casetime_zeitsperre: Tabelle addon.tbl_casetime_zeitsperre hinzugefuegt!<br>';
+
+}
+
+// Tabelle zur Steuerung welche Teilnehmer gesynct werden und welche nicht
+if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_gruppen"))
+{
+
+	$qry = "CREATE TABLE addon.tbl_casetime_gruppen
+			(
+				casetime_gruppen_id bigint NOT NULL,
+				oe_kurzbz varchar(32),
+				uid varchar(32),
+				sync boolean NOT NULL default true
+			);
+
+	COMMENT ON TABLE addon.tbl_casetime_gruppen IS 'CaseTime Addon Organisationseinheiten die uebertragen werden sollen';
+
+	ALTER TABLE addon.tbl_casetime_gruppen ADD CONSTRAINT pk_casetime_gruppen PRIMARY KEY (casetime_gruppen_id);
+
+	CREATE SEQUENCE addon.tbl_casetime_gruppen_casetime_gruppen_id_seq
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 1;
+
+	ALTER TABLE addon.tbl_casetime_gruppen ALTER COLUMN casetime_gruppen_id SET DEFAULT nextval('addon.tbl_casetime_gruppen_casetime_gruppen_id_seq');
+
+	ALTER TABLE addon.tbl_casetime_gruppen ADD CONSTRAINT fk_organisationseinheit_addon_casetime_gruppen FOREIGN KEY (oe_kurzbz) REFERENCES public.tbl_organisationseinheit(oe_kurzbz) ON DELETE RESTRICT ON UPDATE CASCADE;
+	ALTER TABLE addon.tbl_casetime_gruppen ADD CONSTRAINT fk_benutzer_addon_casetime_gruppen FOREIGN KEY (uid) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_gruppen TO vilesci;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_gruppen_casetime_gruppen_id_seq TO vilesci;
+	";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_gruppen: '.$db->db_last_error().'</strong><br>';
+	else 
+		echo ' addon.tbl_casetime_gruppen: Tabelle addon.tbl_casetime_gruppen hinzugefuegt!<br>';
 
 }
 echo '<br>Aktualisierung abgeschlossen<br><br>';
@@ -137,8 +176,9 @@ echo '<h2>Gegenprüfung</h2>';
 
 // Liste der verwendeten Tabellen / Spalten des Addons
 $tabellen=array(
+	"addon.tbl_casetime_gruppen"  => array("casetime_gruppen_id","oe_kurzbz","uid","sync"),
+	"addon.tbl_casetime_zeitsperre"  => array("casetime_zeitsperre_id","uid","datum","typ"),
 	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id"),
-	"addon.tbl_casetime_urlaub"  => array("casetime_urlaub_id","uid","datum"),
 );
 
 

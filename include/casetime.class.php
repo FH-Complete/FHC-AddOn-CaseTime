@@ -78,7 +78,7 @@ class casetime extends basis_db
 				'ext_id2='.$this->db_add_param($this->ext_id2).','.
 				'typ='.$this->db_add_param($this->typ).','.
 				'sync='.$this->db_add_param($this->sync, FHC_BOOLEAN).','.
-				'delete='.$this->db_add_param($this->delete, FHC_BOOLEA).','.
+				'delete='.$this->db_add_param($this->delete, FHC_BOOLEAN).','.
 				'zeitaufzeichnung_id='.$this->db_add_param($zeitaufzeichnung_id).
 				' WHERE casetime_zeitaufzeichnung_id='.$this->db_add_param($this->casetime_zeitaufzeichnung_id, FHC_INTEGER, false);
 		}
@@ -99,16 +99,17 @@ class casetime extends basis_db
 	 * @param $new boolean default NULL
 	 * @return boolean true wenn ok, false im Fehlerfall
 	 */
-	public function saveUrlaub($new=null)
+	public function saveZeitsperre($new=null)
 	{
 		if(is_null($new))
 			$new = $this->new;
 
 		if($new)
 		{
-			$qry = "INSERT INTO addon.tbl_casetime_urlaub(uid, datum) VALUES(".
+			$qry = "INSERT INTO addon.tbl_casetime_zeitsperre(uid, datum, typ) VALUES(".
 					$this->db_add_param($this->uid).','.
-					$this->db_add_param($this->datum).');';
+					$this->db_add_param($this->datum).','.
+					$this->db_add_param($this->typ).');';
 		}
 		else
 		{
@@ -125,6 +126,32 @@ class casetime extends basis_db
 			$this->errormsg = 'Fehler beim Speichern der Daten';
 			return false;
 		}
+	}
+
+	/**
+	 * Loescht die Zeitsperre Eintraege eines Tages und Typs
+	 * @param $uid UID des Mitarbeiters
+	 * @param $datum Datum des Tages der entfernt werden soll
+	 * @param $typ Typ des Eintrags
+	 * @return true wenn ok
+	 * @return false wenn fehler
+	 */
+	public function deleteZeitsperre($uid, $datum, $typ)
+	{
+		$qry = "DELETE FROM addon.tbl_casetime_zeitsperre 
+			WHERE uid=".$this->db_add_param($uid)."
+			AND datum=".$this->db_add_param($datum)."
+			AND typ=".$this->db_add_param($typ);
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Loeschen der Daten';
+			return false;
+		}	
 	}
 
 	/**
@@ -147,6 +174,89 @@ class casetime extends basis_db
 			$this->errormsg = 'Fehler beim Loeschen der Daten';
 			return false;
 		}	
+	}
+
+	/**
+	 * Laedt alle User die mit CaseTime synchronisiert werden sollen
+	 * @return array mit Usern
+	 */
+	public function getUserToSync()
+	{
+
+		/* 
+			Alle User holen die in einer der zu uebertragenden Organisationseinheiten (oder untergeordneten) 
+			hautpzugeordnet sind, 
+			ausgenommen jener User die einer OE (oder untergeordneten) zugeordnet sind die nicht übertragen werden soll
+			ausgenommen der User die explizit ausgenommen sind
+			plus User die explizit hinzugefuegt werden sollen
+		*/		
+		$qry = "SELECT 
+					uid 
+				FROM 
+					public.tbl_benutzerfunktion
+					JOIN public.tbl_benutzer USING(uid)
+				WHERE
+					tbl_benutzer.aktiv
+					AND tbl_benutzerfunktion.funktion_kurzbz='oezuordnung'
+					AND (datum_von is null OR datum_von<=now())
+					AND (datum_bis is null OR datum_bis>=now())
+					AND oe_kurzbz IN(
+						WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as 
+						(
+							SELECT oe_kurzbz, oe_parent_kurzbz FROM public.tbl_organisationseinheit 
+							WHERE oe_kurzbz in(Select oe_kurzbz FROM addon.tbl_casetime_gruppen WHERE sync)
+							UNION ALL
+							SELECT o.oe_kurzbz, o.oe_parent_kurzbz FROM public.tbl_organisationseinheit o, oes 
+							WHERE o.oe_parent_kurzbz=oes.oe_kurzbz
+						)
+						SELECT oe_kurzbz
+						FROM oes
+						GROUP BY oe_kurzbz
+					)
+					AND uid NOT IN(
+						SELECT 
+							uid 
+						FROM 
+							public.tbl_benutzerfunktion
+							JOIN public.tbl_benutzer USING(uid)
+						WHERE
+							tbl_benutzer.aktiv
+							AND tbl_benutzerfunktion.funktion_kurzbz='oezuordnung'
+							AND (datum_von is null OR datum_von<=now())
+							AND (datum_bis is null OR datum_bis>=now())
+							AND oe_kurzbz IN(
+								WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as 
+								(
+									SELECT oe_kurzbz, oe_parent_kurzbz FROM public.tbl_organisationseinheit 
+									WHERE oe_kurzbz in(Select oe_kurzbz FROM addon.tbl_casetime_gruppen WHERE sync=false)
+									UNION ALL
+									SELECT o.oe_kurzbz, o.oe_parent_kurzbz FROM public.tbl_organisationseinheit o, oes 
+									WHERE o.oe_parent_kurzbz=oes.oe_kurzbz
+								)
+								SELECT oe_kurzbz
+								FROM oes
+								GROUP BY oe_kurzbz
+							)
+					)
+					AND uid NOT IN(SELECT uid FROM addon.tbl_casetime_gruppen WHERE uid is not null AND sync=false)
+			UNION
+			SELECT uid FROM addon.tbl_casetime_gruppen WHERE uid is not null AND sync=true
+		";
+
+		if($result = $this->db_query($qry))
+		{
+			$user = array();
+			while($row = $this->db_fetch_object($result))
+			{
+				$user[]=$row->uid;
+			}
+			return $user;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Laden der Daten';
+			return false;
+		}
 	}
 }
 ?>
