@@ -64,7 +64,7 @@ else
 	$user_arr = $ct->getUserToSync();
 }
 
-// Urlaub/Krankenstand holen der geloescht wurden
+// Urlaub/Krankenstand holen die geloescht wurden 
 $qry = "
 SELECT 
 	uid, datum::date, 'Urlaub' as typ

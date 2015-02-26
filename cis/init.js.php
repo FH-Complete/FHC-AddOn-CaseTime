@@ -33,6 +33,9 @@ addon.push(
 		switch(page)
 		{
 			case 'cis/private/tools/zeitaufzeichnung.php':
+				// Anzeige der Feiertage
+				AddonCaseTimeLoadFeiertage(params.uid);				
+				
 				// Anzeige der Zeitfehler
 				AddonCaseTimeLoadErrors(params.uid);
 
@@ -97,6 +100,40 @@ function AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand)
 }
 
 /**
+ * Anzeige der Feiertage aus CaseTime
+ */
+function AddonCaseTimeLoadFeiertage(uid)
+{
+	$.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/feiertage.php?uid='+uid,
+		success: function (result) 
+		{
+        	for(i in result)
+			{
+				var tag = result[i][0];
+				var message = result[i][1];
+				tagid = 'tag_row_'+tag.split('.').join('_');
+				tagid_span = 'tag_'+tag.split('.').join('_');
+
+				// Fehlermeldungen direkt beim betreffenden Tag anzeigen
+				if($('#'+tagid).length)
+				{
+					$('#'+tagid_span).append(' -- Feiertag --');
+					var zellen = document.getElementById(tagid).getElementsByTagName("td");
+					for (var z=0; z<zellen.length; z++)
+						zellen[z].style.backgroundColor = '#eeeeee';
+				}		
+			}			
+        },
+		error: function(){
+			alert("Error Casetime Load");
+		}
+    });
+}
+
+/**
  * Anzeige der Fehlermeldungen aus CaseTime
  */
 function AddonCaseTimeLoadErrors(uid)
@@ -123,7 +160,7 @@ function AddonCaseTimeLoadErrors(uid)
 				{
 					// Wenn der betroffene Tag nicht in der Liste vorhanden ist dann separat anzeigen
 					$('#globalmessages').css('color','red');
-					$('#globalmessages').prepend('<img src="<?php echo APP_ROOT;?>/skin/images/exclamation.png">'+tag+' '+message+'<br/>');
+					//$('#globalmessages').prepend('<img src="<?php echo APP_ROOT;?>/skin/images/exclamation.png">'+tag+' '+message+'<br/>');
 				}			
 			}			
         },

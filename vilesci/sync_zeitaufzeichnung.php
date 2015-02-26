@@ -166,7 +166,10 @@ if($result = $db->db_query($qry))
 	while($row = $db->db_fetch_object($result))
 	{
 		echo "\n<br>".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit;
-
+		
+		// Zuerst alle Zeitrohdaten des Tages löschen
+		$retdel = DeleteRecords($row->uid, $row->datum);
+		
 		$retval = SendData('ko', $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
 		if(is_array($retval))
