@@ -31,6 +31,7 @@ require_once('../../../config/vilesci.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../include/casetime.class.php');
+require_once('sync_zeitaufzeichnung.php');
 
 // Wenn das Script nicht ueber Commandline gestartet wird, muss eine
 // Authentifizierung stattfinden
@@ -47,9 +48,16 @@ if(php_sapi_name() != 'cli')
 $db = new basis_db();
 
 // Zeitraum festlegen der uebertragen weden soll
-$datum= new DateTime();
-$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage
-$sync_datum_start = $datum->format('Y-m-d');
+
+if(CASETIME_SYNC_START_ABSOLUTE == '')
+{
+	$datum= new DateTime();
+	$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage	
+	$sync_datum_start = $datum->format('Y-m-d');
+}
+else
+	$sync_datum_start = CASETIME_SYNC_START_ABSOLUTE;
+
 
 $datum= new DateTime();
 $sync_datum_ende = $datum->format('Y-m-d');
@@ -187,6 +195,8 @@ if($result = $db->db_query($qry))
  */
 function SendDataImport($uid, $datum, $typ)
 {
+	$delval = DeleteRecords($uid, $datum);	
+	
 	$datum_obj = new datum();
 
 	$ch = curl_init();

@@ -28,11 +28,12 @@ if(typeof addon =='undefined')
 addon.push( 
 {
 	init: function(page, params) 
-	{
+	{		
 		// Diese Funktion wird nach dem Laden der Seite im CIS aufgerufen
 		switch(page)
 		{
 			case 'cis/private/tools/zeitaufzeichnung.php':
+				
 				// Anzeige der Feiertage
 				AddonCaseTimeLoadFeiertage(params.uid);				
 				
@@ -45,8 +46,11 @@ addon.push(
 
 			case 'cis/private/profile/urlaubstool.php':
 			case 'cis/private/profile/zeitsperre_resturlaub.php':
-			case 'cis/private/profile/urlaubsfreigabe.php':
-				AddonCaseTimeShowUrlaub(params.uid);
+			case 'cis/private/profile/urlaubsfreigabe.php':							
+				if (params.uid)
+				{								
+					AddonCaseTimeShowUrlaub(params.uid);
+				}				
 				break;
 
 			default:
@@ -75,8 +79,8 @@ function AddonCaseTimeShowUrlaub(uid)
 				var content = AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand);
 				$('#resturlaub').html(content);
 			}
-			else
-				$('#resturlaub').html('Error Loading Data from CaseTime Server:'+result);
+			//else
+				//$('#resturlaub').html('Error Loading Data from CaseTime Server:'+result);
         },
 		error: function(){
 			alert("Error Casetime Load");
@@ -181,7 +185,7 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/zeitsaldo.php?uid='+uid,
 		success: function (result) 
 		{		
-			if(result>0)
+			if(result>=0)
 				color='green';
 			else
 				color='red';

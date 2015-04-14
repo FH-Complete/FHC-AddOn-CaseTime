@@ -52,12 +52,20 @@ if(php_sapi_name() != 'cli')
 $db = new basis_db();
 
 // Zeitraum festlegen der uebertragen weden soll
-$datum= new DateTime();
-$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage
-$sync_datum_start = $datum->format('Y-m-d');
+
+if(CASETIME_SYNC_START_ABSOLUTE == '')
+{
+	$datum= new DateTime();
+	$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage	
+	$sync_datum_start = $datum->format('Y-m-d');
+}
+else
+	$sync_datum_start = CASETIME_SYNC_START_ABSOLUTE;
+	
 
 $datum= new DateTime();
 $sync_datum_ende = $datum->format('Y-m-d');
+
 
 $user_arr = array();
 
@@ -205,7 +213,7 @@ echo '<hr>';
 $qry = "
 	SELECT * FROM (
 		SELECT 
-			start::date as datum, start::time as startzeit, ende::time as endzeit, uid, aktivitaet_kurzbz, zeitaufzeichnung_id
+			start as start_full, ende as ende_full, start::date as datum, start::time as startzeit, ende::time as endzeit, uid, aktivitaet_kurzbz, zeitaufzeichnung_id
 		FROM 
 			campus.tbl_zeitaufzeichnung 
 		WHERE 
@@ -229,8 +237,21 @@ if($result = $db->db_query($qry))
 			case 'Dienstreise': $typ = 'dr'; break;
 			case 'Behoerde': $typ='bh'; break;
 		}
+		
+		if ($row->aktivitaet_kurzbz != 'Pause')
+		{
+			$start_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->start_full)));
+			$end_for_casetime = date('H:i:s', strtotime('-1 minutes', strtotime($row->ende_full)));
+			
+		}
+		else {
+			$start_for_casetime = $row->startzeit;
+			$end_for_casetime = $row->endzeit;
+		}
 		echo "\n<br>".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit.' '.$row->aktivitaet_kurzbz.' '.$row->zeitaufzeichnung_id.' '.$typ;
-		$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
+		
+		$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
+		//$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
 		if(is_array($retval))
 		{
@@ -243,7 +264,7 @@ if($result = $db->db_query($qry))
 			$ct->zeit_ende = $row->endzeit;
 			$ct->ext_id1 = $retval[0];
 			$ct->ext_id2 = $retval[1];
-			$ct->typ = 'ko';
+			$ct->typ = $typ;
 			$ct->sync=false;
 			$ct->delete=false;
 			$ct->zeitaufzeichnung_id = $row->zeitaufzeichnung_id;
