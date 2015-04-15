@@ -93,6 +93,24 @@ WHERE
 	AND uid in(".$db->db_implode4SQL($user_arr).")
 UNION
 SELECT 
+	uid, datum::date, 'ZA' as typ
+FROM
+	addon.tbl_casetime_zeitsperre
+WHERE
+	NOT EXISTS(
+		SELECT 1 
+		FROM 
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='ZA' AND vonstunde is null and bisstunde is null) a
+		WHERE
+			datum=tbl_casetime_zeitsperre.datum
+			AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
+		)
+	AND typ='ZA'
+	AND datum>=".$db->db_add_param($sync_datum_start)."
+	AND uid in(".$db->db_implode4SQL($user_arr).")
+UNION
+SELECT 
 	uid, datum::date, 'Krank' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
@@ -138,7 +156,7 @@ if($result = $db->db_query($qry))
 }
 
 
-// Neuen Urlaub / Krankenstand holen
+// Neuen Urlaub / Krankenstand / ZA holen
 $qry = "
 	SELECT 
 		mitarbeiter_uid, datum::date, 'Urlaub' as typ
@@ -147,6 +165,16 @@ $qry = "
 		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Urlaub' AND freigabevon is not null) a
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='Urlaub')
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT 
+		mitarbeiter_uid, datum::date, 'ZA' as typ
+	FROM
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='ZA' AND vonstunde is null and bisstunde is null) a
+	WHERE
+		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='ZA')
 		AND datum>=".$db->db_add_param($sync_datum_start)."
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
 	UNION
@@ -209,6 +237,7 @@ function SendDataImport($uid, $datum, $typ)
 	{
 		case 'Urlaub': $art='urlaub'; break;
 		case 'Krank': $art='krankenstand'; break;
+		case 'ZA': $art='zeitausgleich'; break;
 		default: $art=''; break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
@@ -276,6 +305,7 @@ function SendDataDelete($uid, $datum, $typ)
 	{
 		case 'Urlaub': $art='urlaub'; break;
 		case 'Krank': $art='krankenstand'; break;
+		case 'ZA': $art='zeitausgleich'; break;
 		default: $art=''; break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
