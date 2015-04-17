@@ -231,7 +231,7 @@ function SendDataImport($uid, $datum, $typ)
 
 	$url = CASETIME_SERVER.'/sync/import_zeitsperre';
 
-	$datum = $datum_obj->formatDatum($datum,'Ymd');
+	$datum = $datum_obj->formatDatum($datum,'d.m.Y');
 
 	switch($typ)
 	{
