@@ -83,7 +83,7 @@ function AddonCaseTimeShowUrlaub(uid)
 				//$('#resturlaub').html('Error Loading Data from CaseTime Server:'+result);
         },
 		error: function(){
-			alert("Error Casetime Load");
+			//alert("Error Casetime Load");
 		}
     });
 }
