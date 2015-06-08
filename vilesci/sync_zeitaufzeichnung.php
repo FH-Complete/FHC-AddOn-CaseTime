@@ -134,7 +134,7 @@ if($result = $db->db_query($qry))
 {
 	while($row = $db->db_fetch_object($result))
 	{
-		$msglog .= '<br>Loesche Tageseintragungen '.$row->uid.' am '.$row->datum;
+		$msglog .= "\nLoesche Tageseintragungen ".$row->uid." am ".$row->datum;
 
 		// Eintraege aus CaseTime entfernen
 		$retval = DeleteRecords($row->uid, $row->datum);
@@ -250,7 +250,7 @@ if($result = $db->db_query($qry))
 			$end_for_casetime = $row->endzeit;
 		}
 		
-		$msglog .= "\n<br>".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit.' '.$row->aktivitaet_kurzbz.' '.$row->zeitaufzeichnung_id.' '.$typ;
+		$msglog .= "\n".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit.' '.$row->aktivitaet_kurzbz.' '.$row->zeitaufzeichnung_id.' '.$typ;
 		$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
 		//$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
