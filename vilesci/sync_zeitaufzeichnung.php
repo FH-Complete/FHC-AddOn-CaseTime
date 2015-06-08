@@ -36,6 +36,8 @@ require_once('../../../config/vilesci.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../include/casetime.class.php');
+require_once('../include/functions.inc.php');
+require_once('../../../include/mail.class.php');
 
 // Wenn das Script nicht ueber Commandline gestartet wird, muss eine
 // Authentifizierung stattfinden
@@ -66,7 +68,7 @@ else
 $datum= new DateTime();
 $sync_datum_ende = $datum->format('Y-m-d');
 
-
+$msglog = '';
 $user_arr = array();
 
 if(isset($_GET['uid']))
@@ -123,7 +125,7 @@ WHERE
 ";
 
 if(!$db->db_query($qry))
-	echo 'Fehler beim Markieren der Aktualisierungen!';
+	$msglog .= 'Fehler beim Markieren der Aktualisierungen!';
 
 // Eintraege holen die sich geaendert haben und aus CaseTime und Synctabelle entfernen
 $qry = "SELECT distinct datum, uid FROM addon.tbl_casetime_zeitaufzeichnung WHERE sync=true OR delete=true";
@@ -132,7 +134,7 @@ if($result = $db->db_query($qry))
 {
 	while($row = $db->db_fetch_object($result))
 	{
-		echo '<br>Loesche Tageseintragungen '.$row->uid.' am '.$row->datum;
+		$msglog .= '<br>Loesche Tageseintragungen '.$row->uid.' am '.$row->datum;
 
 		// Eintraege aus CaseTime entfernen
 		$retval = DeleteRecords($row->uid, $row->datum);
@@ -142,11 +144,11 @@ if($result = $db->db_query($qry))
 			// Eintraege aus Sync Tabelle entfernen
 			$ct = new casetime();
 			if(!$ct->deleteDay($row->uid, $row->datum))
-				echo 'Fehler beim Loeschen aus Sync Tabelle:'.$row->uid.' '.$row->datum;
+				$msglog .= 'Fehler beim Loeschen aus Sync Tabelle:'.$row->uid.' '.$row->datum;
 		}
 		else
 		{
-			echo 'Fehler beim Loeschen aus CaseTime:'.$retval;
+			$msglog .= 'Fehler beim Loeschen aus CaseTime:'.$retval;
 		}
 	}
 }
@@ -173,8 +175,7 @@ if($result = $db->db_query($qry))
 {
 	while($row = $db->db_fetch_object($result))
 	{
-		echo "\n<br>".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit;
-		
+		$msglog .= "\n".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit;
 		// Zuerst alle Zeitrohdaten des Tages löschen
 		$retdel = DeleteRecords($row->uid, $row->datum);
 		
@@ -196,19 +197,19 @@ if($result = $db->db_query($qry))
 			$ct->delete=false;
 
 			if(!$ct->save(true))
-				echo ' Save Failed:'.$ct->errormsg;
+				$msglog .= ' Save Failed:'.$ct->errormsg;
 			else
-				echo ' Saved';
+				$msglog .= ' Saved';
 		}
 		else
 		{
 			// Beim schreiben in CaseTime ist ein Fehler aufgetreten
-			echo 'Error:'.$retval;
+			$msglog .= 'Error:'.$retval;
 		}
 	}
 }
 
-echo '<hr>';
+$msglog .= "\n-----\n";
 // Alle Pausen, Arzt, Dienstreisen, etc holen
 $qry = "
 	SELECT * FROM (
@@ -248,8 +249,8 @@ if($result = $db->db_query($qry))
 			$start_for_casetime = $row->startzeit;
 			$end_for_casetime = $row->endzeit;
 		}
-		echo "\n<br>".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit.' '.$row->aktivitaet_kurzbz.' '.$row->zeitaufzeichnung_id.' '.$typ;
 		
+		$msglog .= "\n<br>".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit.' '.$row->aktivitaet_kurzbz.' '.$row->zeitaufzeichnung_id.' '.$typ;
 		$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
 		//$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
@@ -270,141 +271,34 @@ if($result = $db->db_query($qry))
 			$ct->zeitaufzeichnung_id = $row->zeitaufzeichnung_id;
 
 			if(!$ct->save(true))
-				echo ' Save Failed:'.$ct->errormsg;
+				$msglog .= ' Save Failed:'.$ct->errormsg;
 			else
-				echo ' Saved';
+				$msglog .= ' Saved';
 		}
 		else
 		{
 			// Beim schreiben in CaseTime ist ein Fehler aufgetreten
-			echo 'Error:'.$retval;
+			$msglog .= 'Error:'.$retval;
+			
 		}
 	}
 }
 
-/**
- * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
- */
-function SendData($art, $uid, $datum, $beginn, $ende)
+if ($msglog == "\n-----\n")
+	$msglog = "\nNothing to Sync.\n";
+echo nl2br($msglog);
+
+// send mail to CaseTime-Admin
+if (CASETIME_SYNC_ADMIN_EMAIL != '')
 {
-	$datum_obj = new datum();
-
-	$ch = curl_init();
-
-	$url = CASETIME_SERVER.'/sync/rohdaten_import';
-
-	$datum = $datum_obj->formatDatum($datum,'Ymd');
-	$beginn = str_replace(':','',$beginn);
-	$ende = str_replace(':','',$ende);
-
-	$params = 'sachb='.$uid.'&bwart='.$art.'&datumvon='.$datum.'&zeitvon='.$beginn.'&datumbis='.$datum.'&zeitbis='.$ende;
-
-	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-
-	$result = curl_exec($ch);
-    
-	if(curl_errno($ch))
-	{
-		return 'Curl error: ' . curl_error($ch);
-		curl_close($ch);
-	}
-	else
-	{
-		curl_close($ch);
-		$data = json_decode($result);
-		
-		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
-		Falls dieser OK ist werden die 2 IDs mit "_" getrennt zurueckgeliefert
-		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
-
-		Beispiel fuer Fehlerfall:
-		{"STATUS": "ERR", "RESULT": "SACHB TEST hat bereits am 20141115 zur Zeit 110000 einen Eintrag!"}
-		
-		Beispiel fuer Erfolgsmeldung:
-		{"STATUS": "OK", "RESULT": "51895_51896"}
-		*/
-
-		if(isset($data->STATUS) && $data->STATUS=='OK')
-		{
-			// OK, Ids werden zurueckgeliefert
-			return explode('_',$data->RESULT);
-		}
-		elseif(isset($data->STATUS) && $data->STATUS=='ERR')
-		{
-			// Error, Fehlermeldung wird zurueckgeliefert
-			return $data->RESULT;
-		}
-		else
-		{
-			return 'Invalid return from CaseTime:'.$result;
-		}
-	}
-	
+	$mail = new mail(CASETIME_SYNC_ADMIN_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync Zeitaufzeichnung', $msglog);
+	if($mail->send())
+		echo "<br>Mail gesendet";
+	else 
+		echo "<br>Mail konnte nicht verschickt werden";
 }
+else 
+	echo "<br>Mailversand deaktiviert";
 
-/**
- * Sendet einen Request an den CaseTime Server um die Daten eines Mitarbeiters und Tages zu entfernen
- */
-function DeleteRecords($uid, $datum)
-{
-	$datum_obj = new datum();
 
-	$ch = curl_init();
-
-	$url = CASETIME_SERVER.'/sync/rohdaten_delete';
-
-	$datum = $datum_obj->formatDatum($datum,'Ymd');
-
-	$params = 'sachb='.$uid.'&datum='.$datum;
-
-	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-
-	$result = curl_exec($ch);
-    
-	if(curl_errno($ch))
-	{
-		return 'Curl error: ' . curl_error($ch);
-		curl_close($ch);
-	}
-	else
-	{
-		curl_close($ch);
-		$data = json_decode($result);
-		
-		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
-		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
-
-		Beispiel fuer Fehlerfall:
-		{"STATUS": "ERR", "RESULT": "Fehlermeldung"}
-		
-		Beispiel fuer Erfolgsmeldung:
-		{"STATUS": "OK", "RESULT": "Erfolgreich geloescht"}
-		*/
-
-		if(isset($data->STATUS) && $data->STATUS=='OK')
-		{
-			return true;
-		}
-		elseif(isset($data->STATUS) && $data->STATUS=='ERR')
-		{
-			// Error, Fehlermeldung wird zurueckgeliefert
-			return $data->RESULT;
-		}
-		else
-		{
-			return 'Invalid return from CaseTime:'.$result;
-		}
-	}
-	
-}
 ?>

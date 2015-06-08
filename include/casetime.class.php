@@ -259,4 +259,5 @@ class casetime extends basis_db
 		}
 	}
 }
+
 ?>

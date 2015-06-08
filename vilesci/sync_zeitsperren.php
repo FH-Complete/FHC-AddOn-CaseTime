@@ -31,7 +31,8 @@ require_once('../../../config/vilesci.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../include/casetime.class.php');
-require_once('sync_zeitaufzeichnung.php');
+require_once('../include/functions.inc.php');
+require_once('../../../include/mail.class.php');
 
 // Wenn das Script nicht ueber Commandline gestartet wird, muss eine
 // Authentifizierung stattfinden
@@ -58,7 +59,7 @@ if(CASETIME_SYNC_START_ABSOLUTE == '')
 else
 	$sync_datum_start = CASETIME_SYNC_START_ABSOLUTE;
 
-
+$msglog = '';
 $datum= new DateTime();
 $sync_datum_ende = $datum->format('Y-m-d');
 
@@ -111,6 +112,42 @@ WHERE
 	AND uid in(".$db->db_implode4SQL($user_arr).")
 UNION
 SELECT 
+	uid, datum::date, 'DienstV' as typ
+FROM
+	addon.tbl_casetime_zeitsperre
+WHERE
+	NOT EXISTS(
+		SELECT 1 
+		FROM 
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='DienstV' AND vonstunde is null and bisstunde is null) a
+		WHERE
+			datum=tbl_casetime_zeitsperre.datum
+			AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
+		)
+	AND typ='DienstV'
+	AND datum>=".$db->db_add_param($sync_datum_start)."
+	AND uid in(".$db->db_implode4SQL($user_arr).")
+UNION
+SELECT 
+	uid, datum::date, 'PflegeU' as typ
+FROM
+	addon.tbl_casetime_zeitsperre
+WHERE
+	NOT EXISTS(
+		SELECT 1 
+		FROM 
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='PflegeU' AND vonstunde is null and bisstunde is null) a
+		WHERE
+			datum=tbl_casetime_zeitsperre.datum
+			AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
+		)
+	AND typ='PflegeU'
+	AND datum>=".$db->db_add_param($sync_datum_start)."
+	AND uid in(".$db->db_implode4SQL($user_arr).")
+UNION
+SELECT 
 	uid, datum::date, 'Krank' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
@@ -133,7 +170,7 @@ if($result = $db->db_query($qry))
 {
 	while($row = $db->db_fetch_object($result))
 	{
-		echo "\n<br>Delete ".$row->uid.' '.$row->datum.' '.$row->typ;
+		$msglog .= "\nDelete ".$row->uid.' '.$row->datum.' '.$row->typ;
 
 		$retval = SendDataDelete($row->uid, $row->datum, $row->typ);
 
@@ -143,14 +180,14 @@ if($result = $db->db_query($qry))
 			// Eintrag aus Synctabelle loeschen
 			$ct = new casetime();
 			if(!$ct->deleteZeitsperre($row->uid, $row->datum, $row->typ))
-				echo ' delete Failed:'.$ct->errormsg;
+				$msglog .= ' delete Failed:'.$ct->errormsg;
 			else
-				echo ' deleted';
+				$msglog .= ' deleted';
 		}
 		else
 		{
 			// Beim schreiben in CaseTime ist ein Fehler aufgetreten
-			echo 'Error:'.$retval;
+			$msglog .= 'Error:'.$retval;
 		}
 	}
 }
@@ -179,6 +216,26 @@ $qry = "
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
 	UNION
 	SELECT 
+		mitarbeiter_uid, datum::date, 'DienstV' as typ
+	FROM
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='DienstV' AND vonstunde is null and bisstunde is null) a
+	WHERE
+		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='DienstV')
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT 
+		mitarbeiter_uid, datum::date, 'PflegeU' as typ
+	FROM
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='PflegeU' AND vonstunde is null and bisstunde is null) a
+	WHERE
+		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='PflegeU')
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT 
 		mitarbeiter_uid, datum::date, 'Krank' as typ
 	FROM
 		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
@@ -192,7 +249,7 @@ if($result = $db->db_query($qry))
 {
 	while($row = $db->db_fetch_object($result))
 	{
-		echo "\n<br> ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
+		$msglog .= "\n ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
 
 		$retval = SendDataImport($row->mitarbeiter_uid, $row->datum, $row->typ);
 
@@ -206,153 +263,35 @@ if($result = $db->db_query($qry))
 			$ct->typ = $row->typ;
 
 			if(!$ct->saveZeitsperre(true))
-				echo ' Save Failed:'.$ct->errormsg;
+				$msglog .= ' Save Failed:'.$ct->errormsg;
 			else
-				echo ' Saved';
+				$msglog .= ' Saved';
 		}
 		else
 		{
 			// Beim schreiben in CaseTime ist ein Fehler aufgetreten
-			echo 'Error:'.$retval;
+			$msglog .= 'Error:'.$retval;
 		}
 	}
 }
 
-/**
- * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
- */
-function SendDataImport($uid, $datum, $typ)
+if ($msglog == '')
+	$msglog = "\nNothing to Sync.\n";
+
+echo nl2br($msglog);
+
+// send mail to CaseTime-Admin
+if (CASETIME_SYNC_ADMIN_EMAIL != '')
 {
-	$delval = DeleteRecords($uid, $datum);	
-	
-	$datum_obj = new datum();
-
-	$ch = curl_init();
-
-	$url = CASETIME_SERVER.'/sync/import_zeitsperre';
-
-	$datum = $datum_obj->formatDatum($datum,'d.m.Y');
-
-	switch($typ)
-	{
-		case 'Urlaub': $art='urlaub'; break;
-		case 'Krank': $art='krankenstand'; break;
-		case 'ZA': $art='zeitausgleich'; break;
-		default: $art=''; break;
-	}
-	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
-
-	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-
-	$result = curl_exec($ch);
-    
-	if(curl_errno($ch))
-	{
-		return 'Curl error: ' . curl_error($ch);
-		curl_close($ch);
-	}
-	else
-	{
-		curl_close($ch);
-		$data = json_decode($result);
-		
-		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
-		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
-
-		Beispiel fuer Fehlerfall:
-		{"STATUS": "ERR", "RESULT": "Das ist die Errormessage"}
-		
-		Beispiel fuer Erfolgsmeldung:
-		{"STATUS": "OK", "RESULT": "Urlaubseintrag erfolgreich"}
-		*/
-
-		if(isset($data->STATUS) && $data->STATUS=='OK')
-		{
-			return true;
-		}
-		elseif(isset($data->STATUS) && $data->STATUS=='ERR')
-		{
-			// Error, Fehlermeldung wird zurueckgeliefert
-			return $data->RESULT;
-		}
-		else
-		{
-			return 'Invalid return from CaseTime:'.$result;
-		}
-	}
-	
+	$mail = new mail(CASETIME_SYNC_ADMIN_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync Zeitsperren', $msglog);
+	if($mail->send())
+		echo "<br>Mail gesendet";
+	else 
+		echo "<br>Mail konnte nicht verschickt werden";
 }
+else 
+	echo "<br>Mailversand deaktiviert";
 
-/**
- * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
- */
-function SendDataDelete($uid, $datum, $typ)
-{
-	$datum_obj = new datum();
 
-	$ch = curl_init();
 
-	$url = CASETIME_SERVER.'/sync/delete_zeitsperre';
-
-	$datum = $datum_obj->formatDatum($datum,'Ymd');
-
-	switch($typ)
-	{
-		case 'Urlaub': $art='urlaub'; break;
-		case 'Krank': $art='krankenstand'; break;
-		case 'ZA': $art='zeitausgleich'; break;
-		default: $art=''; break;
-	}
-	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
-
-	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-
-	$result = curl_exec($ch);
-    
-	if(curl_errno($ch))
-	{
-		return 'Curl error: ' . curl_error($ch);
-		curl_close($ch);
-	}
-	else
-	{
-		curl_close($ch);
-		$data = json_decode($result);
-		
-		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
-		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
-
-		Beispiel fuer Fehlerfall:
-		{"STATUS": "ERR", "RESULT": "Das ist die Errormessage"}
-		
-		Beispiel fuer Erfolgsmeldung:
-		{"STATUS": "OK", "RESULT": "Urlaubseintrag erfolgreich"}
-		*/
-
-		if(isset($data->STATUS) && $data->STATUS=='OK')
-		{
-			return true;
-		}
-		elseif(isset($data->STATUS) && $data->STATUS=='ERR')
-		{
-			// Error, Fehlermeldung wird zurueckgeliefert
-			return $data->RESULT;
-		}
-		else
-		{
-			return 'Invalid return from CaseTime:'.$result;
-		}
-	}
-	
-}
 ?>
