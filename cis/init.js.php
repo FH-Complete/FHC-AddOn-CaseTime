@@ -74,7 +74,7 @@ function AddonCaseTimeShowUrlaub(uid)
 			var resturlaub = result.Resturlaub;
 			var aktuellerstand = result.AktuellerStand;
 
-			if(urlaubsanspruch!=undefined)
+			if(urlaubsanspruch!=undefined && urlaubsanspruch!="0")
 			{
 				var content = AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand);
 				$('#resturlaub').html(content);
