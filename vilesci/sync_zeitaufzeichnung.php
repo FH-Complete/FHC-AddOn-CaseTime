@@ -101,10 +101,10 @@ WHERE
 	zeitaufzeichnung_id is null 
 	AND 
 	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung 
-					WHERE aktivitaet_kurzbz != 'LehreExtern' and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+					WHERE (aktivitaet_kurzbz != 'LehreExtern' or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	OR 
 	zeit_ende<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
-				WHERE aktivitaet_kurzbz != 'LehreExtern' and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+				WHERE (aktivitaet_kurzbz != 'LehreExtern' or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
 // geaenderte Ar/Pa/... Eintraege markieren
@@ -163,7 +163,7 @@ $qry = "
 			campus.tbl_zeitaufzeichnung 
 		WHERE 
 			start::date>=".$db->db_add_param($sync_datum_start)."
-			AND aktivitaet_kurzbz != 'LehreExtern' 			
+			AND (aktivitaet_kurzbz != 'LehreExtern' or aktivitaet_kurzbz is null)	
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
 $qry.="AND uid in(".$db->db_implode4SQL($user_arr).")";
