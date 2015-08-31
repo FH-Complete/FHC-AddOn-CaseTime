@@ -101,10 +101,10 @@ WHERE
 	zeitaufzeichnung_id is null 
 	AND 
 	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung 
-					WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+					WHERE aktivitaet_kurzbz != 'LehreExtern' and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	OR 
 	zeit_ende<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
-				WHERE uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+				WHERE aktivitaet_kurzbz != 'LehreExtern' and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
 // geaenderte Ar/Pa/... Eintraege markieren
@@ -163,6 +163,7 @@ $qry = "
 			campus.tbl_zeitaufzeichnung 
 		WHERE 
 			start::date>=".$db->db_add_param($sync_datum_start)."
+			AND aktivitaet_kurzbz != 'LehreExtern' 			
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
 $qry.="AND uid in(".$db->db_implode4SQL($user_arr).")";
@@ -218,7 +219,7 @@ $qry = "
 		FROM 
 			campus.tbl_zeitaufzeichnung 
 		WHERE 
-			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde')
+			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde','LehreExtern')
 			AND start::date>=".$db->db_add_param($sync_datum_start)."
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
@@ -237,13 +238,19 @@ if($result = $db->db_query($qry))
 			case 'Pause': $typ = 'pa'; break;
 			case 'Dienstreise': $typ = 'dr'; break;
 			case 'Behoerde': $typ='bh'; break;
+			case 'LehreExtern': $typ = 'pa'; break;
 		}
 		
-		if ($row->aktivitaet_kurzbz != 'Pause')
+		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern')
 		{
 			$start_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->start_full)));
 			$end_for_casetime = date('H:i:s', strtotime('-1 minutes', strtotime($row->ende_full)));
 			
+		}
+		else if ($row->aktivitaet_kurzbz != 'Pause')
+		{
+			$start_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->start_full)));
+			$end_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->ende_full)));			
 		}
 		else {
 			$start_for_casetime = $row->startzeit;
