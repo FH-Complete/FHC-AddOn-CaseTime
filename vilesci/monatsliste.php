@@ -66,7 +66,7 @@ function SendData($uid, $monat, $jahr)
 
 	$url = CASETIME_SERVER.'/sync/generate_monatsliste.py';
 
-	$params = 'ps_sachb='.$uid.'&ps_monat='.$monat.'.'.$jahr.'&ps_email='.$uid.'@technikum-wien.at';
+	$params = 'ps_sachb='.$uid.'&ps_monat='.$monat.'.'.$jahr.'&ps_email='.$uid.'@'.DOMAIN;
 	$authstr = base64_encode(CASETIME_ZOPE_USER.':'.CASETIME_ZOPE_PASS);
 	$headers = array();
 	$headers[] = "Authorization: Basic ".$authstr;
