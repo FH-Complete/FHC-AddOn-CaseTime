@@ -189,11 +189,48 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 				color='green';
 			else
 				color='red';
+			var DatumAktuell = new Date();
+			//var DatumAktuell = new Date(2016,0,11);
+			var MonatAktuell = DatumAktuell.getMonth()+1;
+			var MonatLetztes = MonatAktuell - 1;
+			var JahrAktuell = DatumAktuell.getFullYear();
+			var JahrLetztes = DatumAktuell.getFullYear();
+			if (MonatLetztes == 0)
+			{
+				MonatLetztes = 12;
+				JahrLetztes = JahrAktuell - 1;
+			}
+			
+			
 			$('#zeitsaldo').css('margin-left','50px');
 			$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden');
+			$('#monatsliste').css('margin-left','50px');
+			moli_str = '<a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatAktuell+','+JahrAktuell+')">Monatsliste '+MonatAktuell+'.'+JahrAktuell+'</a>';
+			moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatLetztes+','+JahrLetztes+')">Monatsliste '+MonatLetztes+'.'+JahrLetztes+'</a>';
+			$('#monatsliste').html(moli_str);
         },
 		error: function(){
 			alert("Error Casetime Load");
+		}
+    });
+}
+
+/**
+ * Generieren der Monatsliste
+ */
+function AddonCaseTimeGenerateMonatsliste(monat, jahr)
+{
+	$('#monatsliste').html('Monatsliste wird generiert und per Email an Sie geschickt');
+	$.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/monatsliste.php?monat='+monat+'&jahr='+jahr,
+		success: function (result) 
+		{		
+			$('#monatsliste').html(result);
+        },
+		error: function(){
+			
 		}
     });
 }
