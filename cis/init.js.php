@@ -220,7 +220,7 @@ function AddonCaseTimeLoadZeitsaldo(uid)
  */
 function AddonCaseTimeGenerateMonatsliste(monat, jahr)
 {
-	$('#monatsliste').html('Monatsliste wird generiert und per Email an Sie geschickt');
+	$('#monatsliste').html('Monatsliste wurde generiert und per Email an Sie geschickt');
 	$.ajax({
 		type: "GET",
 		dataType: 'json',

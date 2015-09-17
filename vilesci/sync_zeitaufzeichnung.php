@@ -35,9 +35,12 @@ require_once('../config.inc.php');
 require_once('../../../config/vilesci.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/datum.class.php');
 require_once('../include/casetime.class.php');
 require_once('../include/functions.inc.php');
 require_once('../../../include/mail.class.php');
+
+$datum_obj = new datum();
 
 // Wenn das Script nicht ueber Commandline gestartet wird, muss eine
 // Authentifizierung stattfinden
@@ -228,8 +231,10 @@ $qry.="
 	) za
 	WHERE NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung WHERE zeitaufzeichnung_id=za.zeitaufzeichnung_id)";
 
+$elsumme = '00:00';
 if($result = $db->db_query($qry))
 {
+	$el_arr = array();
 	while($row = $db->db_fetch_object($result))
 	{
 		switch($row->aktivitaet_kurzbz)
@@ -247,18 +252,58 @@ if($result = $db->db_query($qry))
 			$end_for_casetime = date('H:i:s', strtotime('-1 minutes', strtotime($row->ende_full)));
 			
 		}
+		/*		
 		else if ($row->aktivitaet_kurzbz != 'Pause')
 		{
 			$start_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->start_full)));
 			$end_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->ende_full)));			
 		}
+		*/
 		else {
 			$start_for_casetime = $row->startzeit;
 			$end_for_casetime = $row->endzeit;
 		}
 		
 		$msglog .= "\n".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit.' '.$row->aktivitaet_kurzbz.' '.$row->zeitaufzeichnung_id.' '.$typ;
-		$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
+		if ($row->aktivitaet_kurzbz == 'LehreExtern')
+		{
+			$elstart = new DateTime($row->startzeit);
+			$elende = new DateTime($row->endzeit);
+			$eldiff = $elstart->diff($elende);
+			$eladd = $eldiff->h.':'.$eldiff->i;
+			if (array_key_exists($row->uid, $el_arr))
+			{
+						
+				if (array_key_exists($row->datum, $el_arr[$row->uid]))
+				{
+					$el_arr[$row->uid][$row->datum] = $datum_obj->sumZeit($el_arr[$row->uid][$row->datum], $eladd);
+				}
+				else 
+				{
+					
+					$el_arr[$row->uid][$row->datum] = $eladd;
+				}
+			}
+			else
+			{
+				$el_arr[$row->uid] = array();
+				$el_arr[$row->uid][$row->datum] = $eladd; 
+			}
+			$qry_tag = "select count(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
+			$result_tag = $db->db_query($qry_tag);
+			$inkernzeit = 	$db->db_fetch_row($result_tag);	
+			$msglog .= $inkernzeit[0];
+			if ($inkernzeit[0] == 0)
+			{
+				$retval = array(-1,-1);
+			}
+			else 
+				$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
+			
+			
+		}		
+		else		
+			$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
 		//$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
 		if(is_array($retval))
@@ -281,12 +326,27 @@ if($result = $db->db_query($qry))
 				$msglog .= ' Save Failed:'.$ct->errormsg;
 			else
 				$msglog .= ' Saved';
+
+			
 		}
 		else
 		{
 			// Beim schreiben in CaseTime ist ein Fehler aufgetreten
 			$msglog .= 'Error:'.$retval;
 			
+		}
+	}
+	
+	//$msglog .= var_dump($el_arr);
+	// eintrag für EL schreiben	
+	foreach ($el_arr as $key => $val)
+	{
+		foreach ($el_arr[$key] as $datum_key => $datum_val)
+		{
+			list($h2, $m2) = explode(':', $datum_val);
+			$elzeit = $h2+$m2/60;
+			SendDataImport($key, $datum_key, 'EL', $elzeit);
+			$msglog .= "\n EL-Buchung: ".$key."-".$datum_key."-".$elzeit;
 		}
 	}
 }

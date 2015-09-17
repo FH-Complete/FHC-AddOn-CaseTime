@@ -150,9 +150,12 @@ function SendData($art, $uid, $datum, $beginn, $ende)
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
  */
-function SendDataImport($uid, $datum, $typ)
+function SendDataImport($uid, $datum, $typ, $zeit=0)
 {
-	$delval = DeleteRecords($uid, $datum);	
+	if ($typ != "EL")
+		$delval = DeleteRecords($uid, $datum);	
+	else 
+		$delval = SendDataDelete($uid, $datum, 'EL');
 	
 	$datum_obj = new datum();
 
@@ -169,9 +172,10 @@ function SendDataImport($uid, $datum, $typ)
 		case 'ZA': $art='zeitausgleich'; break;
 		case 'PflegeU': $art='pflegeurlaub'; break;
 		case 'DienstV': $art='dienstverhinderung'; break;
+		case 'EL': $art='externelehre'; break;
 		default: $art=''; break;
 	}
-	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
+	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art.'&zeit='.$zeit;
 
 	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
@@ -239,6 +243,7 @@ function SendDataDelete($uid, $datum, $typ)
 		case 'ZA': $art='zeitausgleich'; break;
 		case 'PflegeU': $art='pflegeurlaub'; break;
 		case 'DienstV': $art='dienstverhinderung'; break;
+		case 'EL': $art='externelehre'; break;
 		default: $art=''; break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
