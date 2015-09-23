@@ -345,6 +345,7 @@ if($result = $db->db_query($qry))
 		{
 			list($h2, $m2) = explode(':', $datum_val);
 			$elzeit = $h2+$m2/60;
+			$elzeit = number_format($elzeit, 2, '.', '');
 			SendDataImport($key, $datum_key, 'EL', $elzeit);
 			$msglog .= "\n EL-Buchung: ".$key."-".$datum_key."-".$elzeit;
 		}
