@@ -201,7 +201,6 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 				JahrLetztes = JahrAktuell - 1;
 			}
 			
-			
 			$('#zeitsaldo').css('margin-left','50px');
 			$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden');
 			$('#monatsliste').css('margin-left','50px');
@@ -220,6 +219,9 @@ function AddonCaseTimeLoadZeitsaldo(uid)
  */
 function AddonCaseTimeGenerateMonatsliste(monat, jahr)
 {
+	if (monat<10)
+		monat = '0'+monat;	
+	
 	$('#monatsliste').html('Monatsliste wurde generiert und per Email an Sie geschickt');
 	$.ajax({
 		type: "GET",
