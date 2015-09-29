@@ -242,7 +242,9 @@ class casetime extends basis_db
 			UNION
 			SELECT uid FROM addon.tbl_casetime_gruppen WHERE uid is not null AND sync=true
 		";
-
+		
+		$qry_fix = "select b.uid from tbl_benutzer b, tbl_mitarbeiter m  where b.uid = m.mitarbeiter_uid and m.fixangestellt and b.aktiv";
+		
 		if($result = $this->db_query($qry))
 		{
 			$user = array();
