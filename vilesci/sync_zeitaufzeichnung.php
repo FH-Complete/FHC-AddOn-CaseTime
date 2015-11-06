@@ -102,6 +102,8 @@ SET
 	sync=true 
 WHERE
 	zeitaufzeichnung_id is null 
+	AND
+	datum>=".$db->db_add_param($sync_datum_start)."
 	AND 
 	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung 
 					WHERE (aktivitaet_kurzbz != 'LehreExtern' or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
@@ -118,6 +120,8 @@ SET
 	sync=true 
 WHERE
 	zeitaufzeichnung_id is not null 
+	AND
+	datum>=".$db->db_add_param($sync_datum_start)."
 	AND 
 	(zeit_start<>(SELECT start::time FROM campus.tbl_zeitaufzeichnung 
 					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
@@ -126,6 +130,7 @@ WHERE
 					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
 	);
 ";
+
 
 if(!$db->db_query($qry))
 	$msglog .= 'Fehler beim Markieren der Aktualisierungen!';
@@ -173,7 +178,7 @@ $qry.="AND uid in(".$db->db_implode4SQL($user_arr).")";
 
 $qry.="	GROUP BY uid, start::date
 	) za
-	WHERE NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung WHERE datum=za.datum AND uid=za.uid)";
+	WHERE NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung WHERE datum=za.datum AND uid=za.uid AND typ='ko')";
 
 if($result = $db->db_query($qry))
 {

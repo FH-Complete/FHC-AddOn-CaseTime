@@ -79,10 +79,14 @@ function AddonCaseTimeShowUrlaub(uid)
 				var content = AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand);
 				$('#resturlaub').html(content);
 			}
-			//else
+			else
+			{
+				$('#resturlaub').html('&nbsp;');
 				//$('#resturlaub').html('Error Loading Data from CaseTime Server:'+result);
+			}
         },
 		error: function(){
+			$('#resturlaub').html('&nbsp;');
 			//alert("Error Casetime Load");
 		}
     });
@@ -94,9 +98,10 @@ function AddonCaseTimeShowUrlaub(uid)
 function AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand)
 {
 	var gebuchterurlaub = urlaubsanspruch+resturlaub-aktuellerstand;
-	var content = '<table><tr><td>Urlaubsanspruch jährlich</td><td align="right">'+urlaubsanspruch+' Tage</td></tr>';
-	content+='<tr><td>+ Resturlaub Übertrag aus Vorjahr</td><td align="right">'+resturlaub+' Tage</td></tr>';
-	content+='<tr><td>- aktuell gebuchter Urlaub</td><td align="right">'+gebuchterurlaub+' Tage</td></tr>';
+	var content = '<table>';
+	// content+= '<tr><td>Urlaubsanspruch jährlich</td><td align="right">'+urlaubsanspruch+' Tage</td></tr>';
+	//content+='<tr><td>+ Resturlaub Übertrag aus Vorjahr</td><td align="right">'+resturlaub+' Tage</td></tr>';
+	//content+='<tr><td>- aktuell gebuchter Urlaub</td><td align="right">'+gebuchterurlaub+' Tage</td></tr>';
 	content+='<tr><td style="border-top: 1px solid black;"><b>Aktueller Stand</b></td>';
 	content+='    <td align="right" style="border-top: 1px solid black;">'+aktuellerstand+' Tage</td></tr>';
 	content+='</table>';
@@ -200,6 +205,13 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 				MonatLetztes = 12;
 				JahrLetztes = JahrAktuell - 1;
 			}
+			
+			/*
+			var zahl = parseFloat(result);	
+			var std = Math.floor(zahl);
+			var min = (zahl-Math.floor(zahl))*60;
+			alert(std+':'+min);
+			*/
 			
 			$('#zeitsaldo').css('margin-left','50px');
 			$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden');
