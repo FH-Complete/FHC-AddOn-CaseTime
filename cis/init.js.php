@@ -190,36 +190,59 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/zeitsaldo.php?uid='+uid,
 		success: function (result) 
 		{		
-			if(result>=0)
-				color='green';
-			else
-				color='red';
-			var DatumAktuell = new Date();
-			//var DatumAktuell = new Date(2016,0,11);
-			var MonatAktuell = DatumAktuell.getMonth()+1;
-			var MonatLetztes = MonatAktuell - 1;
-			var JahrAktuell = DatumAktuell.getFullYear();
-			var JahrLetztes = DatumAktuell.getFullYear();
-			if (MonatLetztes == 0)
+			if (result==false)
 			{
-				MonatLetztes = 12;
-				JahrLetztes = JahrAktuell - 1;
+				//$('#zeitsaldo').css('margin-left','50px');
+				$('#zeitsaldo').html('<span style="color:red">Noch kein Zeitmodell eingetragen!<br>Bitte geben Sie ihre fiktive Normalarbeitszeit beim Personalservice ab.</span>');
+			}			
+			else
+			{			
+				if(result>=0)
+					color='green';
+				else
+					color='red';
+				var DatumAktuell = new Date();
+				//var DatumAktuell = new Date(2016,0,11);
+				var MonatAktuell = DatumAktuell.getMonth()+1;
+				var MonatLetztes = MonatAktuell - 1;
+				var JahrAktuell = DatumAktuell.getFullYear();
+				var JahrLetztes = DatumAktuell.getFullYear();
+				if (MonatLetztes == 0)
+				{
+					MonatLetztes = 12;
+					JahrLetztes = JahrAktuell - 1;
+				}
+				var MonatVorLetztes = MonatLetztes -1;
+				var JahrVorLetztes = JahrLetztes;
+				if (MonatVorLetztes == 0)
+				{
+					MonatVorLetztes = 12;
+					JahrVorLetztes = JahrLetztes -1;
+				}
+				
+				
+				var zahl = parseFloat(result);	
+				if (zahl > 0)
+					var faktor = 1;
+				else
+					var faktor = -1;
+				zahl = zahl * faktor;				
+				var std = Math.floor(zahl);
+				var min = (zahl-Math.floor(zahl))*60;
+				min = Math.round(min);
+				var std_anzeigealt = std+'h:'+min+'m';
+				
+				
+				
+				$('#zeitsaldo').css('margin-left','50px');
+				$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden ('+std_anzeigealt+')');
+				$('#monatsliste').css('margin-left','50px');
+				moli_str = '<a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatAktuell+','+JahrAktuell+')">Monatsliste '+MonatAktuell+'.'+JahrAktuell+'</a>';
+				moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatLetztes+','+JahrLetztes+')">Monatsliste '+MonatLetztes+'.'+JahrLetztes+'</a>';
+				moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatVorLetztes+','+JahrVorLetztes+')">Monatsliste '+MonatVorLetztes+'.'+JahrVorLetztes+'</a>';
+				$('#monatsliste').html(moli_str);
 			}
-			
-			/*
-			var zahl = parseFloat(result);	
-			var std = Math.floor(zahl);
-			var min = (zahl-Math.floor(zahl))*60;
-			alert(std+':'+min);
-			*/
-			
-			$('#zeitsaldo').css('margin-left','50px');
-			$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden');
-			$('#monatsliste').css('margin-left','50px');
-			moli_str = '<a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatAktuell+','+JahrAktuell+')">Monatsliste '+MonatAktuell+'.'+JahrAktuell+'</a>';
-			moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatLetztes+','+JahrLetztes+')">Monatsliste '+MonatLetztes+'.'+JahrLetztes+'</a>';
-			$('#monatsliste').html(moli_str);
-        },
+      },
 		error: function(){
 			alert("Error Casetime Load");
 		}
