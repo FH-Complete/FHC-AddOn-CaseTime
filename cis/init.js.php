@@ -193,7 +193,7 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 			if (result==false)
 			{
 				//$('#zeitsaldo').css('margin-left','50px');
-				$('#zeitsaldo').html('<span style="color:red">Noch kein Zeitmodell eingetragen!<br>Bitte geben Sie ihre fiktive Normalarbeitszeit beim Personalservice ab.</span>');
+				$('#zeitsaldo').html('<span style="color:red">Noch kein Zeitmodell eingetragen!<br>Bitte geben Sie Ihre fiktive Normalarbeitszeit beim Personalservice ab.</span>');
 			}			
 			else
 			{			
