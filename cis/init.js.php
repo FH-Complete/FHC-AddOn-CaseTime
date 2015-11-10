@@ -190,7 +190,7 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/zeitsaldo.php?uid='+uid,
 		success: function (result) 
 		{		
-			if (result==false)
+			if (result===false)
 			{
 				//$('#zeitsaldo').css('margin-left','50px');
 				$('#zeitsaldo').html('<span style="color:red">Noch kein Zeitmodell eingetragen!<br>Bitte geben Sie Ihre fiktive Normalarbeitszeit beim Personalservice ab.</span>');
