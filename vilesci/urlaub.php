@@ -23,7 +23,11 @@ require_once('../config.inc.php');
 require_once('../../../config/vilesci.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/casetime.class.php');
+
+if (!$db = new basis_db())
+	die('Fehler beim Oeffnen der Datenbankverbindung');
 
 $uid = get_uid();
 
@@ -34,8 +38,32 @@ if($username!=$uid)
 {
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
-
-	if(!$rechte->isBerechtigt('admin'))
+	
+	//Untergebene holen
+	$untergebene = '';
+	$mitarbeiter = new mitarbeiter();
+	$mitarbeiter->getUntergebene($uid);
+	foreach ($mitarbeiter->untergebene as $row)
+	{
+		if($untergebene!='')
+			$untergebene.=',';
+		$untergebene .= $db->db_add_param($row);
+	}
+	$qry = "SELECT * FROM public.tbl_person JOIN public.tbl_benutzer USING(person_id) WHERE uid in($untergebene)";
+	
+	$mitarbeiter = array();
+	if($result = $db->db_query($qry))
+	{
+		while($row = $db->db_fetch_object($result))
+		{
+			$mitarbeiter[$row->uid]['vorname']=$row->vorname;
+			$mitarbeiter[$row->uid]['nachname']=$row->nachname;
+			$mitarbeiter[$row->uid]['titelpre']=$row->titelpre;
+			$mitarbeiter[$row->uid]['titelpost']=$row->titelpost;
+		}
+	}	
+	
+	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') && !isset($mitarbeiter[$username]))
 		die('Sie haben keine Berechtigung fuer diese Seite');	
 }
 
