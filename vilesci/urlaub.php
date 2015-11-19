@@ -49,9 +49,13 @@ if($username!=$uid)
 			$untergebene.=',';
 		$untergebene .= $db->db_add_param($row);
 	}
+	if($untergebene!='')
+			$untergebene.=',';
+	$untergebene .= $db->db_add_param($uid);
 	$qry = "SELECT * FROM public.tbl_person JOIN public.tbl_benutzer USING(person_id) WHERE uid in($untergebene)";
 	
 	$mitarbeiter = array();
+	
 	if($result = $db->db_query($qry))
 	{
 		while($row = $db->db_fetch_object($result))
