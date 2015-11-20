@@ -41,33 +41,15 @@ if($username!=$uid)
 	
 	//Untergebene holen
 	$untergebene = '';
+	$mitarbeiter_arr = array();
 	$mitarbeiter = new mitarbeiter();
 	$mitarbeiter->getUntergebene($uid);
 	foreach ($mitarbeiter->untergebene as $row)
 	{
-		if($untergebene!='')
-			$untergebene.=',';
-		$untergebene .= $db->db_add_param($row);
+		$mitarbeiter_arr[$row] = 1;		
 	}
-	if($untergebene!='')
-			$untergebene.=',';
-	$untergebene .= $db->db_add_param($uid);
-	$qry = "SELECT * FROM public.tbl_person JOIN public.tbl_benutzer USING(person_id) WHERE uid in($untergebene)";
-	
-	$mitarbeiter = array();
-	
-	if($result = $db->db_query($qry))
-	{
-		while($row = $db->db_fetch_object($result))
-		{
-			$mitarbeiter[$row->uid]['vorname']=$row->vorname;
-			$mitarbeiter[$row->uid]['nachname']=$row->nachname;
-			$mitarbeiter[$row->uid]['titelpre']=$row->titelpre;
-			$mitarbeiter[$row->uid]['titelpost']=$row->titelpost;
-		}
-	}	
-	
-	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') && !isset($mitarbeiter[$username]))
+
+	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') && !isset($mitarbeiter_arr[$username]))
 		die('Sie haben keine Berechtigung fuer diese Seite');	
 }
 

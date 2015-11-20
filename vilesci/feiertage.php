@@ -37,7 +37,7 @@ if($username!=$uid)
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 
-	if(!$rechte->isBerechtigt('admin'))
+	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid'))
 		die('Sie haben keine Berechtigung fuer diese Seite');	
 }
 
