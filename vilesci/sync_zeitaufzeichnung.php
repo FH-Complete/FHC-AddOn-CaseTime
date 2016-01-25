@@ -257,13 +257,13 @@ if($result = $db->db_query($qry))
 			$end_for_casetime = date('H:i:s', strtotime('-1 minutes', strtotime($row->ende_full)));
 			
 		}
-				
+		/*		
 		else if ($row->aktivitaet_kurzbz != 'Pause')
 		{
 			$start_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->start_full)));
 			$end_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->ende_full)));			
 		}
-		
+		*/
 		else {
 			$start_for_casetime = $row->startzeit;
 			$end_for_casetime = $row->endzeit;
