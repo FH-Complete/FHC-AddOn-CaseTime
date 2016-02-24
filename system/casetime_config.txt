@@ -1,0 +1,52 @@
+Konfiguration CaseTime
+
+= Webservices (ZOPE_ROOT/sync):
+
+== als 'External Methods' (ZOPE_INSTANCE_HOME/Extensions)
+
+* fhtw_delete_zeitsperre.py
+** Module Name: fhtw_delete_zeitsperre
+** Function Name: delete_zeitsperre
+
+* fhtw_get_zeitsaldo.py
+** Module Name: fhtw_get_zeitsaldo
+** Function Name: get_zeitsaldo
+
+* fhtw_get_feiertage.py
+** Module Name: fhtw_get_feiertage
+** Function Name: get_feiertage
+
+* fhtw_get_zeitfehler.py
+** Module Name: fhtw_get_zeitfehler
+** Function Name: get_zeitfehler
+
+* fhtw_import_zeitsperre.py
+** Module Name: fhtw_import_zeitsperre
+** Function Name: import_zeitsperre
+
+* fhtw_get_urlaubsaldo.py
+** Module Name: fhtw_get_urlaubsaldo
+** Function Name: get_urlaubsaldo
+
+* fhtw_get_zeitmodelle.py
+** Module Name: fhtw_get_zeitmodelle
+** Function Name: get_zeitmodelle
+
+* fhtw_rohdaten_delete.py
+** Module Name: fhtw_rohdaten_delete
+** Function Name: rohdaten_delete
+
+== als Python-Scripts in Zope
+* generate_monatsliste.py
+** Parameter List: ps_sachb='', ps_monat='', ps_email=''
+
+* rohdaten_import
+** Parameter List: sachb='', bwart='',datumvon='',zeitvon='',datumbis='',zeitbis=''
+
+== Definition erlaubte IP-Adressen für Webservice-Aufrufe:
+
+DB-Table: 'rechner':
+alter table rechner add column fhcomplete_allowed_ip varchar(15)[];
+alter table rechner add column fhcomplete_allowed_ip_sync varchar(15)[];
+update rechner set fhcomplete_allowed_ip = '{"xxx.xxx.xxx.xxx","xxx.xxx.xxx.xxx"}';
+update rechner set fhcomplete_allowed_ip_sync = '{"xxx.xxx.xxx.xxx","xxx.xxx.xxx.xxx"}';

@@ -93,7 +93,16 @@ WHERE
 	zeitaufzeichnung_id is not null
 	AND not exists(SELECT 1 FROM campus.tbl_zeitaufzeichnung 
 					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id);";
-
+// Geloeschte Tage markieren
+$qry .= "
+UPDATE 
+	addon.tbl_casetime_zeitaufzeichnung 
+SET 
+	delete=true
+WHERE
+	datum > '2015-11-30'
+AND
+	not exists (select 1 from campus.tbl_zeitaufzeichnung where start::date = tbl_casetime_zeitaufzeichnung.datum and uid=tbl_casetime_zeitaufzeichnung.uid);";
 // geaenderte Ko/Ge Eintraege markieren
 $qry.="
 UPDATE 

@@ -42,14 +42,17 @@ echo '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www
 echo '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>';
 echo '<table cellpadding="3">';
 echo '<tr><th>Wochensumme</th><th>Zeitmodell</th><th>Mo</th><th>Di</th><th>Mi</th><th>Do</th><th>Fr</th><th>Sa</th><th>So</th><th>Beschreibung</th></tr>';
-foreach ($retval as $zm)
+if ($retval)
 {
-		if ($counter % 2 == 1)
-			echo '<tr bgcolor="#eeeeee">';
-		else 
-			echo '<tr>';
-		echo '<td>'.$zm[9].'</td><td>'.$zm[0].'</td><td>'.$zm[2].'</td><td>'.$zm[3].'</td><td>'.$zm[4].'</td><td>'.$zm[5].'</td><td>'.$zm[6].'</td><td>'.$zm[7].'</td><td>'.$zm[8].'</td><td>'.$zm[1].'</td></tr>';
-		$counter++;
+	foreach ($retval as $zm)
+	{
+			if ($counter % 2 == 1)
+				echo '<tr bgcolor="#eeeeee">';
+			else 
+				echo '<tr>';
+			echo '<td>'.$zm[9].'</td><td>'.$zm[0].'</td><td>'.$zm[2].'</td><td>'.$zm[3].'</td><td>'.$zm[4].'</td><td>'.$zm[5].'</td><td>'.$zm[6].'</td><td>'.$zm[7].'</td><td>'.$zm[8].'</td><td>'.$zm[1].'</td></tr>';
+			$counter++;
+	}
 }
 echo '<tr><td colspan="10"><b>Gesamtanzahl Zeitmodelle: '.$counter.'</b></td></tr>';
 echo '</table>';
