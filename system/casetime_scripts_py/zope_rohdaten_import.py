@@ -28,7 +28,7 @@ def validate_mytime(t):
 def validate_mydate(d, dbconn):
    try:
       sql = """select cast('%s' as date)""" %(str(d))
-      
+
       erg = context.sql_execute(dbconn,sql)
       #context.script_log('/sync/rohdaten_import erg: ', str(erg))
       error = erg[0]
@@ -45,18 +45,18 @@ def validate_mydate(d, dbconn):
 
       val_dict['STATUS']='ERR'
       val_dict['RESULT']=str(info)
-      
+
       return json.dumps(val_dict, ensure_ascii=False, encoding='utf8')
-      
-     
+
+
 try:
    # Dictonary für JSON
    ret_dict = {'STATUS' : '', 'RESULT' : ''}
-   
+
    # Überprüfung der Parameterliste
    if sachb == '' :
       ret_dict['STATUS']='ERR'
-      ret_dict['RESULT']='Parameterliste fehlerhaft!(Sachbearbeiter fehlt)\nEXAMPLE: sachb=pam&bwart=KO&datumvon=20141007&zeitvon=070503&datumbis=20141007&zeitbis=163415' 
+      ret_dict['RESULT']='Parameterliste fehlerhaft!(Sachbearbeiter fehlt)\nEXAMPLE: sachb=pam&bwart=KO&datumvon=20141007&zeitvon=070503&datumbis=20141007&zeitbis=163415'
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
    elif bwart == '' :
       ret_dict['STATUS']='ERR'
@@ -81,7 +81,7 @@ try:
 
    dbconn = context.script_getApplicationData('dbconn')
    context.script_log('/sync/rohdaten_import DBConn:', str(dbconn))
-   
+
    #Speicherung der Transaktionsnummer
    transerg = ''
    #Variable für Sperrdatum
@@ -113,7 +113,7 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']='ZEITVON ist außerhalb des Gültigkeitsbereichs'
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   elif validate_mytime(zeitbis) == -1: 
+   elif validate_mytime(zeitbis) == -1:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']='ZEITBIS ist außerhalb des Gültigkeitsbereichs'
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
@@ -121,12 +121,12 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']='ZEITVON ist älter als ZEITBIS!\nFormat: [HH24MISS]'
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-      
+
    elif datumvon < sperrdatum :
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']='DATUMVON ist älter als das Sperrdatum!\nFormat: [YYYYMMDD]'
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   
+
    # Prüfung ob Sachbearbeiter vorhanden ist
    sql_check = """select count(*)
                   from SACHBEARBEITER
@@ -142,14 +142,14 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']=str(error[0])
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   else: 
+   else:
       for line in data:
          check_var= str(line[0])
    if check_var == '0' :
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']='SACHB ist nicht vorhanden!'
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   
+
    # Prüfung ob Bewegungsart vorhanden ist
    sql_check = """select count(*)
                   from BEWEGUNGSARTEN
@@ -165,14 +165,14 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']=str(error[0])
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   else: 
+   else:
       for line in data:
          check_var= str(line[0])
    if check_var == '0' :
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']='BWART ist nicht vorhanden!'
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   
+
    # Prüfung ob bereits ein Eintrag zu der Zeit mit diesem Sachbearbeiter vorhanden ist
    sql_check = """select count(*)
                   from ZEITROHDATEN
@@ -191,16 +191,19 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']=str(error[0])
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   else: 
+   else:
       for line in data:
          check_var= str(line[0])
    if str(check_var) == '1' :
       zeitvon = int(zeitvon)+1
+      zeitvon = str(zeitvon)
+      if len(zeitvon) == 5:
+         zeitvon = '0'+zeitvon
       #ret_dict['STATUS']='ERR'
       #ret_dict['RESULT']="""SACHB %s hat bereits am %s zur Zeit %s einen Eintrag!""" %(sachb, datumvon, zeitvon)
       #return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
    # NEU
-   
+
    # Prüfung ob bereits ein Eintrag zu der Zeit mit diesem Sachbearbeiter vorhanden ist
    sql_check = """select count(*)
                   from ZEITROHDATEN
@@ -219,11 +222,14 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']=str(error[0])
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   else: 
+   else:
       for line in data:
          check_var= str(line[0])
    if check_var == '1' :
       zeitbis = int(zeitbis)+1
+      zeitbis = str(zeitbis)
+      if len(zeitbis) == 5:
+         zeitbis = '0'+zeitbis
       #ret_dict['STATUS']='ERR'
       #ret_dict['RESULT']="""SACHB %s hat bereits am %s zur Zeit %s einen Eintrag!""" %(sachb, datumbis, zeitbis)
       #return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
@@ -233,7 +239,7 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']=str(validate_mydate(datumvon,dbconn))
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-      
+
 
    if str(validate_mydate(datumbis,dbconn))[0:3] == 'DAT':
       ret_dict['STATUS']='ERR'
@@ -242,14 +248,14 @@ try:
 
    # Einfügen des Datensatzes mit TERMID='HTTP', POSNR=1, Hinweis='HTTP-Zeitbuchung', FEHLEROK='N', SACHBEARBEITER.VORNAME / NACHNAME (wenn vorhanden)
 
-   sql = """insert into ZEITROHDATEN (SACHB, BWART, DATUM, ZEIT, TERMID, TRANSNR, POSNR, HINWEIS, FEHLEROK, VORNAME, NACHNAME) 
+   sql = """insert into ZEITROHDATEN (SACHB, BWART, DATUM, ZEIT, TERMID, TRANSNR, POSNR, HINWEIS, FEHLEROK, VORNAME, NACHNAME)
            select UPPER('%s'), UPPER('%s'), '%s', '%s', 'HTTP', nextval('SEQ_TRANSNR'), 1 , 'HTTP-Zeitbuchung', 'N', coalesce(VORNAME,''), coalesce(NAME,'')
            from SACHBEARBEITER
            where SACHB = UPPER('%s')
            and not exists ( select 'X'
                             from   ZEITROHDATEN X
-                            where  X.SACHB = UPPER('%s') 
-                            and    X.BWART = UPPER('%s') 
+                            where  X.SACHB = UPPER('%s')
+                            and    X.BWART = UPPER('%s')
                             and    X.DATUM = '%s'
                             and    X.ZEIT = '%s') """ %(sachb, bwart, datumvon, zeitvon, sachb, sachb, bwart, datumvon, zeitvon)
 
@@ -277,21 +283,21 @@ try:
       ret_dict['STATUS']='ERR'
       ret_dict['RESULT']=str(error[0])
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   else: 
+   else:
       for line in data:
          transerg+= str(line[0])+'_'
    if bwart.upper() == 'KO' :
       bwart='GT'
    # Einfügen des zweiten Zeitstempels mit Datumbis und Zeitbis
-   sql = """insert into ZEITROHDATEN (SACHB, BWART, DATUM, ZEIT, TERMID, TRANSNR, POSNR, HINWEIS, FEHLEROK, VORNAME, NACHNAME) 
+   sql = """insert into ZEITROHDATEN (SACHB, BWART, DATUM, ZEIT, TERMID, TRANSNR, POSNR, HINWEIS, FEHLEROK, VORNAME, NACHNAME)
             select UPPER('%s'), UPPER('%s'), '%s', '%s', 'HTTP', nextval('SEQ_TRANSNR'), 1 , 'HTTP-Zeitbuchung', 'N', coalesce(VORNAME,''), coalesce(NAME,'')
             from SACHBEARBEITER
             where SACHB = UPPER('%s')
             and not exists ( select 'X'
                              from   ZEITROHDATEN X
-                             where  X.SACHB = UPPER('%s') 
-                             and    X.BWART = UPPER('%s') 
-                             and    X.DATUM = '%s' 
+                             where  X.SACHB = UPPER('%s')
+                             and    X.BWART = UPPER('%s')
+                             and    X.DATUM = '%s'
                              and    X.ZEIT = '%s') """ %(sachb, bwart, datumbis, zeitbis, sachb, sachb, bwart, datumbis, zeitbis)
 
    #context.script_log('/sync/rohdaten_import  SQL: ', str(sql))
@@ -327,10 +333,10 @@ try:
          transerg+= str(line[0])
 
    # verarbeitungsdatum löschen an allen eintraegen des tages
-   sql = """update zeitrohdaten set verarbdatum=null 
-            where 
+   sql = """update zeitrohdaten set verarbdatum=null
+            where
             sachb = UPPER('%s')
-            and 
+            and
             datum = '%s'
    """ % (sachb, datumvon)
    erg_verarb = context.sql_execute(dbconn,sql)
@@ -338,8 +344,8 @@ try:
    ret_dict['STATUS']='OK'
    ret_dict['RESULT']=str(transerg)
    return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   
-  
+
+
 except:
    # Ende mit Fehler.
    val_dict = {'STATUS' : '', 'RESULT' : ''}
