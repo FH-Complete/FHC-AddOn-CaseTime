@@ -258,7 +258,9 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 				moli_dd += '<select name="jahr" id="jahr"><option value="'+JahrAktuell+'">'+JahrAktuell+'</option><option value="'+VorJahr+'">'+VorJahr+'</option></select>';
 				moli_dd += '<input type="button" onclick="AddonCaseTimeGenerateMonatslisteDD()" value="generieren">';
 				$('#monatsliste').html(moli_dd);
-				document.getElementById('monat').selectedIndex=MonatAktuell-1;
+				document.getElementById('monat').selectedIndex=MonatLetztes-1;
+				if (MonatLetztes == 12)
+					document.getElementById('jahr').selectedIndex=1;
 			}
       },
 		error: function(){
