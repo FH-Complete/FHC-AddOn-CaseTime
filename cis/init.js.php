@@ -25,18 +25,18 @@ require_once('../../../config/cis.config.inc.php');
 if(typeof addon =='undefined')
 	var addon=Array();
 
-addon.push( 
+addon.push(
 {
-	init: function(page, params) 
-	{		
+	init: function(page, params)
+	{
 		// Diese Funktion wird nach dem Laden der Seite im CIS aufgerufen
 		switch(page)
 		{
 			case 'cis/private/tools/zeitaufzeichnung.php':
-				
+
 				// Anzeige der Feiertage
-				AddonCaseTimeLoadFeiertage(params.uid);				
-				
+				AddonCaseTimeLoadFeiertage(params.uid);
+
 				// Anzeige der Zeitfehler
 				AddonCaseTimeLoadErrors(params.uid);
 
@@ -46,11 +46,11 @@ addon.push(
 
 			case 'cis/private/profile/urlaubstool.php':
 			case 'cis/private/profile/zeitsperre_resturlaub.php':
-			case 'cis/private/profile/urlaubsfreigabe.php':							
+			case 'cis/private/profile/urlaubsfreigabe.php':
 				if (params.uid)
-				{								
+				{
 					AddonCaseTimeShowUrlaub(params.uid);
-				}				
+				}
 				break;
 
 			default:
@@ -68,7 +68,7 @@ function AddonCaseTimeShowUrlaub(uid)
 		type: "GET",
 		dataType: 'json',
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/urlaub.php?uid='+uid,
-		success: function (result) 
+		success: function (result)
 		{
 			var urlaubsanspruch = result.Urlaubsanspruch;
 			var resturlaub = result.Resturlaub;
@@ -117,7 +117,7 @@ function AddonCaseTimeLoadFeiertage(uid)
 		type: "GET",
 		dataType: 'json',
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/feiertage.php?uid='+uid,
-		success: function (result) 
+		success: function (result)
 		{
         	for(i in result)
 			{
@@ -133,8 +133,8 @@ function AddonCaseTimeLoadFeiertage(uid)
 					var zellen = document.getElementById(tagid).getElementsByTagName("td");
 					for (var z=0; z<zellen.length; z++)
 						zellen[z].style.backgroundColor = '#eeeeee';
-				}		
-			}			
+				}
+			}
         },
 		error: function(){
 			alert("Error Casetime Load");
@@ -151,7 +151,7 @@ function AddonCaseTimeLoadErrors(uid)
 		type: "GET",
 		dataType: 'json',
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/zeitfehler.php?uid='+uid,
-		success: function (result) 
+		success: function (result)
 		{
         	for(i in result)
 			{
@@ -170,8 +170,8 @@ function AddonCaseTimeLoadErrors(uid)
 					// Wenn der betroffene Tag nicht in der Liste vorhanden ist dann separat anzeigen
 					$('#globalmessages').css('color','red');
 					//$('#globalmessages').prepend('<img src="<?php echo APP_ROOT;?>/skin/images/exclamation.png">'+tag+' '+message+'<br/>');
-				}			
-			}			
+				}
+			}
         },
 		error: function(){
 			alert("Error Casetime Load");
@@ -188,15 +188,15 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 		type: "GET",
 		dataType: 'json',
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/zeitsaldo.php?uid='+uid,
-		success: function (result) 
-		{		
+		success: function (result)
+		{
 			if (result===false)
 			{
 				//$('#zeitsaldo').css('margin-left','50px');
 				$('#zeitsaldo').html('<span style="color:red">Noch kein Zeitmodell eingetragen!<br>Bitte geben Sie Ihre fiktive Normalarbeitszeit beim Personalservice ab.</span>');
-			}			
+			}
 			else
-			{			
+			{
 				if(result>=0)
 					color='green';
 				else
@@ -207,6 +207,7 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 				var MonatLetztes = MonatAktuell - 1;
 				var JahrAktuell = DatumAktuell.getFullYear();
 				var JahrLetztes = DatumAktuell.getFullYear();
+				var VorJahr = JahrAktuell -1;
 				if (MonatLetztes == 0)
 				{
 					MonatLetztes = 12;
@@ -219,28 +220,45 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 					MonatVorLetztes = 12;
 					JahrVorLetztes = JahrLetztes -1;
 				}
-				
-				
-				var zahl = parseFloat(result);	
+
+
+				var zahl = parseFloat(result);
 				if (zahl > 0)
 					var faktor = 1;
 				else
 					var faktor = -1;
-				zahl = zahl * faktor;				
+				zahl = zahl * faktor;
 				var std = Math.floor(zahl);
 				var min = (zahl-Math.floor(zahl))*60;
 				min = Math.round(min);
 				var std_anzeigealt = std+'h:'+min+'m';
-				
-				
-				
+
+
+
 				$('#zeitsaldo').css('margin-left','50px');
 				$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden ('+std_anzeigealt+')');
 				$('#monatsliste').css('margin-left','50px');
 				moli_str = '<a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatAktuell+','+JahrAktuell+')">Monatsliste '+MonatAktuell+'.'+JahrAktuell+'</a>';
 				moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatLetztes+','+JahrLetztes+')">Monatsliste '+MonatLetztes+'.'+JahrLetztes+'</a>';
 				moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatVorLetztes+','+JahrVorLetztes+')">Monatsliste '+MonatVorLetztes+'.'+JahrVorLetztes+'</a>';
-				$('#monatsliste').html(moli_str);
+				moli_dd = 'Monatsliste: <br>';
+				moli_dd += '<select name="monat" id="monat">';
+				moli_dd += '<option value="1">Jänner</option>';
+				moli_dd += '<option value="2">Februar</option>';
+				moli_dd += '<option value="3">März</option>';
+				moli_dd += '<option value="4">April</option>';
+				moli_dd += '<option value="5">Mai</option>';
+				moli_dd += '<option value="6">Juni</option>';
+				moli_dd += '<option value="7">Juli</option>';
+				moli_dd += '<option value="8">August</option>';
+				moli_dd += '<option value="9">September</option>';
+				moli_dd += '<option value="10">Oktober</option>';
+				moli_dd += '<option value="11">November</option>';
+				moli_dd += '<option value="12">Dezember</option></select>';
+				moli_dd += '<select name="jahr" id="jahr"><option value="'+JahrAktuell+'">'+JahrAktuell+'</option><option value="'+VorJahr+'">'+VorJahr+'</option></select>';
+				moli_dd += '<input type="button" onclick="AddonCaseTimeGenerateMonatslisteDD()" value="generieren">';
+				$('#monatsliste').html(moli_dd);
+				document.getElementById('monat').selectedIndex=MonatAktuell-1;
 			}
       },
 		error: function(){
@@ -255,19 +273,45 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 function AddonCaseTimeGenerateMonatsliste(monat, jahr)
 {
 	if (monat<10)
-		monat = '0'+monat;	
-	
+		monat = '0'+monat;
+
 	$('#monatsliste').html('Monatsliste wurde generiert und per Email an Sie geschickt');
 	$.ajax({
 		type: "GET",
 		dataType: 'json',
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/monatsliste.php?monat='+monat+'&jahr='+jahr,
-		success: function (result) 
-		{		
+		success: function (result)
+		{
 			$('#monatsliste').html(result);
         },
 		error: function(){
-			
+
 		}
     });
+}
+
+/**
+ * Generieren der Monatsliste
+ */
+function AddonCaseTimeGenerateMonatslisteDD()
+{
+	monat = document.getElementById('monat').options[document.getElementById('monat').selectedIndex].value;
+	jahr = document.getElementById('jahr').options[document.getElementById('jahr').selectedIndex].value;
+	if (monat<10)
+		monat = '0'+monat;
+
+	$('#monatsliste').html('Monatsliste wurde generiert und per Email an Sie geschickt');
+	$.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/monatsliste.php?monat='+monat+'&jahr='+jahr,
+		success: function (result)
+		{
+			$('#monatsliste').html(result);
+        },
+		error: function(){
+
+		}
+    });
+
 }
