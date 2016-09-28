@@ -299,8 +299,7 @@ function AddonCaseTimeGenerateMonatslisteDD()
 	jahr = document.getElementById('jahr').options[document.getElementById('jahr').selectedIndex].value;
 	if (monat<10)
 		monat = '0'+monat;
-
-	$('#monatsliste').html('Monatsliste wurde generiert und per Email an Sie geschickt');
+	$('#monatsliste').html('Monatsliste wird generiert und per Email an Sie geschickt.<br>Falls für den gewählten Monat keine Daten verfügbar sind, wird kein Email verschickt.');
 	$.ajax({
 		type: "GET",
 		dataType: 'json',
