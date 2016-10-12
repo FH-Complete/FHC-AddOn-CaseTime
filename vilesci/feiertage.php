@@ -53,7 +53,7 @@ function SendData($uid)
 {
 	$datum_obj = new datum();
 	$heute = date('Ymd');
-	$angezeigte_tage = 50;
+	$angezeigte_tage = 180;
 	
 	$ch = curl_init();
 
