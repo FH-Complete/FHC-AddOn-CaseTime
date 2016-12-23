@@ -98,12 +98,16 @@ function AddonCaseTimeShowUrlaub(uid)
 function AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand)
 {
 	var gebuchterurlaub = urlaubsanspruch+resturlaub-aktuellerstand;
+	if (aktuellerstand < 0)
+		var txtstyle = 'border-top: 1px solid black; color: red; font-weight: bold;';
+	else
+		var txtstyle = 'border-top: 1px solid black;';
 	var content = '<table>';
 	content+= '<tr><td>Urlaubsanspruch für das laufende Jahr</td><td align="right">'+urlaubsanspruch+' Tage</td></tr>';
 	content+='<tr><td>+ Resturlaub Übertrag aus Vorjahr</td><td align="right">'+resturlaub+' Tage</td></tr>';
 	content+='<tr><td>- bereits gebuchter Urlaub</td><td align="right">'+gebuchterurlaub+' Tage</td></tr>';
 	content+='<tr><td style="border-top: 1px solid black;"><b>Aktueller Stand (noch verfügbar)</b></td>';
-	content+='    <td align="right" style="border-top: 1px solid black;">'+aktuellerstand+' Tage</td></tr>';
+	content+='    <td align="right" style="'+txtstyle+'">'+aktuellerstand+' Tage</td></tr>';
 	content+='</table>';
 	return content;
 }

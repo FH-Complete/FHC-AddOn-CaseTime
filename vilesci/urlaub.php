@@ -34,23 +34,27 @@ $uid = get_uid();
 $username = $_GET['uid'];
 
 // Wenn es nicht der eigene Eintrag ist, muss man admin sein
-if($username!=$uid)
+if ($username != $uid)
 {
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 	
 	//Untergebene holen
 	$untergebene = '';
-	$mitarbeiter_arr = array();
+	$mitarbeiterArr = array();
 	$mitarbeiter = new mitarbeiter();
 	$mitarbeiter->getUntergebene($uid);
 	foreach ($mitarbeiter->untergebene as $row)
 	{
-		$mitarbeiter_arr[$row] = 1;		
+		$mitarbeiterArr[$row] = 1;
 	}
 
-	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') && !isset($mitarbeiter_arr[$username]))
-		die('Sie haben keine Berechtigung fuer diese Seite');	
+	if (!$rechte->isBerechtigt('admin')
+	 && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid')
+	 && !isset($mitarbeiterArr[$username]))
+	{
+		die('Sie haben keine Berechtigung fuer diese Seite');
+	}
 }
 
 $retval = SendData($username);
@@ -59,41 +63,39 @@ echo json_encode($retval);
 
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
+ * @param string $uid UserID.
+ * @return Json-Object
  */
 function SendData($uid)
 {
-	$datum_obj = new datum();
-
 	$ch = curl_init();
 
 	$url = CASETIME_SERVER.'/sync/get_urlaubsaldo';
 
 	$params = 'sachb='.$uid;
 
-	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params); //Url together with parameters
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT, "FH-Complete CaseTime Addon");
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
     
-	if(curl_errno($ch))
+	if (curl_errno($ch))
 	{
-		return 'Curl error: ' . curl_error($ch);
-		curl_close($ch);
+		return 'Curl error: '.curl_error($ch);
 	}
 	else
 	{
 		curl_close($ch);
 		$data = json_decode($result);
 
-		if(isset($data->STATUS) && $data->STATUS=='OK')
+		if (isset($data->STATUS) && $data->STATUS == 'OK')
 		{
 			return $data->RESULT;
 		}
 		else
 			return false;
-	}	
+	}
 }
-?>
