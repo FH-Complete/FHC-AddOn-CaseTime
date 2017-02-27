@@ -44,7 +44,7 @@ $uid = get_uid();
 $rechte = new benutzerberechtigung();
 $rechte->getBerechtigungen($uid);
 
-if(!$rechte->isBerechtigt('basis/addon'))
+if(!$rechte->isBerechtigt('basis/addon', null, 'suid'))
 {
 	exit('Sie haben keine Berechtigung für die Verwaltung von Addons');
 }
@@ -87,12 +87,12 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung"
 	ALTER TABLE addon.tbl_casetime_zeitaufzeichnung ADD CONSTRAINT fk_zeitaufzeichnung_casetime_zeitaufzeichnung FOREIGN KEY (zeitaufzeichnung_id) REFERENCES campus.tbl_zeitaufzeichnung(zeitaufzeichnung_id) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_zeitaufzeichnung TO vilesci;
-	GRANT SELECT, UPDATE ON addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq TO vilesci;			
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq TO vilesci;
 	";
 
 	if(!$db->db_query($qry))
 		echo '<strong>addon.tbl_casetime_zeitaufzeichnung: '.$db->db_last_error().'</strong><br>';
-	else 
+	else
 		echo ' addon.tbl_casetime_zeitaufzeichnung: Tabelle addon.tbl_casetime_zeitaufzeichnung hinzugefuegt!<br>';
 
 }
@@ -123,12 +123,12 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_zeitsperre"))
 	ALTER TABLE addon.tbl_casetime_zeitsperre ADD CONSTRAINT fk_benutzer_casetime_zeitsperre FOREIGN KEY (uid) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_zeitsperre TO vilesci;
-	GRANT SELECT, UPDATE ON addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq TO vilesci;			
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq TO vilesci;
 	";
 
 	if(!$db->db_query($qry))
 		echo '<strong>addon.tbl_casetime_zeitsperre: '.$db->db_last_error().'</strong><br>';
-	else 
+	else
 		echo ' addon.tbl_casetime_zeitsperre: Tabelle addon.tbl_casetime_zeitsperre hinzugefuegt!<br>';
 
 }
@@ -166,7 +166,7 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_gruppen"))
 
 	if(!$db->db_query($qry))
 		echo '<strong>addon.tbl_casetime_gruppen: '.$db->db_last_error().'</strong><br>';
-	else 
+	else
 		echo ' addon.tbl_casetime_gruppen: Tabelle addon.tbl_casetime_gruppen hinzugefuegt!<br>';
 
 }
