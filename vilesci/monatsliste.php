@@ -27,7 +27,8 @@ require_once('../include/casetime.class.php');
 
 $uid = get_uid();
 
-$username = $_GET['uid'];
+if(isset($_GET['uid']))
+	$username = $_GET['uid'];
 
 if (isset($_GET['monat']))
 	$monat = $_GET['monat'];
