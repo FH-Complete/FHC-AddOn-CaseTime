@@ -2,7 +2,7 @@
 
 import sys, traceback
 import string, json, time, os
-from Products.allow import MIMEText,MIMEBase,MIMEMultipart,Header,encode_base64 
+from Products.allow import MIMEText,MIMEBase,MIMEMultipart,Header,encode_base64
 
 dbconn = context.script_getApplicationData('dbconn')
 remote_ip=context.REQUEST.REMOTE_ADDR
@@ -30,10 +30,10 @@ try:
         arguments = []
         upd_pkfields = 'SACHB'
 
-        sql = """select SACHB, NAME, VORNAME, PERSNR, ABTEILUNG, FIRMENNR, VERTRAGSTYP 
-                 from   SACHBEARBEITER 
-                 where  coalesce(GELOESCHT,'N') = 'N' 
-                 and    coalesce(NICHTSTEMPLER,'N') = 'N' 
+        sql = """select SACHB, NAME, VORNAME, PERSNR, ABTEILUNG, FIRMENNR, VERTRAGSTYP
+                 from   SACHBEARBEITER
+                 where  coalesce(GELOESCHT,'N') = 'N'
+                 and    coalesce(NICHTSTEMPLER,'N') = 'N'
                  and    (cast('01.'||to_char(EINTRITTSDATUM,'mm.yyyy') as date) <= cast('01.%s' as date) or EINTRITTSDATUM is null)
                  and    SACHB = upper('%s')""" %(ps_monat, ps_sachb)
 
@@ -60,11 +60,11 @@ try:
             data = ret_ext[1]
             if len(errors) > 0:
                 context.script_log('FEHLER 01 in /sync/generate_monatsliste.py: ', str(errors))
-                ret_dict['error'] = 'FEHLER 01 in /sync/generate_monatsliste.py: ' + str(errors)           
+                ret_dict['error'] = 'FEHLER 01 in /sync/generate_monatsliste.py: ' + str(errors)
             elif len(data) == 0:
                 # Keine Daten in der DB vorhanden
                 context.script_log('FEHLER 02 in /sync/generate_monatsliste.py: ', 'Keine External für die Monatsliste in der Tabelle Rechner eingetragen')
-                ret_dict['error'] = 'FEHLER 02 in /sync/generate_monatsliste.py: Keine External für die Monatsliste  in der Tabelle Rechner eingetragen'           
+                ret_dict['error'] = 'FEHLER 02 in /sync/generate_monatsliste.py: Keine External für die Monatsliste  in der Tabelle Rechner eingetragen'
             for elm in data:
                 ls_external = str(elm[0])
                 ls_absender = str(elm[1])
@@ -77,15 +77,15 @@ try:
             pfad = '/casetime/CASE/Datawindows/zrep_monatsliste/' + ls_external
             external =  context.restrictedTraverse(pfad)
             #context.script_log('/sync/generate_monatsliste.py Path - SysPath - File - Pfad - External: ' , pPathToSave + ' --- ' + pSysPathToSave + ' --- ' + pFilename + ' --- ' + pfad + ' --- ' + str(external))
- 
+
             # Liste drucken; es kommt der modifizierte Filename zurueck
             lb_auto = True
-            retFile = str(external(ds, pFilename, 'pdf', pPathToSave, sessionid, ps_monat, ls_dbconn, auto=True))
+            retFile = str(external(ds, pFilename, ftype, pPathToSave, sessionid, ps_monat, ls_dbconn, auto=True))
             #context.script_log('/sync/generate_monatsliste.py retfile: ' , retFile)
             ret_dict['webfile'] = pPathToSave + retFile
             ret_dict['sysfile'] = pSysPathToSave + retFile
             ret_dict['message'] = 'Die Monatsliste wurde für ' + ps_sachb.upper() + ' - ' + ps_monat + ' erstellt!'
-  
+
             if ls_absender <> '' and ps_email <> '' and mailhost:
                 # Versenden der Monatsliste an die Email Adresse
                 # Text zur Mail hinzufügen
@@ -102,14 +102,14 @@ try:
                 p.set_payload(str(obj))
                 p.add_header('content-disposition', 'attachment', filename=obj.getId())
                 encode_base64(p)
-                msg.attach(p) 
+                msg.attach(p)
                 # Email senden
                 ls_absender = str('Zeitaufzeichnung <noreply@technikum-wien.at>')
                 mailhost.send(msg.as_string(), ps_email, ls_absender, betr)
                 ret_dict['email'] = ps_email
                 ret_dict['message'] = ret_dict['message'][:-1] + ' und an die Emailadresse ' + ps_email + ' versendet!'
 
-    return json.dumps(ret_dict)         
+    return json.dumps(ret_dict)
 except:
     # Ende mit Fehler.
     tb = sys.exc_info()[2]

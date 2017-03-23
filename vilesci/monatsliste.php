@@ -31,34 +31,42 @@ $username = $_GET['uid'];
 
 if (isset($_GET['monat']))
 	$monat = $_GET['monat'];
-else 
+else
 	$monat = 8;
 if (isset($_GET['jahr']))
 	$jahr = $_GET['jahr'];
-else 
+else
 	$jahr = 2015;
+if (isset($_GET['ftype']))
+	$ftype = $_GET['ftype'];
+else
+	$ftype = 'pdf';
+
+$rechte = new benutzerberechtigung();
+$rechte->getBerechtigungen($uid);
 
 // Wenn es nicht der eigene Eintrag ist, muss man admin sein
 if(isset($_GET['uid']) && $username!=$uid)
 {
-	$rechte = new benutzerberechtigung();
-	$rechte->getBerechtigungen($uid);
 
 	if(!$rechte->isBerechtigt('admin'))
-		die('Sie haben keine Berechtigung fuer diese Seite');	
-		
+		die('Sie haben keine Berechtigung fuer diese Seite');
+
 }
+
+if (!$rechte->isBerechtigt('addon/casetimeGenerateXLS'))
+	$ftype = 'pdf';
 
 if (!isset($_GET['uid']))
 	$username = $uid;
-$retval = SendData($username, $monat, $jahr);
+$retval = SendData($username, $monat, $jahr, $ftype);
 //echo "-18.66";
 echo json_encode($retval);
 
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
  */
-function SendData($uid, $monat, $jahr)
+function SendData($uid, $monat, $jahr, $ftype)
 {
 	$datum_obj = new datum();
 
@@ -66,7 +74,7 @@ function SendData($uid, $monat, $jahr)
 
 	$url = CASETIME_SERVER.'/sync/generate_monatsliste.py';
 
-	$params = 'ps_sachb='.$uid.'&ps_monat='.$monat.'.'.$jahr.'&ps_email='.$uid.'@'.DOMAIN;
+	$params = 'ftype='.$ftype.'&ps_sachb='.$uid.'&ps_monat='.$monat.'.'.$jahr.'&ps_email='.$uid.'@'.DOMAIN;
 	$authstr = base64_encode(CASETIME_ZOPE_USER.':'.CASETIME_ZOPE_PASS);
 	$headers = array();
 	$headers[] = "Authorization: Basic ".$authstr;
@@ -78,7 +86,7 @@ function SendData($uid, $monat, $jahr)
 	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
 	$result = curl_exec($ch);
-    
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
@@ -95,6 +103,6 @@ function SendData($uid, $monat, $jahr)
 		}
 		else
 			return false;
-	}	
+	}
 }
 ?>

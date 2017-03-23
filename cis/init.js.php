@@ -21,6 +21,12 @@
  * Initialisierung des Addons
  */
 require_once('../../../config/cis.config.inc.php');
+require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/functions.inc.php');
+$uid = get_uid();
+$rechte = new benutzerberechtigung();
+$rechte->getBerechtigungen($uid);
+
 ?>
 if(typeof addon =='undefined')
 	var addon=Array();
@@ -260,6 +266,9 @@ function AddonCaseTimeLoadZeitsaldo(uid)
 				moli_dd += '<option value="11">November</option>';
 				moli_dd += '<option value="12">Dezember</option></select>';
 				moli_dd += '<select name="jahr" id="jahr"><option value="'+JahrAktuell+'">'+JahrAktuell+'</option><option value="'+VorJahr+'">'+VorJahr+'</option></select>';
+				<?php if($rechte->isBerechtigt('addon/casetimeGenerateXLS')): ?>
+					moli_dd += '<select name="ftype" id="ftype"><option value="pdf">PDF</option><option value="xls">XLS</option></select>';
+				<?php endif; ?>
 				moli_dd += '<input type="button" onclick="AddonCaseTimeGenerateMonatslisteDD()" value="generieren">';
 				$('#monatsliste').html(moli_dd);
 				document.getElementById('monat').selectedIndex=MonatLetztes-1;
@@ -303,13 +312,19 @@ function AddonCaseTimeGenerateMonatslisteDD()
 {
 	monat = document.getElementById('monat').options[document.getElementById('monat').selectedIndex].value;
 	jahr = document.getElementById('jahr').options[document.getElementById('jahr').selectedIndex].value;
+	ftype_el = document.getElementById('ftype');
+	if (ftype_el)
+		ftype = document.getElementById('ftype').options[document.getElementById('ftype').selectedIndex].value;
+	else
+		ftype = 'pdf';
+
 	if (monat<10)
 		monat = '0'+monat;
 	$('#monatsliste').html('Monatsliste wird generiert und per Email an Sie geschickt.<br>Falls für den gewählten Monat keine Daten verfügbar sind, wird kein Email verschickt.');
 	$.ajax({
 		type: "GET",
 		dataType: 'json',
-		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/monatsliste.php?monat='+monat+'&jahr='+jahr,
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/monatsliste.php?monat='+monat+'&jahr='+jahr+'&ftype='+ftype,
 		success: function (result)
 		{
 			$('#monatsliste').html(result);
