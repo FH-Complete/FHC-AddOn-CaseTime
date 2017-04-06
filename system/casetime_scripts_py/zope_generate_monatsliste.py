@@ -21,6 +21,11 @@ try:
         mailhost = context.mailhost
         ret_dict['sachb'] = ps_sachb.upper()
         ret_dict['monat'] = ps_monat
+        if ftype == 'xls':
+           ret_dict['ftype'] = 'xls'
+        else:
+            ret_dict['ftype'] = 'pdf'
+            ftype = 'pdf'
 
         # Einstellungen fuer das Erzeugen des Datastores
         p_window = 'zrep_monatsliste'
