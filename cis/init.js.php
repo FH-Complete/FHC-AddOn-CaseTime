@@ -23,9 +23,17 @@
 require_once('../../../config/cis.config.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/functions.inc.php');
-$uid = get_uid();
-$rechte = new benutzerberechtigung();
-$rechte->getBerechtigungen($uid);
+require_once('../../../include/authentication.class.php');
+
+$auth = new authentication();
+if($auth->isUserLoggedIn())
+{
+	$uid = get_uid();
+	$rechte = new benutzerberechtigung();
+	$rechte->getBerechtigungen($uid);
+}
+else
+	$rechte = new benutzerberechtigung();
 
 ?>
 if(typeof addon =='undefined')
