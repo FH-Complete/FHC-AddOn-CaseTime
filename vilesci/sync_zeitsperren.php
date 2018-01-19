@@ -18,7 +18,7 @@
  */
 /**
  * Synchronisiert den Urlaub mit CaseTime
- * 
+ *
  * Es werden nur bereits freigegebene Urlaube ins CaseTime uebertragen
  *
  * Bereits uebertragene Urlaube werden in der Tabelle addon.tbl_casetime_urlaub erfasst.
@@ -43,7 +43,7 @@ if(php_sapi_name() != 'cli')
 	$rechte->getBerechtigungen($uid);
 
 	if(!$rechte->isBerechtigt('admin'))
-		die('Sie haben keine Berechtigung fuer diese Seite');	
+		die('Sie haben keine Berechtigung fuer diese Seite');
 }
 
 $db = new basis_db();
@@ -53,13 +53,14 @@ $db = new basis_db();
 if(CASETIME_SYNC_START_ABSOLUTE == '')
 {
 	$datum= new DateTime();
-	$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage	
+	$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage
 	$sync_datum_start = $datum->format('Y-m-d');
 }
 else
 	$sync_datum_start = CASETIME_SYNC_START_ABSOLUTE;
 
 $msglog = '';
+$msglog_hr = '';
 $datum= new DateTime();
 $sync_datum_ende = $datum->format('Y-m-d');
 
@@ -73,17 +74,17 @@ else
 	$user_arr = $ct->getUserToSync();
 }
 
-// Urlaub/Krankenstand holen die geloescht wurden 
+// Urlaub/Krankenstand holen die geloescht wurden
 $qry = "
-SELECT 
+SELECT
 	uid, datum::date, 'Urlaub' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
 WHERE
 	NOT EXISTS(
-		SELECT 1 
-		FROM 
-			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		SELECT 1
+		FROM
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Urlaub' AND freigabevon is not null) a
 		WHERE
 			datum=tbl_casetime_zeitsperre.datum
@@ -93,15 +94,15 @@ WHERE
 	AND datum>=".$db->db_add_param($sync_datum_start)."
 	AND uid in(".$db->db_implode4SQL($user_arr).")
 UNION
-SELECT 
+SELECT
 	uid, datum::date, 'ZA' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
 WHERE
 	NOT EXISTS(
-		SELECT 1 
-		FROM 
-			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		SELECT 1
+		FROM
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='ZA' AND vonstunde is null and bisstunde is null) a
 		WHERE
 			datum=tbl_casetime_zeitsperre.datum
@@ -111,15 +112,15 @@ WHERE
 	AND datum>=".$db->db_add_param($sync_datum_start)."
 	AND uid in(".$db->db_implode4SQL($user_arr).")
 UNION
-SELECT 
+SELECT
 	uid, datum::date, 'DienstV' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
 WHERE
 	NOT EXISTS(
-		SELECT 1 
-		FROM 
-			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		SELECT 1
+		FROM
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='DienstV' AND vonstunde is null and bisstunde is null) a
 		WHERE
 			datum=tbl_casetime_zeitsperre.datum
@@ -129,15 +130,33 @@ WHERE
 	AND datum>=".$db->db_add_param($sync_datum_start)."
 	AND uid in(".$db->db_implode4SQL($user_arr).")
 UNION
-SELECT 
+	SELECT
+		uid, datum::date, 'DienstF' as typ
+	FROM
+		addon.tbl_casetime_zeitsperre
+	WHERE
+		NOT EXISTS(
+			SELECT 1
+			FROM
+				(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+				FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='DienstF' AND vonstunde is null and bisstunde is null) a
+			WHERE
+				datum=tbl_casetime_zeitsperre.datum
+				AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
+			)
+		AND typ='DienstF'
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND uid in(".$db->db_implode4SQL($user_arr).")
+UNION
+SELECT
 	uid, datum::date, 'PflegeU' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
 WHERE
 	NOT EXISTS(
-		SELECT 1 
-		FROM 
-			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		SELECT 1
+		FROM
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='PflegeU' AND vonstunde is null and bisstunde is null) a
 		WHERE
 			datum=tbl_casetime_zeitsperre.datum
@@ -147,15 +166,15 @@ WHERE
 	AND datum>=".$db->db_add_param($sync_datum_start)."
 	AND uid in(".$db->db_implode4SQL($user_arr).")
 UNION
-SELECT 
+SELECT
 	uid, datum::date, 'Krank' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
 WHERE
 	NOT EXISTS(
-		SELECT 1 
-		FROM 
-			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		SELECT 1
+		FROM
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Krank') a
 		WHERE
 			datum=tbl_casetime_zeitsperre.datum
@@ -171,6 +190,10 @@ if($result = $db->db_query($qry))
 	while($row = $db->db_fetch_object($result))
 	{
 		$msglog .= "\nDelete ".$row->uid.' '.$row->datum.' '.$row->typ;
+		if ($row->typ == 'DienstF')
+		{
+			$msglog_hr .= "\nDelete ".$row->uid.' '.$row->datum.' '.$row->typ;
+		}
 
 		$retval = SendDataDelete($row->uid, $row->datum, $row->typ);
 
@@ -195,50 +218,60 @@ if($result = $db->db_query($qry))
 
 // Neuen Urlaub / Krankenstand / ZA holen
 $qry = "
-	SELECT 
+	SELECT
 		mitarbeiter_uid, datum::date, 'Urlaub' as typ
 	FROM
-		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Urlaub' AND freigabevon is not null) a
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='Urlaub')
 		AND datum>=".$db->db_add_param($sync_datum_start)."
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
 	UNION
-	SELECT 
+	SELECT
 		mitarbeiter_uid, datum::date, 'ZA' as typ
 	FROM
-		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='ZA' AND vonstunde is null and bisstunde is null) a
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='ZA')
 		AND datum>=".$db->db_add_param($sync_datum_start)."
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
 	UNION
-	SELECT 
+	SELECT
 		mitarbeiter_uid, datum::date, 'DienstV' as typ
 	FROM
-		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='DienstV' AND vonstunde is null and bisstunde is null) a
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='DienstV')
 		AND datum>=".$db->db_add_param($sync_datum_start)."
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
 	UNION
-	SELECT 
+	SELECT
+		mitarbeiter_uid, datum::date, 'DienstF' as typ
+	FROM
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='DienstF' AND vonstunde is null and bisstunde is null) a
+	WHERE
+		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='DienstF')
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT
 		mitarbeiter_uid, datum::date, 'PflegeU' as typ
 	FROM
-		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='PflegeU' AND vonstunde is null and bisstunde is null) a
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='PflegeU')
 		AND datum>=".$db->db_add_param($sync_datum_start)."
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
 	UNION
-	SELECT 
+	SELECT
 		mitarbeiter_uid, datum::date, 'Krank' as typ
 	FROM
-		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid 
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
 		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Krank') a
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='Krank')
@@ -250,6 +283,10 @@ if($result = $db->db_query($qry))
 	while($row = $db->db_fetch_object($result))
 	{
 		$msglog .= "\n ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
+		if ($row->typ == 'DienstF')
+		{
+			$msglog_hr .= "\n ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
+		}
 
 		$retval = SendDataImport($row->mitarbeiter_uid, $row->datum, $row->typ);
 
@@ -286,12 +323,26 @@ if (CASETIME_SYNC_ADMIN_EMAIL != '')
 	$mail = new mail(CASETIME_SYNC_ADMIN_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync Zeitsperren', $msglog);
 	if($mail->send())
 		echo "<br>Mail gesendet";
-	else 
+	else
 		echo "<br>Mail konnte nicht verschickt werden";
 }
-else 
+else
 	echo "<br>Mailversand deaktiviert";
 
+if ($msglog_hr != '')
+{
+	if (CASETIME_SYNC_HR_EMAIL != '')
+	{
+		$msglog_hr = "Geänderte Dienstfreistellungen:\n\n".$msglog_hr;
+		$mail = new mail(CASETIME_SYNC_HR_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync DienstF', $msglog_hr);
+		if($mail->send())
+			echo "<br>Mail gesendet";
+		else
+			echo "<br>Mail konnte nicht verschickt werden";
+	}
+	else
+		echo "<br>Mailversand deaktiviert";
+}
 
 
 ?>

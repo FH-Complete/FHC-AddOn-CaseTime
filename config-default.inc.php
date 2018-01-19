@@ -9,6 +9,8 @@ define('CASETIME_SYNC_START_ABSOLUTE','');
 // Mail address to send sync-log to
 // leave empty to disable mailing
 define('CASETIME_SYNC_ADMIN_EMAIL', '')
+// Mail address to send DienstF entries to
+define('CASETIME_SYNC_HR_EMAIL', '');
 
 // user:password for authentication on casetime-server
 // used in monatsliste.php

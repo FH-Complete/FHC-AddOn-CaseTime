@@ -43,7 +43,7 @@ function DeleteRecords($uid, $datum)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
@@ -53,14 +53,14 @@ function DeleteRecords($uid, $datum)
 	{
 		curl_close($ch);
 		$data = json_decode($result);
-		
+
 		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
+		Der Import liefert einen JSON String mit Status als Returnwert.
 		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
 
 		Beispiel fuer Fehlerfall:
 		{"STATUS": "ERR", "RESULT": "Fehlermeldung"}
-		
+
 		Beispiel fuer Erfolgsmeldung:
 		{"STATUS": "OK", "RESULT": "Erfolgreich geloescht"}
 		*/
@@ -79,7 +79,7 @@ function DeleteRecords($uid, $datum)
 			return 'Invalid return from CaseTime:'.$result;
 		}
 	}
-	
+
 }
 
 /**
@@ -106,7 +106,7 @@ function SendData($art, $uid, $datum, $beginn, $ende)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
@@ -116,15 +116,15 @@ function SendData($art, $uid, $datum, $beginn, $ende)
 	{
 		curl_close($ch);
 		$data = json_decode($result);
-		
+
 		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
+		Der Import liefert einen JSON String mit Status als Returnwert.
 		Falls dieser OK ist werden die 2 IDs mit "_" getrennt zurueckgeliefert
 		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
 
 		Beispiel fuer Fehlerfall:
 		{"STATUS": "ERR", "RESULT": "SACHB TEST hat bereits am 20141115 zur Zeit 110000 einen Eintrag!"}
-		
+
 		Beispiel fuer Erfolgsmeldung:
 		{"STATUS": "OK", "RESULT": "51895_51896"}
 		*/
@@ -144,7 +144,7 @@ function SendData($art, $uid, $datum, $beginn, $ende)
 			return 'Invalid return from CaseTime:'.$result;
 		}
 	}
-	
+
 }
 
 /**
@@ -153,10 +153,10 @@ function SendData($art, $uid, $datum, $beginn, $ende)
 function SendDataImport($uid, $datum, $typ, $zeit=0)
 {
 	if ($typ != "EL")
-		$delval = DeleteRecords($uid, $datum);	
-	else 
+		$delval = DeleteRecords($uid, $datum);
+	else
 		$delval = SendDataDelete($uid, $datum, 'EL');
-	
+
 	$datum_obj = new datum();
 
 	$ch = curl_init();
@@ -172,6 +172,7 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 		case 'ZA': $art='zeitausgleich'; break;
 		case 'PflegeU': $art='pflegeurlaub'; break;
 		case 'DienstV': $art='dienstverhinderung'; break;
+		case 'DienstF': $art='dienstverhinderung'; break;
 		case 'EL': $art='externelehre'; break;
 		default: $art=''; break;
 	}
@@ -184,7 +185,7 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
@@ -194,14 +195,14 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 	{
 		curl_close($ch);
 		$data = json_decode($result);
-		
+
 		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
+		Der Import liefert einen JSON String mit Status als Returnwert.
 		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
 
 		Beispiel fuer Fehlerfall:
 		{"STATUS": "ERR", "RESULT": "Das ist die Errormessage"}
-		
+
 		Beispiel fuer Erfolgsmeldung:
 		{"STATUS": "OK", "RESULT": "Urlaubseintrag erfolgreich"}
 		*/
@@ -220,7 +221,7 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 			return 'Invalid return from CaseTime:'.$result;
 		}
 	}
-	
+
 }
 
 /**
@@ -243,6 +244,7 @@ function SendDataDelete($uid, $datum, $typ)
 		case 'ZA': $art='zeitausgleich'; break;
 		case 'PflegeU': $art='pflegeurlaub'; break;
 		case 'DienstV': $art='dienstverhinderung'; break;
+		case 'DienstF': $art='dienstverhinderung'; break;
 		case 'EL': $art='externelehre'; break;
 		default: $art=''; break;
 	}
@@ -255,7 +257,7 @@ function SendDataDelete($uid, $datum, $typ)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
@@ -265,14 +267,14 @@ function SendDataDelete($uid, $datum, $typ)
 	{
 		curl_close($ch);
 		$data = json_decode($result);
-		
+
 		/*
-		Der Import liefert einen JSON String mit Status als Returnwert. 
+		Der Import liefert einen JSON String mit Status als Returnwert.
 		Wenn ein Fehler aufgetreten ist, wird die Fehlermeldung als result geliefert.
 
 		Beispiel fuer Fehlerfall:
 		{"STATUS": "ERR", "RESULT": "Das ist die Errormessage"}
-		
+
 		Beispiel fuer Erfolgsmeldung:
 		{"STATUS": "OK", "RESULT": "Urlaubseintrag erfolgreich"}
 		*/
@@ -291,7 +293,7 @@ function SendDataDelete($uid, $datum, $typ)
 			return 'Invalid return from CaseTime:'.$result;
 		}
 	}
-	
+
 }
 
 
