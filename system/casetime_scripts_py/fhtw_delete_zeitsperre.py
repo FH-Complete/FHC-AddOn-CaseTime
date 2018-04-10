@@ -11,19 +11,19 @@ from Products.PythonScripts.standard import html_quote
 #response =  request.response
 
 def delete_zeitsperre(self, sachb, buchdat, art):
-    
+
     dbconn = self.script_getApplicationData('dbconn')
     ### check if request is from authorized ip
     remote_ip=self.REQUEST.REMOTE_ADDR
     remote_ip_str = """select count(*) from rechner where '%s' = ANY(fhcomplete_allowed_ip_sync)""" % remote_ip
     allowed_ip = self.sql_execute(dbconn, remote_ip_str)
     if not allowed_ip[1][0][0]:
-        return json.dumps({'STATUS':'ERR','RESULT':'Not Allowed'}, ensure_ascii=False, encoding='utf8') 
+        return json.dumps({'STATUS':'ERR','RESULT':'Not Allowed'}, ensure_ascii=False, encoding='utf8')
     ### end check
 
     # dict für jason
     ret_dict = {'STATUS':'', 'RESULT':''}
-    
+
     if art == 'urlaub':
         lohnart = 'UB'
         auftragsnummer = '1'
@@ -47,7 +47,7 @@ def delete_zeitsperre(self, sachb, buchdat, art):
         auftragsnummer = '1'
         drucken = 'J'
         auftragsposition = '11'
-        stunden = 1        
+        stunden = 1
     elif art == 'dienstverhinderung':
         lohnart = 'AB'
         auftragsnummer = '1'
@@ -59,6 +59,12 @@ def delete_zeitsperre(self, sachb, buchdat, art):
         auftragsnummer = '1'
         drucken = 'J'
         auftragsposition = '61'
+        stunden = 2
+    elif art == 'ersatzruhe':
+        lohnart = 'ER'
+        auftragsnummer = '1'
+        drucken = 'J'
+        auftragsposition = '62'
         stunden = 2
 
     else:
@@ -77,7 +83,7 @@ def delete_zeitsperre(self, sachb, buchdat, art):
     vars_dict['stunden'] = stunden
 
 
-    sql_str = """ delete from ma_zeit where sachb = '%(sachb)s' 
+    sql_str = """ delete from ma_zeit where sachb = '%(sachb)s'
                     and lohnart = '%(lohnart)s' and
                     auftragsnummer = '1' and
                     buchdat = '%(buchdat)s'
@@ -98,6 +104,3 @@ def delete_zeitsperre(self, sachb, buchdat, art):
     return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
 
     #print erg[1]
-
-
-

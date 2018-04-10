@@ -152,10 +152,13 @@ function SendData($art, $uid, $datum, $beginn, $ende)
  */
 function SendDataImport($uid, $datum, $typ, $zeit=0)
 {
-	if ($typ != "EL")
-		$delval = DeleteRecords($uid, $datum);
-	else
+	if ($typ == "EL")
 		$delval = SendDataDelete($uid, $datum, 'EL');
+	elseif ($typ == 'ER')
+		$delval = SendDataDelete($uid, $datum, 'ER');
+	else
+		$delval = DeleteRecords($uid, $datum);
+
 
 	$datum_obj = new datum();
 
@@ -174,6 +177,7 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 		case 'DienstV': $art='dienstverhinderung'; break;
 		case 'DienstF': $art='dienstverhinderung'; break;
 		case 'EL': $art='externelehre'; break;
+		case 'ER': $art='ersatzruhe'; break;
 		default: $art=''; break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art.'&zeit='.$zeit;
@@ -246,6 +250,7 @@ function SendDataDelete($uid, $datum, $typ)
 		case 'DienstV': $art='dienstverhinderung'; break;
 		case 'DienstF': $art='dienstverhinderung'; break;
 		case 'EL': $art='externelehre'; break;
+		case 'ER': $art='ersatzruhe'; break;
 		default: $art=''; break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;

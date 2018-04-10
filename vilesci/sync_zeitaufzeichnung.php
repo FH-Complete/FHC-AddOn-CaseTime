@@ -18,7 +18,7 @@
  */
 /**
  * Synchronisiert die Zeitaufzeichnungen mit CaseTime
- * 
+ *
  * Es wird jeweils die erste Uhrzeit eines Tages und die letzte Uhrzeit herangezogen
  * und als "kommt" (ko) im CaseTime gebucht.
  * Zusätzlich werden "arzt" (ar), "dienstreise" (dr), "behoehrdengang" (bh) und "pause" (pa) übertragen.
@@ -51,7 +51,7 @@ if(php_sapi_name() != 'cli')
 	$rechte->getBerechtigungen($uid);
 
 	if(!$rechte->isBerechtigt('admin'))
-		die('Sie haben keine Berechtigung fuer diese Seite');	
+		die('Sie haben keine Berechtigung fuer diese Seite');
 }
 
 $db = new basis_db();
@@ -61,12 +61,12 @@ $db = new basis_db();
 if(CASETIME_SYNC_START_ABSOLUTE == '')
 {
 	$datum= new DateTime();
-	$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage	
+	$datum->sub(new DateInterval('P40D')); // Heute - 40 Tage
 	$sync_datum_start = $datum->format('Y-m-d');
 }
 else
 	$sync_datum_start = CASETIME_SYNC_START_ABSOLUTE;
-	
+
 
 $datum= new DateTime();
 $sync_datum_ende = $datum->format('Y-m-d');
@@ -85,56 +85,66 @@ else
 // Loeschen von geaenderten oder geloeschten Eintraegen
 
 // Geloeschte Eintraege markieren
-$qry = "UPDATE 
-	addon.tbl_casetime_zeitaufzeichnung 
-SET 
-	delete=true 
-WHERE 
-	zeitaufzeichnung_id is not null
-	AND not exists(SELECT 1 FROM campus.tbl_zeitaufzeichnung 
-					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id);";
-// Geloeschte Tage markieren
-$qry .= "
-UPDATE 
-	addon.tbl_casetime_zeitaufzeichnung 
-SET 
+$qry = "UPDATE
+	addon.tbl_casetime_zeitaufzeichnung
+SET
 	delete=true
 WHERE
-	datum > '2015-11-30'
+	zeitaufzeichnung_id is not null
+AND
+	datum>=".$db->db_add_param($sync_datum_start)."
+AND
+	uid in (".$db->db_implode4SQL($user_arr).")
+AND
+	not exists (SELECT 1 FROM campus.tbl_zeitaufzeichnung WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id);";
+// Geloeschte Tage markieren
+$qry .= "
+UPDATE
+	addon.tbl_casetime_zeitaufzeichnung
+SET
+	delete=true
+WHERE
+	datum>=".$db->db_add_param($sync_datum_start)."
+AND
+	uid in(".$db->db_implode4SQL($user_arr).")
 AND
 	not exists (select 1 from campus.tbl_zeitaufzeichnung where start::date = tbl_casetime_zeitaufzeichnung.datum and uid=tbl_casetime_zeitaufzeichnung.uid);";
 // geaenderte Ko/Ge Eintraege markieren
 $qry.="
-UPDATE 
-	addon.tbl_casetime_zeitaufzeichnung 
-SET 
-	sync=true 
+UPDATE
+	addon.tbl_casetime_zeitaufzeichnung
+SET
+	sync=true
 WHERE
-	zeitaufzeichnung_id is null 
+	zeitaufzeichnung_id is null
 	AND
 	datum>=".$db->db_add_param($sync_datum_start)."
-	AND 
-	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung 
-					WHERE (aktivitaet_kurzbz != 'LehreExtern' or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
-	OR 
+	AND
+		uid in(".$db->db_implode4SQL($user_arr).")
+	AND
+	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung
+					WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe') or  aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+	OR
 	zeit_ende<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
-				WHERE (aktivitaet_kurzbz != 'LehreExtern' or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+				WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe') or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
 // geaenderte Ar/Pa/... Eintraege markieren
 $qry.="
-UPDATE 
-	addon.tbl_casetime_zeitaufzeichnung 
-SET 
-	sync=true 
+UPDATE
+	addon.tbl_casetime_zeitaufzeichnung
+SET
+	sync=true
 WHERE
-	zeitaufzeichnung_id is not null 
+	zeitaufzeichnung_id is not null
 	AND
 	datum>=".$db->db_add_param($sync_datum_start)."
-	AND 
-	(zeit_start<>(SELECT start::time FROM campus.tbl_zeitaufzeichnung 
+	AND
+		uid in(".$db->db_implode4SQL($user_arr).")
+	AND
+	(zeit_start<>(SELECT start::time FROM campus.tbl_zeitaufzeichnung
 					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
-	OR 
+	OR
 	zeit_ende<>(SELECT ende::time FROM campus.tbl_zeitaufzeichnung
 					WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id)
 	);
@@ -155,7 +165,7 @@ if($result = $db->db_query($qry))
 
 		// Eintraege aus CaseTime entfernen
 		$retval = DeleteRecords($row->uid, $row->datum);
-		
+
 		if($retval===true)
 		{
 			// Eintraege aus Sync Tabelle entfernen
@@ -174,13 +184,13 @@ if($result = $db->db_query($qry))
 // Kommt / Geht Eintraege
 $qry = "
 	SELECT * FROM (
-		SELECT 
+		SELECT
 			start::date as datum, min(start::time) as startzeit, max(ende::time) as endzeit, uid
-		FROM 
-			campus.tbl_zeitaufzeichnung 
-		WHERE 
+		FROM
+			campus.tbl_zeitaufzeichnung
+		WHERE
 			start::date>=".$db->db_add_param($sync_datum_start)."
-			AND (aktivitaet_kurzbz != 'LehreExtern' or aktivitaet_kurzbz is null)	
+			AND ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe') or aktivitaet_kurzbz is null)
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
 $qry.="AND uid in(".$db->db_implode4SQL($user_arr).")";
@@ -196,7 +206,7 @@ if($result = $db->db_query($qry))
 		$msglog .= "\n".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit;
 		// Zuerst alle Zeitrohdaten des Tages löschen
 		$retdel = DeleteRecords($row->uid, $row->datum);
-		
+
 		$retval = SendData('ko', $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
 		if(is_array($retval))
@@ -231,12 +241,12 @@ $msglog .= "\n-----\n";
 // Alle Pausen, Arzt, Dienstreisen, etc holen
 $qry = "
 	SELECT * FROM (
-		SELECT 
+		SELECT
 			start as start_full, ende as ende_full, start::date as datum, start::time as startzeit, ende::time as endzeit, uid, aktivitaet_kurzbz, zeitaufzeichnung_id
-		FROM 
-			campus.tbl_zeitaufzeichnung 
-		WHERE 
-			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde','LehreExtern')
+		FROM
+			campus.tbl_zeitaufzeichnung
+		WHERE
+			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde','LehreExtern','Ersatzruhe')
 			AND start::date>=".$db->db_add_param($sync_datum_start)."
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
@@ -246,9 +256,11 @@ $qry.="
 	WHERE NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitaufzeichnung WHERE zeitaufzeichnung_id=za.zeitaufzeichnung_id)";
 
 $elsumme = '00:00';
+$ersumme = '00:00';
 if($result = $db->db_query($qry))
 {
 	$el_arr = array();
+	$er_arr = array();
 	while($row = $db->db_fetch_object($result))
 	{
 		switch($row->aktivitaet_kurzbz)
@@ -258,26 +270,27 @@ if($result = $db->db_query($qry))
 			case 'Dienstreise': $typ = 'dr'; break;
 			case 'Behoerde': $typ='bh'; break;
 			case 'LehreExtern': $typ = 'pa'; break;
+			case 'Ersatzruhe': $typ = 'pa'; break;
 		}
-		
-		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern')
+
+		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern' && $row->aktivitaet_kurzbz != 'Ersatzruhe')
 		{
 			$start_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->start_full)));
 			$end_for_casetime = date('H:i:s', strtotime('-1 minutes', strtotime($row->ende_full)));
-			
+
 		}
-		/*		
+		/*
 		else if ($row->aktivitaet_kurzbz != 'Pause')
 		{
 			$start_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->start_full)));
-			$end_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->ende_full)));			
+			$end_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->ende_full)));
 		}
 		*/
 		else {
 			$start_for_casetime = $row->startzeit;
 			$end_for_casetime = $row->endzeit;
 		}
-		
+
 		$msglog .= "\n".$row->uid.' '.$row->datum.' '.$row->startzeit.' '.$row->endzeit.' '.$row->aktivitaet_kurzbz.' '.$row->zeitaufzeichnung_id.' '.$typ;
 		if ($row->aktivitaet_kurzbz == 'LehreExtern')
 		{
@@ -287,36 +300,69 @@ if($result = $db->db_query($qry))
 			$eladd = $eldiff->h.':'.$eldiff->i;
 			if (array_key_exists($row->uid, $el_arr))
 			{
-						
+
 				if (array_key_exists($row->datum, $el_arr[$row->uid]))
 				{
 					$el_arr[$row->uid][$row->datum] = $datum_obj->sumZeit($el_arr[$row->uid][$row->datum], $eladd);
 				}
-				else 
+				else
 				{
-					
+
 					$el_arr[$row->uid][$row->datum] = $eladd;
 				}
 			}
 			else
 			{
 				$el_arr[$row->uid] = array();
-				$el_arr[$row->uid][$row->datum] = $eladd; 
+				$el_arr[$row->uid][$row->datum] = $eladd;
 			}
 			$qry_tag = "select count(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
 			$result_tag = $db->db_query($qry_tag);
-			$inkernzeit = 	$db->db_fetch_row($result_tag);	
+			$inkernzeit = 	$db->db_fetch_row($result_tag);
 			$msglog .= $inkernzeit[0];
 			if ($inkernzeit[0] == 0)
 			{
 				$retval = array(-1,-1);
 			}
-			else 
+			else
 				$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
-			
-			
-		}		
-		else		
+		}
+		elseif ($row->aktivitaet_kurzbz == 'Ersatzruhe')
+		{
+			$erstart = new DateTime($row->startzeit);
+			$erende = new DateTime($row->endzeit);
+			$erdiff = $erstart->diff($erende);
+			$eradd = $erdiff->h.':'.$erdiff->i;
+			if (array_key_exists($row->uid, $er_arr))
+			{
+
+				if (array_key_exists($row->datum, $er_arr[$row->uid]))
+				{
+					$er_arr[$row->uid][$row->datum] = $datum_obj->sumZeit($er_arr[$row->uid][$row->datum], $eradd);
+				}
+				else
+				{
+
+					$er_arr[$row->uid][$row->datum] = $eradd;
+				}
+			}
+			else
+			{
+				$er_arr[$row->uid] = array();
+				$er_arr[$row->uid][$row->datum] = $eradd;
+			}
+			$qry_tag = "select count(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
+			$result_tag = $db->db_query($qry_tag);
+			$inkernzeit = 	$db->db_fetch_row($result_tag);
+			$msglog .= $inkernzeit[0];
+			if ($inkernzeit[0] == 0)
+			{
+				$retval = array(-1,-1);
+			}
+			else
+				$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
+		}
+		else
 			$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
 		//$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
@@ -341,18 +387,18 @@ if($result = $db->db_query($qry))
 			else
 				$msglog .= ' Saved';
 
-			
+
 		}
 		else
 		{
 			// Beim schreiben in CaseTime ist ein Fehler aufgetreten
 			$msglog .= 'Error:'.$retval;
-			
+
 		}
 	}
-	
+
 	//$msglog .= var_dump($el_arr);
-	// eintrag für EL schreiben	
+	// eintrag für EL schreiben
 	foreach ($el_arr as $key => $val)
 	{
 		foreach ($el_arr[$key] as $datum_key => $datum_val)
@@ -362,6 +408,19 @@ if($result = $db->db_query($qry))
 			$elzeit = number_format($elzeit, 2, '.', '');
 			SendDataImport($key, $datum_key, 'EL', $elzeit);
 			$msglog .= "\n EL-Buchung: ".$key."-".$datum_key."-".$elzeit;
+		}
+	}
+
+	// eintrag für ER schreiben
+	foreach ($er_arr as $key => $val)
+	{
+		foreach ($er_arr[$key] as $datum_key => $datum_val)
+		{
+			list($h2, $m2) = explode(':', $datum_val);
+			$erzeit = $h2+$m2/60;
+			$erzeit = number_format($erzeit, 2, '.', '');
+			SendDataImport($key, $datum_key, 'ER', $erzeit);
+			$msglog .= "\n ER-Buchung: ".$key."-".$datum_key."-".$erzeit;
 		}
 	}
 }
@@ -376,10 +435,10 @@ if (CASETIME_SYNC_ADMIN_EMAIL != '')
 	$mail = new mail(CASETIME_SYNC_ADMIN_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync Zeitaufzeichnung', $msglog);
 	if($mail->send())
 		echo "<br>Mail gesendet";
-	else 
+	else
 		echo "<br>Mail konnte nicht verschickt werden";
 }
-else 
+else
 	echo "<br>Mailversand deaktiviert";
 
 

@@ -18,12 +18,12 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
     remote_ip_str = """select count(*) from rechner where '%s' = ANY(fhcomplete_allowed_ip_sync)""" % remote_ip
     allowed_ip = self.sql_execute(dbconn, remote_ip_str)
     if not allowed_ip[1][0][0]:
-        return json.dumps({'STATUS':'ERR','RESULT':'Not Allowed'}, ensure_ascii=False, encoding='utf8') 
+        return json.dumps({'STATUS':'ERR','RESULT':'Not Allowed'}, ensure_ascii=False, encoding='utf8')
     ### end check
-   
+
     # dict für jason
     ret_dict = {'STATUS':'', 'RESULT':''}
-    
+
     if art == 'urlaub':
         lohnart = 'UB'
         auftragsnummer = '1'
@@ -41,13 +41,13 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
         auftragsnummer = '1'
         drucken = 'J'
         auftragsposition = '6'
-        stunden = 0   
+        stunden = 0
     elif art == 'pflegeurlaub':
         lohnart = 'UP'
         auftragsnummer = '1'
         drucken = 'J'
         auftragsposition = '11'
-        stunden = 0        
+        stunden = 0
     elif art == 'dienstverhinderung':
         lohnart = 'AB'
         auftragsnummer = '1'
@@ -59,6 +59,12 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
         auftragsnummer = '1'
         drucken = 'J'
         auftragsposition = '61'
+        stunden = zeit
+    elif art == 'ersatzruhe':
+        lohnart = 'ER'
+        auftragsnummer = '1'
+        drucken = 'J'
+        auftragsposition = '62'
         stunden = zeit
 
     else:
@@ -84,7 +90,7 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
         vars_dict['stunden'] = std[1][0][0]
 
     #sql_check = """select * from sachbearbeiter where sachb = '%s'""" % foo
-    sql_str =""" insert into ma_zeit (sachb, lohnart, auftragsnummer, buchdat, drucken, auftragsposition, stunden) 
+    sql_str =""" insert into ma_zeit (sachb, lohnart, auftragsnummer, buchdat, drucken, auftragsposition, stunden)
                 values ('%(sachb)s', '%(lohnart)s', '%(auftragsnummer)s', '%(buchdat)s', '%(drucken)s', '%(auftragsposition)s', '%(stunden)s')
                 """ % vars_dict
 
@@ -102,6 +108,3 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
     return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
 
     #print erg[1]
-
-
-
