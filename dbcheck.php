@@ -210,6 +210,18 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_gruppen"))
 		echo ' addon.tbl_casetime_gruppen: Tabelle addon.tbl_casetime_gruppen hinzugefuegt!<br>';
 
 }
+
+//Spalte statusgrund_id in tbl_prestudentstauts
+if(!$result = @$db->db_query("SELECT datum_bis FROM addon.tbl_casetime_zeitaufzeichnung LIMIT 1"))
+{
+	$qry = "ALTER TABLE addon.tbl_casetime_zeitaufzeichnung ADD COLUMN datum_bis date;";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_zeitaufzeichnung: '.$db->db_last_error().'</strong><br>';
+	else
+		echo '<br>addon.tbl_casetime_zeitaufzeichnung: Spalte datum_bis hinzugefuegt';
+}
+
 echo '<br>Aktualisierung abgeschlossen<br><br>';
 echo '<h2>Gegenprüfung</h2>';
 
@@ -218,7 +230,7 @@ echo '<h2>Gegenprüfung</h2>';
 $tabellen=array(
 	"addon.tbl_casetime_gruppen"  => array("casetime_gruppen_id","oe_kurzbz","uid","sync"),
 	"addon.tbl_casetime_zeitsperre"  => array("casetime_zeitsperre_id","uid","datum","typ"),
-	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id"),
+	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id", "datum_bis"),
 );
 
 

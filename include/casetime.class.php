@@ -23,7 +23,7 @@ class casetime extends basis_db
 {
 	public $new=true;
 	public $result = array();
-	
+
 	public $uid;
 	public $datum;
 	public $zeit_start;
@@ -34,7 +34,8 @@ class casetime extends basis_db
 	public $sync;
 	public $delete;
 	public $zeitaufzeichnung_id;
-	
+	public $datum_bis;
+
 	/**
 	 * Konstruktor
 	 */
@@ -42,7 +43,7 @@ class casetime extends basis_db
 	{
 		parent::__construct();
 	}
-	
+
 	/**
 	 * Speichert die Daten in die Sync-Tabelle
 	 * @param $new boolean default NULL
@@ -55,9 +56,10 @@ class casetime extends basis_db
 
 		if($new)
 		{
-			$qry = "INSERT INTO addon.tbl_casetime_zeitaufzeichnung(uid, datum, zeit_start, zeit_ende, ext_id1, ext_id2, typ, sync, delete, zeitaufzeichnung_id) VALUES(".
+			$qry = "INSERT INTO addon.tbl_casetime_zeitaufzeichnung(uid, datum, datum_bis, zeit_start, zeit_ende, ext_id1, ext_id2, typ, sync, delete, zeitaufzeichnung_id) VALUES(".
 					$this->db_add_param($this->uid).','.
 					$this->db_add_param($this->datum).','.
+					$this->db_add_param($this->datum_bis).','.
 					$this->db_add_param($this->zeit_start).','.
 					$this->db_add_param($this->zeit_ende).','.
 					$this->db_add_param($this->ext_id1).','.
@@ -72,6 +74,7 @@ class casetime extends basis_db
 			$qry.="UPDATE addon.tbl_casetime_zeitaufzeichnung SET ".
 				'uid='.$this->db_add_param($this->uid).','.
 				'datum='.$this->db_add_param($this->datum).','.
+				'datum_bis='.$this->db_add_param($this->datum_bis).','.
 				'zeit_start='.$this->db_add_param($this->zeit_start).','.
 				'zeit_ende='.$this->db_add_param($this->zeit_ende).','.
 				'ext_id1='.$this->db_add_param($this->ext_id1).','.
@@ -138,7 +141,7 @@ class casetime extends basis_db
 	 */
 	public function deleteZeitsperre($uid, $datum, $typ)
 	{
-		$qry = "DELETE FROM addon.tbl_casetime_zeitsperre 
+		$qry = "DELETE FROM addon.tbl_casetime_zeitsperre
 			WHERE uid=".$this->db_add_param($uid)."
 			AND datum=".$this->db_add_param($datum)."
 			AND typ=".$this->db_add_param($typ);
@@ -151,7 +154,7 @@ class casetime extends basis_db
 		{
 			$this->errormsg = 'Fehler beim Loeschen der Daten';
 			return false;
-		}	
+		}
 	}
 
 	/**
@@ -173,7 +176,7 @@ class casetime extends basis_db
 		{
 			$this->errormsg = 'Fehler beim Loeschen der Daten';
 			return false;
-		}	
+		}
 	}
 
 	/**
@@ -183,16 +186,16 @@ class casetime extends basis_db
 	public function getUserToSync()
 	{
 
-		/* 
-			Alle User holen die in einer der zu uebertragenden Organisationseinheiten (oder untergeordneten) 
-			hautpzugeordnet sind, 
+		/*
+			Alle User holen die in einer der zu uebertragenden Organisationseinheiten (oder untergeordneten)
+			hautpzugeordnet sind,
 			ausgenommen jener User die einer OE (oder untergeordneten) zugeordnet sind die nicht übertragen werden soll
 			ausgenommen der User die explizit ausgenommen sind
 			plus User die explizit hinzugefuegt werden sollen
-		*/		
-		$qry = "SELECT 
-					uid 
-				FROM 
+		*/
+		$qry = "SELECT
+					uid
+				FROM
 					public.tbl_benutzerfunktion
 					JOIN public.tbl_benutzer USING(uid)
 				WHERE
@@ -201,12 +204,12 @@ class casetime extends basis_db
 					AND (datum_von is null OR datum_von<=now())
 					AND (datum_bis is null OR datum_bis>=now())
 					AND oe_kurzbz IN(
-						WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as 
+						WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as
 						(
-							SELECT oe_kurzbz, oe_parent_kurzbz FROM public.tbl_organisationseinheit 
+							SELECT oe_kurzbz, oe_parent_kurzbz FROM public.tbl_organisationseinheit
 							WHERE oe_kurzbz in(Select oe_kurzbz FROM addon.tbl_casetime_gruppen WHERE sync)
 							UNION ALL
-							SELECT o.oe_kurzbz, o.oe_parent_kurzbz FROM public.tbl_organisationseinheit o, oes 
+							SELECT o.oe_kurzbz, o.oe_parent_kurzbz FROM public.tbl_organisationseinheit o, oes
 							WHERE o.oe_parent_kurzbz=oes.oe_kurzbz
 						)
 						SELECT oe_kurzbz
@@ -214,9 +217,9 @@ class casetime extends basis_db
 						GROUP BY oe_kurzbz
 					)
 					AND uid NOT IN(
-						SELECT 
-							uid 
-						FROM 
+						SELECT
+							uid
+						FROM
 							public.tbl_benutzerfunktion
 							JOIN public.tbl_benutzer USING(uid)
 						WHERE
@@ -225,12 +228,12 @@ class casetime extends basis_db
 							AND (datum_von is null OR datum_von<=now())
 							AND (datum_bis is null OR datum_bis>=now())
 							AND oe_kurzbz IN(
-								WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as 
+								WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as
 								(
-									SELECT oe_kurzbz, oe_parent_kurzbz FROM public.tbl_organisationseinheit 
+									SELECT oe_kurzbz, oe_parent_kurzbz FROM public.tbl_organisationseinheit
 									WHERE oe_kurzbz in(Select oe_kurzbz FROM addon.tbl_casetime_gruppen WHERE sync=false)
 									UNION ALL
-									SELECT o.oe_kurzbz, o.oe_parent_kurzbz FROM public.tbl_organisationseinheit o, oes 
+									SELECT o.oe_kurzbz, o.oe_parent_kurzbz FROM public.tbl_organisationseinheit o, oes
 									WHERE o.oe_parent_kurzbz=oes.oe_kurzbz
 								)
 								SELECT oe_kurzbz
@@ -242,9 +245,9 @@ class casetime extends basis_db
 			UNION
 			SELECT uid FROM addon.tbl_casetime_gruppen WHERE uid is not null AND sync=true
 		";
-		
+
 		$qry_fix = "select b.uid from tbl_benutzer b, tbl_mitarbeiter m  where b.uid = m.mitarbeiter_uid and m.fixangestellt and b.aktiv";
-		
+
 		if($result = $this->db_query($qry))
 		{
 			$user = array();

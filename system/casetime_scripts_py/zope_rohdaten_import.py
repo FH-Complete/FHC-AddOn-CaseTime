@@ -89,6 +89,11 @@ try:
    #Variable für die Prüfung ob Sachbearbeiter oder Bewegungsart vorhanden ist
    check_var = ''
 
+   # bei LehreExtern werden die Buchungen mit Fehlerok erzeugt
+   if bwart == 'EL':
+      fehler_ok = 'J'
+   else:
+      fehler_ok = 'N'
    #Auslesen des Sperrdatums
    sql = "select to_char(sperrdatum, 'YYYYMMDD') from rechner"
 
@@ -151,27 +156,28 @@ try:
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
 
    # Prüfung ob Bewegungsart vorhanden ist
-   sql_check = """select count(*)
-                  from BEWEGUNGSARTEN
-                  where BWART = UPPER('%s')""" %(bwart)
+   if bwart not in ('DA','DE'):
+      sql_check = """select count(*)
+                     from BEWEGUNGSARTEN
+                     where BWART = UPPER('%s')""" %(bwart)
 
-   #context.script_log('/sync/rohdaten_import  SQL: ', str(sql_check))
+      #context.script_log('/sync/rohdaten_import  SQL: ', str(sql_check))
 
-   erg = context.sql_execute(dbconn,sql_check)
-   #context.script_log('/sync/rohdaten_import erg: ', str(erg))
-   error = erg[0]
-   data = erg[1]
-   if len(error) > 0 :
-      ret_dict['STATUS']='ERR'
-      ret_dict['RESULT']=str(error[0])
-      return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   else:
-      for line in data:
-         check_var= str(line[0])
-   if check_var == '0' :
-      ret_dict['STATUS']='ERR'
-      ret_dict['RESULT']='BWART ist nicht vorhanden!'
-      return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
+      erg = context.sql_execute(dbconn,sql_check)
+      #context.script_log('/sync/rohdaten_import erg: ', str(erg))
+      error = erg[0]
+      data = erg[1]
+      if len(error) > 0 :
+         ret_dict['STATUS']='ERR'
+         ret_dict['RESULT']=str(error[0])
+         return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
+      else:
+         for line in data:
+            check_var= str(line[0])
+      if check_var == '0' :
+         ret_dict['STATUS']='ERR'
+         ret_dict['RESULT']='BWART ist nicht vorhanden!'
+         return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
 
    # Prüfung ob bereits ein Eintrag zu der Zeit mit diesem Sachbearbeiter vorhanden ist
    sql_check = """select count(*)
@@ -247,9 +253,9 @@ try:
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
 
    # Einfügen des Datensatzes mit TERMID='HTTP', POSNR=1, Hinweis='HTTP-Zeitbuchung', FEHLEROK='N', SACHBEARBEITER.VORNAME / NACHNAME (wenn vorhanden)
-
+   if
    sql = """insert into ZEITROHDATEN (SACHB, BWART, DATUM, ZEIT, TERMID, TRANSNR, POSNR, HINWEIS, FEHLEROK, VORNAME, NACHNAME)
-           select UPPER('%s'), UPPER('%s'), '%s', '%s', 'HTTP', nextval('SEQ_TRANSNR'), 1 , 'HTTP-Zeitbuchung', 'N', coalesce(VORNAME,''), coalesce(NAME,'')
+           select UPPER('%s'), UPPER('%s'), '%s', '%s', 'HTTP', nextval('SEQ_TRANSNR'), 1 , 'HTTP-Zeitbuchung', '%s', coalesce(VORNAME,''), coalesce(NAME,'')
            from SACHBEARBEITER
            where SACHB = UPPER('%s')
            and not exists ( select 'X'
@@ -257,7 +263,7 @@ try:
                             where  X.SACHB = UPPER('%s')
                             and    X.BWART = UPPER('%s')
                             and    X.DATUM = '%s'
-                            and    X.ZEIT = '%s') """ %(sachb, bwart, datumvon, zeitvon, sachb, sachb, bwart, datumvon, zeitvon)
+                            and    X.ZEIT = '%s') """ %(sachb, bwart, datumvon, zeitvon, fehler_ok, sachb, sachb, bwart, datumvon, zeitvon)
 
    erg = context.sql_execute(dbconn,sql)
    #context.script_log('/sync/rohdaten_import erg: ', str(erg))
@@ -287,10 +293,12 @@ try:
       for line in data:
          transerg+= str(line[0])+'_'
    if bwart.upper() == 'KO' :
-      bwart='GT'
+      bwart = 'GT'
+   if bwart.upper() == 'DA' :
+      bwart = 'DE'
    # Einfügen des zweiten Zeitstempels mit Datumbis und Zeitbis
    sql = """insert into ZEITROHDATEN (SACHB, BWART, DATUM, ZEIT, TERMID, TRANSNR, POSNR, HINWEIS, FEHLEROK, VORNAME, NACHNAME)
-            select UPPER('%s'), UPPER('%s'), '%s', '%s', 'HTTP', nextval('SEQ_TRANSNR'), 1 , 'HTTP-Zeitbuchung', 'N', coalesce(VORNAME,''), coalesce(NAME,'')
+            select UPPER('%s'), UPPER('%s'), '%s', '%s', 'HTTP', nextval('SEQ_TRANSNR'), 1 , 'HTTP-Zeitbuchung', '%s', coalesce(VORNAME,''), coalesce(NAME,'')
             from SACHBEARBEITER
             where SACHB = UPPER('%s')
             and not exists ( select 'X'
@@ -298,7 +306,7 @@ try:
                              where  X.SACHB = UPPER('%s')
                              and    X.BWART = UPPER('%s')
                              and    X.DATUM = '%s'
-                             and    X.ZEIT = '%s') """ %(sachb, bwart, datumbis, zeitbis, sachb, sachb, bwart, datumbis, zeitbis)
+                             and    X.ZEIT = '%s') """ %(sachb, bwart, datumbis, zeitbis, fehler_ok, sachb, sachb, bwart, datumbis, zeitbis)
 
    #context.script_log('/sync/rohdaten_import  SQL: ', str(sql))
 

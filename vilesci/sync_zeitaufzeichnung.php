@@ -123,10 +123,10 @@ WHERE
 		uid in(".$db->db_implode4SQL($user_arr).")
 	AND
 	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung
-					WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe') or  aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+					WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or  aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	OR
 	zeit_ende<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
-				WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe') or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+				WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
 // geaenderte Ar/Pa/... Eintraege markieren
@@ -190,7 +190,7 @@ $qry = "
 			campus.tbl_zeitaufzeichnung
 		WHERE
 			start::date>=".$db->db_add_param($sync_datum_start)."
-			AND ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe') or aktivitaet_kurzbz is null)
+			AND ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or aktivitaet_kurzbz is null)
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
 $qry.="AND uid in(".$db->db_implode4SQL($user_arr).")";
@@ -223,6 +223,7 @@ if($result = $db->db_query($qry))
 			$ct->typ = 'ko';
 			$ct->sync=false;
 			$ct->delete=false;
+			$ct->datum_bis = $row->datum;
 
 			if(!$ct->save(true))
 				$msglog .= ' Save Failed:'.$ct->errormsg;
@@ -242,11 +243,11 @@ $msglog .= "\n-----\n";
 $qry = "
 	SELECT * FROM (
 		SELECT
-			start as start_full, ende as ende_full, start::date as datum, start::time as startzeit, ende::time as endzeit, uid, aktivitaet_kurzbz, zeitaufzeichnung_id
+			start as start_full, ende as ende_full, start::date as datum, start::time as startzeit, ende::time as endzeit, ende::date as datum_bis, uid, aktivitaet_kurzbz, zeitaufzeichnung_id
 		FROM
 			campus.tbl_zeitaufzeichnung
 		WHERE
-			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde','LehreExtern','Ersatzruhe')
+			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde','LehreExtern','Ersatzruhe', 'DienstreiseMT')
 			AND start::date>=".$db->db_add_param($sync_datum_start)."
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
@@ -271,9 +272,10 @@ if($result = $db->db_query($qry))
 			case 'Behoerde': $typ='bh'; break;
 			case 'LehreExtern': $typ = 'pa'; break;
 			case 'Ersatzruhe': $typ = 'pa'; break;
+			case 'DienstreiseMT': $typ = 'da'; break;
 		}
 
-		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern' && $row->aktivitaet_kurzbz != 'Ersatzruhe')
+		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern' && $row->aktivitaet_kurzbz != 'Ersatzruhe' && $row->aktivitaet_kurzbz != 'DienstreiseMT')
 		{
 			$start_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->start_full)));
 			$end_for_casetime = date('H:i:s', strtotime('-1 minutes', strtotime($row->ende_full)));
@@ -326,6 +328,9 @@ if($result = $db->db_query($qry))
 			}
 			else
 				$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
+
+			// write el with fehler_ok for calculation of ersatzruhe
+			$retval_el = SendData('EL', $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
 		}
 		elseif ($row->aktivitaet_kurzbz == 'Ersatzruhe')
 		{
@@ -363,7 +368,7 @@ if($result = $db->db_query($qry))
 				$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
 		}
 		else
-			$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
+			$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime, $row->datum_bis);
 		//$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
 		if(is_array($retval))
@@ -381,6 +386,7 @@ if($result = $db->db_query($qry))
 			$ct->sync=false;
 			$ct->delete=false;
 			$ct->zeitaufzeichnung_id = $row->zeitaufzeichnung_id;
+			$ct->datum_bis = $row->datum_bis;
 
 			if(!$ct->save(true))
 				$msglog .= ' Save Failed:'.$ct->errormsg;

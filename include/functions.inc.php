@@ -85,19 +85,28 @@ function DeleteRecords($uid, $datum)
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
  */
-function SendData($art, $uid, $datum, $beginn, $ende)
+function SendData($art, $uid, $datum, $beginn, $ende, $datum_bis = null)
 {
 	$datum_obj = new datum();
+	$datum_bis_obj = new datum();
 
 	$ch = curl_init();
 
 	$url = CASETIME_SERVER.'/sync/rohdaten_import';
 
 	$datum = $datum_obj->formatDatum($datum,'Ymd');
+	if ($datum_bis)
+	{
+		$datum_bis = $datum_bis_obj->formatDatum($datum_bis,'Ymd');
+	}
+	else
+	{
+		$datum_bis = $datum;
+	}
 	$beginn = str_replace(':','',$beginn);
 	$ende = str_replace(':','',$ende);
 
-	$params = 'sachb='.$uid.'&bwart='.$art.'&datumvon='.$datum.'&zeitvon='.$beginn.'&datumbis='.$datum.'&zeitbis='.$ende;
+	$params = 'sachb='.$uid.'&bwart='.$art.'&datumvon='.$datum.'&zeitvon='.$beginn.'&datumbis='.$datum_bis.'&zeitbis='.$ende;
 
 	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
