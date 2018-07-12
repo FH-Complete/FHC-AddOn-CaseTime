@@ -221,8 +221,8 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet"))
 				timesheet_id bigint NOT NULL,
 				uid varchar(32) NOT NULL,
 				datum date NOT NULL,
-				insertamum timestamp NOT NULL DEFAULT now(),
-				insertvon varchar(32) NOT NULL,
+				insertamum timestamp DEFAULT now(),
+				insertvon varchar(32),
 				abgeschicktamum timestamp,
 				genehmigtamum timestamp,
 				genehmigtvon varchar(32)
@@ -245,6 +245,8 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet"))
 
 	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet TO vilesci;
 	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_timesheet_id_seq TO vilesci;
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet TO web;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_timesheet_id_seq TO web;
 	";
 
 	if(!$db->db_query($qry))
@@ -285,6 +287,8 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet_dms"))
 
 	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet_dms TO vilesci;
 	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq TO vilesci;
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet_dms TO web;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq TO web;
 	";
 
 	if(!$db->db_query($qry))
@@ -293,7 +297,6 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet_dms"))
 		echo ' addon.tbl_casetime_timesheet_dms: Tabelle addon.tbl_casetime_timesheet_dms hinzugefuegt!<br>';
 
 }
-
 
 // Add DMS category "casetime" (for timesheet upload-documents)
 if ($result = @$db->db_query("SELECT 1 FROM campus.tbl_dms_kategorie WHERE kategorie_kurzbz = 'casetime';"))
