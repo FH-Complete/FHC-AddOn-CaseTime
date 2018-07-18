@@ -266,8 +266,8 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet_dms"))
 				timesheet_dms_id bigint NOT NULL,
 				timesheet_id bigint NOT NULL,
 				dms_id bigint NOT NULL,
-				insertamum timestamp NOT NULL DEFAULT now(),
-				insertvon varchar(32) NOT NULL
+				insertamum timestamp DEFAULT now(),
+				insertvon varchar(32)
 			);
 
 	COMMENT ON TABLE addon.tbl_casetime_timesheet_dms IS 'CaseTime Addon Dokumenten IDs, die zu Monatslisten angehängt werden sollen';
@@ -280,7 +280,7 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet_dms"))
 	NO MINVALUE
 	CACHE 1;
 
-	ALTER TABLE addon.tbl_casetime_timesheet_dms ALTER COLUMN timesheet_id SET DEFAULT nextval('addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq');
+	ALTER TABLE addon.tbl_casetime_timesheet_dms ALTER COLUMN timesheet_dms_id SET DEFAULT nextval('addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq');
 	
 	ALTER TABLE addon.tbl_casetime_timesheet_dms ADD CONSTRAINT fk_casetime_timesheet_casetime_timesheet_dms FOREIGN KEY (timesheet_id) REFERENCES addon.tbl_casetime_timesheet(timesheet_id) ON DELETE RESTRICT ON UPDATE CASCADE;
 	ALTER TABLE addon.tbl_casetime_timesheet_dms ADD CONSTRAINT fk_dms_casetime_timesheet_dms FOREIGN KEY (dms_id) REFERENCES campus.tbl_dms(dms_id) ON DELETE RESTRICT ON UPDATE CASCADE;
