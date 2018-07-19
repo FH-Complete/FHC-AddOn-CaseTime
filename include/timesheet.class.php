@@ -193,4 +193,138 @@ class Timesheet extends basis_db
 			return false;
 		}
 	}	
+	
+	// Get all times and reasons of absence which need to be reported. (of all users timesheets) 
+	public function getAllAbsentTimes($uid)
+	{
+		// get absence for:
+		// AMT, DIENSTVERHINDERUNG, KRANK, ARZT and PFLEGEURLAUB (from tbl_zeitsperre) 
+		// ARZTBESUCH and BEHÖRDE (from tbl_zeitaufzeichnung)
+		if (isset($uid) && !empty($uid))
+		{
+			$qry = '
+				SELECT
+					timesheet_id,
+					datum,
+					zeitsperre_id,
+					null AS zeitaufzeichnung_id,
+					tbl_zeitsperretyp.beschreibung AS abwesenheitsgrund, 
+					vondatum AS von,
+					bisdatum AS bis
+				FROM
+					addon.tbl_casetime_timesheet
+				JOIN 
+					campus.tbl_zeitsperre 
+				ON 
+					tbl_casetime_timesheet.uid = tbl_zeitsperre.mitarbeiter_uid
+				JOIN
+					campus.tbl_zeitsperretyp USING (zeitsperretyp_kurzbz)
+				WHERE
+					uid = '. $this->db_add_param($uid). '
+				AND 
+					zeitsperretyp_kurzbz IN (\'Amt\', \'DienstV\', \'Krank\', \'Arzt\', \'PflegeU\')
+				AND (
+						(vondatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date +1)
+					OR
+						(bisdatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date)
+				)
+				UNION
+				SELECT
+					timesheet_id,
+					datum,
+					null,
+					zeitaufzeichnung_id,
+					aktivitaet_kurzbz,
+					start,
+					ende
+				FROM
+					addon.tbl_casetime_timesheet
+				JOIN 
+					campus.tbl_zeitaufzeichnung USING (uid)
+				WHERE
+					uid = '. $this->db_add_param($uid). '
+				AND 
+					aktivitaet_kurzbz IN (\'Arztbesuch\', \'Behoerde\')
+				AND (
+						(start BETWEEN date_trunc(\'month\', datum::date) AND datum::date +1)
+					OR
+						(ende BETWEEN date_trunc(\'month\', datum::date) AND datum::date)
+				)
+				ORDER BY
+					datum DESC
+				';
+			
+			if ($this->db_query($qry))
+			{
+				while ($row = $this->db_fetch_object())
+				{
+					$obj = new stdClass();
+					
+					$obj->datum = $row->datum;
+					$obj->abwesenheitsgrund = $row->abwesenheitsgrund;
+					$obj->von = $row->von;
+					$obj->bis = $row->bis;
+					$obj->timesheet_id = $row->timesheet_id;
+					$obj->zeitsperre_id = $row->zeitsperre_id;
+					$obj->zeitaufzeichnung_id = $row->zeitaufzeichnung_id;
+					
+					$this->result[] = $obj;					
+				}			
+				return $this->result;
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage zum Einholen aller Fehlzeiten eines users.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "UID muss vorhanden und nicht leer sein";
+			return false;
+		}	
+	}
+	
+	// Load all documents to one single timesheet
+	public function loadDocuments()
+	{
+		if ($this->new)
+		{
+			$qry = ' 
+				INSERT INTO
+					addon.tbl_casetime_timesheet(
+						uid,
+						datum,
+						insertvon
+					)
+				VALUES ('.
+					$this->db_add_param($this->uid). ', '.
+					$this->db_add_param($this->datum). ', '.
+					$this->db_add_param($this->insertvon). '
+				)
+			';
+		}
+		else //...AUFTEILEN IN extra if abfrage für abgeschickt und genehmigt...?!
+		{
+			$qry = '
+				UPDATE
+					addon.tbl_casetime_timesheet
+				SET'.
+					'abgeschicktamum='. $this->db_add_param($this->abgeschicktamum). ', '.
+					'genehmigtamum='. $this->db_add_param($this->genehmigtamum). ','.
+					'genehmigtvon='. $this->db_add_param($this->genehmigtvon) . '
+				WHERE 
+					timesheet_id='. $this->db_add_param($this->timesheet_id);
+		}
+		
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Speichern der Daten';
+			return false;
+		}
+	}	
 }

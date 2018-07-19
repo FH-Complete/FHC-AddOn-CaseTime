@@ -104,6 +104,11 @@ foreach ($timesheet_arr as $ts)
 	$cnt++;
 }
 
+$timesheet = new Timesheet();
+$timesheet->getAllAbsentTimes($uid);
+$absent_times_arr = $timesheet->result;
+//var_dump($absent_times_arr);
+
 // *********************************	ACTUAL TIMESHEET (by chosen month/year)
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
@@ -192,14 +197,31 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 	<div class="row custom-panel" style="border-top: none; <?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
 		<div class="col-xs-8">
 			<b>Upload von Dokumenten</b><br><br>
-			<!--IF-->
-			Sie haben im September 2018 keine Fehlzeiten.
-			<!--ELSE-->
-			Bitte laden Sie Bestätigungen für folgende Fehlzeiten hoch:<br><br>
-			<ul>
-				<li>Krankenstand von 03.09. - 09.09.2018</li>
-				<li>Dienstreise von 13.09. - 13.09.2018</li>
-			</ul>
+			
+			<!--counter for displaying absence text only once-->
+			<?php $counter = 0; ?>
+			
+			<!--loop throup absent times-->
+			<?php foreach ($absent_times_arr as $absence): ?>
+			
+				<!--set absence text-->
+				<?php if ($counter == 0): ?>
+					Bitte laden Sie Bestätigungen für folgende Fehlzeiten hoch:<br><br>
+					<?php $counter++ ?>
+				<?php endif; ?>		
+					
+				<!--find absences and times only for the actual timesheet-->
+				<ul>	
+				<?php if ($absence->timesheet_id == $timesheet_id): ?>									
+							<li><?php echo $absence->abwesenheitsgrund. ' von '. date_format(date_create($absence->von), 'd.m.Y') . ' - '. date_format(date_create($absence->bis), 'd.m.Y') ?></li>					
+				<?php endif; ?>
+				</ul>			
+			<?php endforeach; ?>	
+				
+			<!--if no absent times in actual timesheet found, display other text-->		
+			<?php if($counter = 0): ?>	
+				Sie haben im <?php echo $monatsname[$sprache_index][$date_chosen_month-1]. ' '. $date_chosen_year?> keine Fehlzeiten.
+			<?php endif; ?>			
 		</div>
 		<div class="col-xs-4"><br>
 			<button type="button" <?php echo ($isSent) ? 'disabled' : '' ?> class="btn btn-default pull-right">Dokumente hochladen</button><br><br><br>
@@ -327,6 +349,7 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 						<table class="table table-bordered table-condensed">
 							<tr>
 								<th>Monatsliste</th>
+								<th>Abwesenheit</th>
 								<th>Dokumente</th>
 								<th>Abgeschickt am</th>
 								<th>Genehmigt</th>
@@ -341,6 +364,15 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 								<tr>
 									<!--link to monthlist-->
 									<td><a href="#"><?php echo $monatsname[$sprache_index][$ts_date->format('n')-1] . ' ' . $ts_date->format('Y') ?></a></td>
+									
+									<!--absence reasons & times-->
+									<td>
+									<?php foreach ($absent_times_arr as $absence): ?>
+										<?php if ($ts->timesheet_id == $absence->timesheet_id): ?>
+											<?php echo date_format(date_create($absence->von), 'd.m.Y') . ' - '. date_format(date_create($absence->bis), 'd.m.Y'). ': '. $absence->abwesenheitsgrund. "<br>" ?>
+										<?php endif; ?>
+									<?php endforeach; ?>
+									</td>	
 									
 									<!--link to documents-->
 									<td><a href="#">Krankenstandsbestaetigung_Hainberger.jpg</a><br></td>
