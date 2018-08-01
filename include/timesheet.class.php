@@ -198,7 +198,7 @@ class Timesheet extends basis_db
 	public function getAllAbsentTimes($uid)
 	{
 		// get absence for:
-		// AMT, DIENSTVERHINDERUNG, KRANK, ARZT and PFLEGEURLAUB (from tbl_zeitsperre) 
+		// DIENSTVERHINDERUNG, KRANK and PFLEGEURLAUB (from tbl_zeitsperre) 
 		// ARZTBESUCH and BEHÖRDE (from tbl_zeitaufzeichnung)
 		if (isset($uid) && !empty($uid))
 		{
@@ -222,7 +222,7 @@ class Timesheet extends basis_db
 				WHERE
 					uid = '. $this->db_add_param($uid). '
 				AND 
-					zeitsperretyp_kurzbz IN (\'Amt\', \'DienstV\', \'Krank\', \'Arzt\', \'PflegeU\')
+					zeitsperretyp_kurzbz IN (\'DienstV\', \'Krank\', \'PflegeU\')
 				AND (
 						(vondatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date +1)
 					OR
@@ -327,4 +327,148 @@ class Timesheet extends basis_db
 			return false;
 		}
 	}	
+	
+	// Save Bestätigung realted to a certain timesheet
+	public function saveBestaetigung($timesheet_id, $dms_id, $uid)
+	{
+		if (isset($timesheet_id) && !empty($timesheet_id) &&
+			isset($dms_id) && !empty($dms_id))
+		{
+			$qry = ' 
+				INSERT INTO
+					addon.tbl_casetime_timesheet_dms(
+						timesheet_id,
+						dms_id,
+						insertvon
+					)
+				VALUES ('.
+					$this->db_add_param($timesheet_id, FHC_INTEGER). ', '.
+					$this->db_add_param($dms_id, FHC_INTEGER). ', '.
+					$this->db_add_param($uid). '
+				)
+			';
+			
+			if($this->db_query($qry))
+			{
+				return true;
+			}
+			else
+			{
+				$this->errormsg = 'Fehler beim Speichern der Bestätigung zu einem Timesheet.';
+				return false;
+			}
+		}
+		else
+		{
+			$this->errormsg = "timesheet_id UND dms_id muss vorhanden und nicht leer sein";
+			return false;
+		}
+	}
+	
+	// Load all Bestätigungen of a certain timesheet
+	public function loadAllBestaetigungen_byTimesheet($timesheet_id)
+	{
+		if (isset($timesheet_id) && !empty($timesheet_id))
+		{
+			$qry = '
+				SELECT
+					dms_id,
+					name,
+					beschreibung
+				FROM
+					campus.tbl_dms_version
+				JOIN
+					addon.tbl_casetime_timesheet_dms
+				USING (dms_id)
+				WHERE
+					tbl_casetime_timesheet_dms.timesheet_id=' . $this->db_add_param($timesheet_id, FHC_INTEGER);
+			
+			if ($this->db_query($qry))
+			{
+				while ($row = $this->db_fetch_object())
+				{
+					$obj = new stdClass();
+					
+					$obj->dms_id = $row->dms_id;
+					$obj->name = $row->name;
+					$obj->beschreibung = $row->beschreibung;
+					
+					$this->result[] = $obj;					
+				}
+				
+				return $this->result;
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage zum Laden aller Bestätigungen des timesheets.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "Timesheet_ID muss vorhanden und nicht leer sein";
+			return false;
+		}
+	}
+	
+	// Load all Bestätigungen of a certain timesheet
+	public function loadAllBestaetigungen_byUser($uid)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			$qry = '
+				SELECT
+					timesheet_id,
+					datum,
+					dms_id,
+					name,
+					beschreibung
+				FROM
+					campus.tbl_dms_version
+				JOIN
+					addon.tbl_casetime_timesheet_dms
+				USING (dms_id)
+				JOIN
+					addon.tbl_casetime_timesheet
+				USING (timesheet_id)
+				WHERE
+					tbl_casetime_timesheet.uid=' . $this->db_add_param($uid, FHC_STRING) . '
+				ORDER BY
+					datum DESC';
+			
+			if ($this->db_query($qry))
+			{
+				while ($row = $this->db_fetch_object())
+				{
+					$obj = new stdClass();
+					
+					$obj->timesheet_id = $row->timesheet_id;
+					$obj->datum = $row->datum;
+					$obj->dms_id = $row->dms_id;
+					$obj->name = $row->name;
+					$obj->beschreibung = $row->beschreibung;
+					
+					$this->result[] = $obj;					
+				}
+				
+				return $this->result;
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage zum Laden aller Bestätigungen des users.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "UID muss vorhanden und nicht leer sein";
+			return false;
+		}
+	}
+	
+	// Delete Bestätigung
+	public function deleteBestaetigung($dms_id)
+	{
+		
+	}
 }
