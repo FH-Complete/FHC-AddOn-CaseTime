@@ -23,10 +23,11 @@ require_once('../../../include/benutzer.class.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
+require_once('../../../include/dms.class.php');
 
 // Input params
-$uid = 'kindlm';
-$month = 2;
+$uid = 'hainberg';
+$month = 7;
 $year = 2018;
 
 $benutzer = new Benutzer($uid);
@@ -112,6 +113,7 @@ $timesheet = new Timesheet();
 $timesheet->getAllAbsentTimes($uid);
 $absent_times_arr = $timesheet->result;
 
+
 // *********************************	ACTUAL TIMESHEET (by chosen month/year)
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
@@ -119,7 +121,7 @@ $timesheet_datum = $timesheet->datum;									// date string of timesheet
 $isSent = (is_null($timesheet->abgeschicktamum) ? false : true);		// boolean if timesheet was already sent
 $isConfirmed = (is_null($timesheet->genehmigtamum) ? false : true);		// boolean if timesheet was already confirmed
 
-// If timesheet is new and user is timely allowed to create first timesheet -> Save timesheet
+// Save timesheet, if timesheet is new and user is timely allowed to create first timesheet
 if ($timesheet->new && $isAllowed_createTimesheet)
 {
 	// only if the chosen monthyear <= actual monthyear
@@ -128,23 +130,26 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 		if (!$isDisabled_by_missingTimesheet)
 		{
 			$timesheet->uid = $uid;
-			$timesheet->datum = $date_chosen->format('Y-m-t'); 	//save with last day of month
+			$timesheet->datum = $date_chosen->format('Y-m-t'); 	//saved with last day of month
 			$timesheet->insertvon = $uid;
 
-			if (!$timesheet->save())
+			// if saving succeeded, last inserted timesheet_id is returned
+			if (!$timesheet_id = $timesheet->save())
 			{
 				echo 'Timesheet konnte nicht gespeichert werden';
 			}
 		}
 	}
-	// if chosen monthyear is in the future -> timesheet NOT saved
+	// do not save timesheet and set flag if chosen monthyear is in the future
 	else 
 	{
-		$isFuture = true;	// GUI fields will be disabled, if $isFuture is true
+		$isFuture = true;
 	}
 }
 
+// *********************************	ALL DOCUMENTS 
 // Load all Bestätigungen of user
+$timesheet = new Timesheet();
 $timesheet->loadAllBestaetigungen_byUser($uid);
 $all_user_bestaetigungen = $timesheet->result;
 
@@ -154,9 +159,31 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 {
 	$date_bestaetigung = new DateTime($bestaetigung->datum);	
 	$monthyear_bestaetigung = $date_bestaetigung->format('Y-m');
-	
+
 	if($monthyear_chosen == $monthyear_bestaetigung)
 		$all_actualMonth_bestaetigungen []= $bestaetigung;
+}
+
+
+// *********************************	AJAX CALLS
+// Delete single Bestätigung (on ajax call)
+if( isset($_POST['action']) && isset($_POST['method']) ){
+	if($_POST['action'] == 'ajax' && $_POST['method'] == 'deleteDmsId')
+	{
+		if(isset($_POST['dms_id']) && is_numeric($_POST['dms_id']))
+		{
+			$result = false;	
+			$timesheet = new Timesheet();
+			if($timesheet->deleteBestaetigung($_POST['dms_id']))
+			{	
+				$result = true;
+			}
+			
+			// ajax return true if deleting succeeded, false if failed
+			echo json_encode($result);	
+			exit;
+		}		
+	}
 }
 ?>
 
@@ -197,7 +224,7 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 	// Open popup window for uploading documents & refresh site when window closed (to display new uploaded documents)
     function FensterOeffnen (adresse)
 	{
-		MeinFenster = window.open(adresse, '', 'width = 820px; height = 470px;');
+		MeinFenster = window.open(adresse, '', 'width = 820px; height = 500px;');
 		MeinFenster.focus();
 
 		// capture popup window closing
@@ -210,6 +237,28 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 				location.reload();
 			}
 		}, 200);		
+	}
+	
+	function deleteBestaetigung(dms_id)
+	{
+		$.ajax({
+			type: 'POST',
+			dataType: 'json',
+			cache: false,
+			data: {
+				action: 'ajax',
+				method: 'deleteDmsId',
+				dms_id : dms_id
+			},
+			success: function(data){
+				if(data)
+				{
+					$('#tbl_all_actualMonth_bestaetigungen').load(window.location.href + ' #tbl_all_actualMonth_bestaetigungen');
+					$('#panel_all_user_bestaetigungen').load(window.location.href + ' #panel_all_user_bestaetigungen');				
+				}
+			}
+		});
+
 	}
 	</script>
 </head>
@@ -266,11 +315,11 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 			<a role="button" <?php echo ($isSent) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsupload.php?timesheet_id='. $timesheet_id ?>" onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
 					
 			<!--if there are existing bestaetigungen in actual month -> display table and all bestaetigungen-->
-			<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?>>
+			<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
 			<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
 				<tr>
-					<td><a href="#" <?php echo ($isSent) ? 'class="inactive"' : '' ?>><?php echo $bestaetigung->name ?></a></td>
-					<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
+					<td><a href="#" <?php echo ($isSent) ? 'class="inactive"' : '' ?> id="test"><?php echo $bestaetigung->name ?></a></td>
+					<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id" onclick="deleteBestaetigung(<?php echo $bestaetigung->dms_id ?>)"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
 				</tr>
 			<?php endforeach; ?>
 			</table>		
@@ -358,9 +407,11 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 	
 	<!--************************************	ALL TIMESHEETS - TABLE -->
 	
+	<h4>Alle Monatslisten</h4><br>
+	
 	<!--if there are present timesheets, show panel with all timesheets-->
 	<?php if (!empty($timesheet_arr)): ?>
-		<h4>Alle Monatslisten</h4><br>
+		
 		
 		<div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
 			
@@ -368,80 +419,80 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 		<?php $year_cnt = 1; ?>	
 		
 		<!--loop through years-->	
+		<div class="panel" id="panel_all_user_bestaetigungen">
 		<?php foreach ($timesheet_years as $year): ?>
-			<div class="panel">
-				<div class="text-center" role="tab" id="heading<?php echo $year_cnt ?>">
-					<h4 class="panel-title">
-						<a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapse<?php echo $year_cnt ?>" aria-expanded="true" aria-controls="collapse<?php echo $year_cnt ?>">
-							
-							<!--display year as title in the panel-->
-							<h3><?php echo $year ?></h3>
-						</a>
-					</h4>
-				</div>
-				<div id="collapse<?php echo $year_cnt ?>" class="panel-collapse collapse <?php echo ($year_cnt == 1) ? 'in' : '' ?>" role="tabpanel" aria-labelledby="heading<?php echo $year_cnt ?>">
-					<div class="panel-body panel-body-alleMonatslisten">
-						<table class="table table-bordered table-condensed">
+			<div class="text-center" role="tab" id="heading<?php echo $year_cnt ?>">
+				<h4 class="panel-title">
+					<a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapse<?php echo $year_cnt ?>" aria-expanded="true" aria-controls="collapse<?php echo $year_cnt ?>">
+
+						<!--display year as title in the panel-->
+						<h3><?php echo $year ?></h3>
+					</a>
+				</h4>
+			</div>
+			<div id="collapse<?php echo $year_cnt ?>" class="panel-collapse collapse <?php echo ($year_cnt == 1) ? 'in' : '' ?>" role="tabpanel" aria-labelledby="heading<?php echo $year_cnt ?>">
+				<div class="panel-body panel-body-alleMonatslisten">
+					<table class="table table-bordered table-condensed">
+						<tr>
+							<th>Monatsliste</th>
+							<th>Abwesenheit</th>
+							<th>Dokumente</th>
+							<th>Abgeschickt am</th>
+							<th>Genehmigt</th>
+						</tr>
+
+						<!--loop through all timesheets-->
+						<?php foreach ($timesheet_arr as $ts): ?>
+							<?php $ts_date = new DateTime($ts->datum); ?>
+
+							<!--if timesheet is in the looped year, then show timesheet information in this table-->
+							<?php if ($ts_date->format('Y') == $year): ?>
 							<tr>
-								<th>Monatsliste</th>
-								<th>Abwesenheit</th>
-								<th>Dokumente</th>
-								<th>Abgeschickt am</th>
-								<th>Genehmigt</th>
-							</tr>
-							
-							<!--loop through all timesheets-->
-							<?php foreach ($timesheet_arr as $ts): ?>
-								<?php $ts_date = new DateTime($ts->datum); ?>
-							
-								<!--if timesheet is in the looped year, then show timesheet information in this table-->
-								<?php if ($ts_date->format('Y') == $year): ?>
-								<tr>
-									<!--link to monthlist-->
-									<td><a href="#"><?php echo $monatsname[$sprache_index][$ts_date->format('n')-1] . ' ' . $ts_date->format('Y') ?></a></td>
-									
-									<!--absence reasons & times-->
-									<td>
-									<?php foreach ($absent_times_arr as $absence): ?>
-										<?php if ($ts->timesheet_id == $absence->timesheet_id): ?>
-											<?php echo date_format(date_create($absence->von), 'd.m.Y') . ' - '. date_format(date_create($absence->bis), 'd.m.Y'). ': '. $absence->abwesenheitsgrund. "<br>" ?>
-										<?php endif; ?>
-									<?php endforeach; ?>
-									</td>	
-									
-									<!--link to documents-->
-									<td>
-									<?php foreach ($all_user_bestaetigungen as $bestaetigung): ?>
-										<?php $date_bestaetigung = new DateTime($bestaetigung->datum); ?>
-										<?php if($ts_date->format('m-Y') == $date_bestaetigung->format('m-Y')): ?>
-											<a href="#"><?php echo $bestaetigung->name ?></a><br>
-										<?php endif; ?>
-									<?php endforeach; ?>
-									</td>
-									
-									<!--sending date-->
-									<?php if (!is_null($ts->abgeschicktamum)): ?>
-										<?php $ts_date = new DateTime($ts->abgeschicktamum); ?>
-										<td><?php echo $ts_date->format('d.m.Y') ?></td>
-									<?php else: ?>
-										<td>Nicht abgeschickt</td>
+								<!--link to monthlist-->
+								<td><a href="#"><?php echo $monatsname[$sprache_index][$ts_date->format('n')-1] . ' ' . $ts_date->format('Y') ?></a></td>
+
+								<!--absence reasons & times-->
+								<td>
+								<?php foreach ($absent_times_arr as $absence): ?>
+									<?php if ($ts->timesheet_id == $absence->timesheet_id): ?>
+										<?php echo date_format(date_create($absence->von), 'd.m.Y') . ' - '. date_format(date_create($absence->bis), 'd.m.Y'). ': '. $absence->abwesenheitsgrund. "<br>" ?>
 									<?php endif; ?>
-										
-									<!--confirmation status-->	
-									<?php if (is_null($ts->genehmigtamum)): ?>	
-										<td class='text-center'><img src="../../../skin/images/ampel_gelb.png" ></td>
-									<?php else: ?>
-										<td class='text-center'><img src="../../../skin/images/ampel_gruen.png" ></td>
+								<?php endforeach; ?>
+								</td>	
+
+								<!--link to documents-->
+								<td>
+								<?php foreach ($all_user_bestaetigungen as $bestaetigung): ?>
+									<?php $date_bestaetigung = new DateTime($bestaetigung->datum); ?>
+									<?php if($ts_date->format('m-Y') == $date_bestaetigung->format('m-Y')): ?>
+										<a href="#"><?php echo $bestaetigung->name ?></a><br>
 									<?php endif; ?>
-								</tr>
+								<?php endforeach; ?>
+								</td>
+
+								<!--sending date-->
+								<?php if (!is_null($ts->abgeschicktamum)): ?>
+									<?php $ts_date = new DateTime($ts->abgeschicktamum); ?>
+									<td><?php echo $ts_date->format('d.m.Y') ?></td>
+								<?php else: ?>
+									<td>Nicht abgeschickt</td>
 								<?php endif; ?>
-							<?php endforeach; ?>
-						</table>
-				  </div>
-				</div>
+
+								<!--confirmation status-->	
+								<?php if (is_null($ts->genehmigtamum)): ?>	
+									<td class='text-center'><img src="../../../skin/images/ampel_gelb.png" ></td>
+								<?php else: ?>
+									<td class='text-center'><img src="../../../skin/images/ampel_gruen.png" ></td>
+								<?php endif; ?>
+							</tr>
+							<?php endif; ?>
+						<?php endforeach; ?>
+					</table>
+			  </div>
 			</div>
 		<?php $year_cnt++; ?>
 		<?php endforeach; ?>	
+		</div>
 		</div>
 		
 	<!--if no timesheets existing yet show panel with info, that soon timesheets will be pinned up-->

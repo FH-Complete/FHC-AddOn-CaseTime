@@ -18,7 +18,7 @@
  * Authors:		Cristina Hainberger <cristina.hainberger@technikum-wien.at>
  */
 
-require_once('../../../config/vilesci.config.inc.php');		//...VILESCI ok? oder muss im CIS config sein?
+require_once('../../../config/vilesci.config.inc.php');		//....VILESCI ok? oder muss im CIS config sein?
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/person.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
@@ -39,7 +39,7 @@ $dokument_kurzbz = isset($_POST['dokument_kurzbz']) ? $_POST['dokument_kurzbz'] 
 
 if (!isset($_GET['timesheet_id']) || empty($_GET['timesheet_id']))
 {
-	echo 'Es fehlt die Monatsliste. (timesheet_id)';
+	echo 'Es fehlt die Timesheet ID.';
 }
 else
 	$timesheet_id = $_GET['timesheet_id'];
@@ -107,7 +107,7 @@ if(isset($_POST['submitBestaetigung']))
 		if($timesheet->saveBestaetigung($timesheet_id, $dms_id, $uid))
 		{
 			$isSuccess = true;
-			$msg = 'Erfolgreich gespeichert';
+			$msg = "Hochladen von <b>" . $dms->name . "</b> war erfolgreich!";
 		}
 		else
 		{
@@ -199,7 +199,7 @@ if(!empty($timesheet_id))
 	<!-- success alert (e.g. on upload success) -->
 	<?php if ($isSuccess): ?>
 	<div class="alert alert-success text-center" role="alert">
-		<b><?php echo $msg ?></b>
+		<?php echo $msg ?>
 	</div>
 	<?php endif; ?>
 	
@@ -214,10 +214,5 @@ if(!empty($timesheet_id))
 </html>
 
 <?php
-}
-else
-{
-	echo "Es wurde keine timesheet_id angegeben";
-}
-
+} // END if(!empty($timesheet_id))
 

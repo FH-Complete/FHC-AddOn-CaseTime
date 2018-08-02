@@ -7,6 +7,7 @@
  */
 require_once(dirname(__FILE__). '/../../../include/basis_db.class.php');
 require_once(dirname(__FILE__). '/../../../include/datum.class.php');
+require_once(dirname(__FILE__). '/../../../include/dms.class.php');
 
 /**
  * Description of casetime_timesheet
@@ -168,6 +169,8 @@ class Timesheet extends basis_db
 					$this->db_add_param($this->datum). ', '.
 					$this->db_add_param($this->insertvon). '
 				)
+				RETURNING
+					timesheet_id
 			';
 		}
 		else //...AUFTEILEN IN extra if abfrage für abgeschickt und genehmigt...?!
@@ -183,9 +186,10 @@ class Timesheet extends basis_db
 					timesheet_id='. $this->db_add_param($this->timesheet_id);
 		}
 		
-		if($this->db_query($qry))
+		if($result = $this->db_query($qry))
 		{
-			return true;
+			list($last_insert_timesheet_id) = $this->db_fetch_row($result);
+			return $last_insert_timesheet_id;
 		}
 		else
 		{
@@ -469,6 +473,39 @@ class Timesheet extends basis_db
 	// Delete Bestätigung
 	public function deleteBestaetigung($dms_id)
 	{
-		
+		if (isset($dms_id) && is_numeric($dms_id))
+		{
+			// delete from tbl_casetime_timesheet_dms
+			$qry = '
+				BEGIN;
+				DELETE FROM
+					addon.tbl_casetime_timesheet_dms
+				WHERE
+					dms_id = ' .$this->db_add_param($dms_id, FHC_INTEGER) .';';
+			
+			if($this->db_query($qry))
+			{
+				$this->db_query('COMMIT;');
+				$dms = new dms();
+				
+				// delete from campus.tbl_dms, campus.tbl_dms_version and fue.tbl_projekt_dokument
+				if($dms->deleteDms($dms_id))
+				{
+					return true;
+				}
+				else
+				{
+					$this->db_query('ROLLBACK;');
+					$this->errormsg = "Fehler beim Löschen des Dokuments aufgetreten.";  //...ROLLBACK über methoden ZWEIER Klassen so korrekt?
+					return false;	
+				}					
+			}
+		}
+		else
+		{
+			$this->db_query('ROLLBACK;');
+			$this->errormsg = "Fehler beim Löschen des Dokuments aufgetreten";
+			return false;
+		}
 	}
 }
