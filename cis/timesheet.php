@@ -27,7 +27,7 @@ require_once('../../../include/dms.class.php');
 
 // Input params
 $uid = 'hainberg';
-$month = 7;
+$month = 1;
 $year = 2018;
 
 $benutzer = new Benutzer($uid);
@@ -165,7 +165,7 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 }
 
 
-// *********************************	AJAX CALLS
+// *********************************	AJAX REQUESTS
 // Delete single Bestätigung (on ajax call)
 if( isset($_POST['action']) && isset($_POST['method']) ){
 	if($_POST['action'] == 'ajax' && $_POST['method'] == 'deleteDmsId')
@@ -234,9 +234,10 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 			if (MeinFenster.closed !== false)	// !== required for compatibility with Opera
 			{			
 				window.clearInterval(winTimer);
-				location.reload();
+				$('#tbl_all_actualMonth_bestaetigungen').load(window.location.href + ' #tbl_all_actualMonth_bestaetigungen');
+				$('#panel_all_user_bestaetigungen').load(window.location.href + ' #panel_all_user_bestaetigungen');		
 			}
-		}, 200);		
+		}, 200);	
 	}
 	
 	function deleteBestaetigung(dms_id)
@@ -312,14 +313,18 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 			<?php endif; ?>			
 		</div>
 		<div class="col-xs-4"><br>
-			<a role="button" <?php echo ($isSent) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsupload.php?timesheet_id='. $timesheet_id ?>" onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
+			<a role="button" <?php echo ($isSent) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> class="btn btn-default pull-right" 
+			   href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsupload.php?timesheet_id='. $timesheet_id ?>" 
+			   onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
 					
 			<!--if there are existing bestaetigungen in actual month -> display table and all bestaetigungen-->
 			<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
 			<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
 				<tr>
-					<td><a href="#" <?php echo ($isSent) ? 'class="inactive"' : '' ?> id="test"><?php echo $bestaetigung->name ?></a></td>
-					<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id" onclick="deleteBestaetigung(<?php echo $bestaetigung->dms_id ?>)"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
+					<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>" 
+						<?php echo ($isSent) ? 'class="inactive"' : '' ?>><?php echo $bestaetigung->name ?></a></td>
+					<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id" 
+						   onclick="deleteBestaetigung(<?php echo $bestaetigung->dms_id ?>)"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
 				</tr>
 			<?php endforeach; ?>
 			</table>		
@@ -448,10 +453,10 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 							<!--if timesheet is in the looped year, then show timesheet information in this table-->
 							<?php if ($ts_date->format('Y') == $year): ?>
 							<tr>
-								<!--link to monthlist-->
+								<!--Monatsliste: link to monthlist-->
 								<td><a href="#"><?php echo $monatsname[$sprache_index][$ts_date->format('n')-1] . ' ' . $ts_date->format('Y') ?></a></td>
 
-								<!--absence reasons & times-->
+								<!--Abwesenheit: absence reasons & times-->
 								<td>
 								<?php foreach ($absent_times_arr as $absence): ?>
 									<?php if ($ts->timesheet_id == $absence->timesheet_id): ?>
@@ -460,17 +465,17 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 								<?php endforeach; ?>
 								</td>	
 
-								<!--link to documents-->
+								<!--Dokumente: link to documents-->
 								<td>
 								<?php foreach ($all_user_bestaetigungen as $bestaetigung): ?>
 									<?php $date_bestaetigung = new DateTime($bestaetigung->datum); ?>
 									<?php if($ts_date->format('m-Y') == $date_bestaetigung->format('m-Y')): ?>
-										<a href="#"><?php echo $bestaetigung->name ?></a><br>
+										<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $bestaetigung->name ?></a><br>
 									<?php endif; ?>
 								<?php endforeach; ?>
 								</td>
 
-								<!--sending date-->
+								<!--Abgeschickt am: sending date-->
 								<?php if (!is_null($ts->abgeschicktamum)): ?>
 									<?php $ts_date = new DateTime($ts->abgeschicktamum); ?>
 									<td><?php echo $ts_date->format('d.m.Y') ?></td>
@@ -478,7 +483,7 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 									<td>Nicht abgeschickt</td>
 								<?php endif; ?>
 
-								<!--confirmation status-->	
+								<!--Genehmigt: confirmation status-->	
 								<?php if (is_null($ts->genehmigtamum)): ?>	
 									<td class='text-center'><img src="../../../skin/images/ampel_gelb.png" ></td>
 								<?php else: ?>
