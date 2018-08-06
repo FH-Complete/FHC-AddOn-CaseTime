@@ -227,11 +227,9 @@ class Timesheet extends basis_db
 					uid = '. $this->db_add_param($uid). '
 				AND 
 					zeitsperretyp_kurzbz IN (\'DienstV\', \'Krank\', \'PflegeU\')
-				AND (
-						(vondatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date +1)
-					OR
-						(bisdatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date)
-				)
+				AND 
+					bisdatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date
+					
 				UNION
 				SELECT
 					timesheet_id,
@@ -249,11 +247,8 @@ class Timesheet extends basis_db
 					uid = '. $this->db_add_param($uid). '
 				AND 
 					aktivitaet_kurzbz IN (\'Arztbesuch\', \'Behoerde\')
-				AND (
-						(start BETWEEN date_trunc(\'month\', datum::date) AND datum::date +1)
-					OR
-						(ende BETWEEN date_trunc(\'month\', datum::date) AND datum::date)
-				)
+				AND 
+					ende BETWEEN date_trunc(\'month\', datum::date) AND datum::date
 				ORDER BY
 					datum DESC
 				';
