@@ -29,8 +29,48 @@ require_once('../../../include/mail.class.php');
 
 // Input params
 $uid = 'hainberg';
-$month = 3;
+$month = 5;
 $year = 2018;
+
+//TEST
+//$_GET['timesheet_id'] = 46;
+//$_GET['role'] = 'supervisor';
+
+// *********************************	SPECIAL VIEWS for supervisors & personnel department
+$isVorgesetzter = false;
+$isPersonal = false;
+if(isset($_GET['timesheet_id']) && isset($_GET['role']))
+{
+	if(!is_numeric($_GET['timesheet_id']))
+		die ('Es muss eine numerische timesheet_id übergeben werden.');
+	else 
+		$timesheet_id = $_GET['timesheet_id'];
+	
+	// *********************************	VIEW:  SUPERVISOR
+	if($_GET['role'] == 'supervisor')
+	{	
+		$mitarbeiter = new Mitarbeiter();
+		$mitarbeiter->getUntergebene($uid);
+		$untergebenen_arr = $mitarbeiter->untergebene;
+		$confirm_vorgesetzten_uid = $uid;
+		
+		//get the uid of the timesheet_id
+		$timesheet = new Timesheet();
+		if ($timesheet->getUser($timesheet_id))
+			$uid = $timesheet->getUser($timesheet_id);		// from now on uid is uid from employee
+		else
+			die ($this->errormsg);
+		
+		//check, if uid is an employee of supervisor
+		if (empty($untergebenen_arr))
+			die ('Es sind Ihnen keine Mitarbeiter zugeteilt.');
+		elseif (!in_array($uid, $untergebenen_arr))
+			die ('Die Monatsliste ist nicht von einem Ihrem Mitarbeiter.');		
+		else
+			// flag supervisor
+			$isVorgesetzter = true;		
+	}
+}
 
 $benutzer = new Benutzer($uid);
 $full_name = $benutzer->getFullName();									// string full name of user
@@ -40,6 +80,7 @@ $sprache = getSprache();												// users language
 $sprache_index = $sprache_obj->getIndexFromSprache($sprache);			// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
+// vars supervisor of user
 $mitarbeiter = new Mitarbeiter($uid);
 $mitarbeiter->getVorgesetzte($uid);
 $vorgesetzten_uid = $mitarbeiter->vorgesetzte[0]; //...hier noch check: falls array mehrere vorgesetzte hat, passts dann auch, wenn der erste genommen wird? 
@@ -324,9 +365,16 @@ if (isset($_POST['submitTimesheet']))
 		$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
 		$from = 'noreply@'. DOMAIN;				
 		$subject = 'Monatsliste '. $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year. ' von '. $full_name;
-		$text = '';
+		$text = "
+			Guten Tag!<br><br>
+			Sie haben die Monatsliste ". $monatsname[$sprache_index][$date_selected_month-1]. " ". $date_selected_year. " von ". $full_name. " erhalten.<br>
+			Um diese zu genehmigen, folgen Sie diesem Link:<br><br>
+			<a href=". APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_id. ">Monatsliste jetzt genehmigen</a><br><br>";
+		
+		$text = wordwrap($text, 70); // wrap code, otherwise display errors in mail
 		$mail = new Mail($to, $from, $subject, $text);
-
+		$mail->setHTMLContent($text);
+		
 		// send email
 		if($mail->send())
 		{
@@ -352,6 +400,29 @@ if (isset($_POST['submitTimesheet']))
 		}
 	}
 }
+
+
+// *********************************	CONFIRMATION by supervisor 
+if (isset($_POST['submitTimesheetConfirmation']))
+{
+	$confirm_date = new DateTime();
+	$timesheet = new Timesheet();	
+	$timesheet->timesheet_id = $timesheet_id;
+	$timesheet->genehmigtamum = $confirm_date->format('Y-m-d H:i:s');
+	$timesheet->genehmigtvon = $confirm_vorgesetzten_uid;
+	
+	// save confirmation
+	if($timesheet->save(false, true))
+	{
+		// reload page to refresh actual and all monthlist display vars
+		header('Location: '.$_SERVER['PHP_SELF']); 
+	}
+	else
+	{
+		echo $timesheet->errormsg;
+	}	
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -510,9 +581,27 @@ if (isset($_POST['submitTimesheet']))
 								jetzt an <?php echo $vorgesetzter_vorname. ' ', $vorgesetzter_nachname ?> verschicken?');">Monatsliste verschicken</button>
 			</div>
 		</form>
-	</div><br><br>
-	
-	
+	</div>
+	<div class="row custom-panel" style="border: solid 1px #31708f; padding-top: 20px; padding-bottom: 20px;<?php echo ($isVorgesetzter) ? '' : 'display: none;' ?>">
+		<div class="col-xs-8">
+			<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
+			Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
+			Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br><br>
+			Die Genehmigung ist danach nicht mehr widerrufbar.<br>
+			Sollte dies notwendig sein, wenden Sie sich an die Personalabteilung
+		</div>
+		<form method="POST" action="">
+			<div class="col-xs-4"><br>
+				<button type="submit" <?php echo ($isConfirmed) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> 
+						name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
+						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year ?>\n\
+						für <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
+			</div>
+		</form>
+	</div>
+	<br><br>
+
+
 
 	<!--************************************	ALERTS	 -->
 	<!-- IF document uploads are missing (after check against absences) -->
@@ -610,7 +699,7 @@ if (isset($_POST['submitTimesheet']))
 	<?php endif; ?>
 	
 	<!-- if timesheet is sent AND NOT confirmed -->
-	<?php if ($isSent && !$isConfirmed): ?>
+	<?php if ($isSent && !$isConfirmed && !$isVorgesetzter): ?>
 	<div class="alert alert-success alert-dismissible text-center" role="alert">
 		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 		<b>Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year ?> ist erfolgreich an <?php echo $vorgesetzter_vorname. ' '. $vorgesetzter_nachname ?> versendet worden!</b><br><br>

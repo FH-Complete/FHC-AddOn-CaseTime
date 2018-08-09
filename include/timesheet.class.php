@@ -510,4 +510,37 @@ class Timesheet extends basis_db
 			return false;
 		}
 	}
+	
+	public function getUser($timesheet_id)
+	{
+		if (isset($timesheet_id) && !empty($timesheet_id))
+		{
+			$qry = '
+				SELECT
+					uid
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					timesheet_id ='. $this->db_add_param($timesheet_id, FHC_INTEGER);
+		
+		if ($this->db_query($qry))
+			{
+			if ($row = $this->db_fetch_object())
+				{			
+					return $this->result = $row->uid;
+				}
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage des users zur timesheet.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "Timesheet_ID muss vorhanden und nicht leer sein";
+			return false;
+		}
+			
+	}
 }
