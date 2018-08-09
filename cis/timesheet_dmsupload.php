@@ -18,7 +18,7 @@
  * Authors:		Cristina Hainberger <cristina.hainberger@technikum-wien.at>
  */
 
-require_once('../../../config/vilesci.config.inc.php');		//....VILESCI ok? oder muss im CIS config sein?
+require_once('../../../config/vilesci.config.inc.php');		//...VILESCI ok? oder muss im CIS config sein?
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/person.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
@@ -34,8 +34,6 @@ $rechte->getBerechtigungen($uid);
 if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('assistenz') && !$rechte->isBerechtigt('mitarbeiter'))
 	die('Keine Berechtigung');
 
-$kategorie_kurzbz = isset($_POST['kategorie_kurzbz']) ? $_POST['kategorie_kurzbz'] : '';
-$dokument_kurzbz = isset($_POST['dokument_kurzbz']) ? $_POST['dokument_kurzbz'] : '';
 
 if (!isset($_GET['timesheet_id']) || empty($_GET['timesheet_id']))
 {
@@ -66,9 +64,8 @@ if(isset($_POST['submitBestaetigung']))
 			if(!chmod($uploadfile, 0774))
 				echo 'CHMOD failed';
 			
-			$beschreibung = null;
-			if (isset($_POST['anmerkung']) && !empty ($_POST['anmerkung']))
-				$beschreibung = $_POST['anmerkung'];
+			$kategorie_kurzbz = isset($_POST['kategorie_kurzbz']) ? $_POST['kategorie_kurzbz'] : '';
+			$dokument_kurzbz = isset($_POST['dokument_kurzbz']) ? $_POST['dokument_kurzbz'] : '';
 
 			$dms = new dms();
 			
@@ -76,10 +73,10 @@ if(isset($_POST['submitBestaetigung']))
 			$dms->filename = $filename;
 			$dms->mimetype = $_FILES['file']['type'];
 			$dms->name = $_FILES['file']['name'];
-			$dms->beschreibung = $beschreibung;
 			$dms->kategorie_kurzbz = $kategorie_kurzbz;
 			$dms->insertamum = date('Y-m-d H:i:s');
 			$dms->insertvon = $uid;
+			$dms->dokument_kurzbz = $dokument_kurzbz;
 			
 			if($dms->save(true))
 			{
@@ -149,23 +146,36 @@ if(!empty($timesheet_id))
 			padding-left: 0;
 		}
 	</style>
+	<script>
+		function onUploadRefresh()
+		{
+			window.opener.location = 'timesheet.php?uploadRefresh=true';
+		}
+	</script>
 </head>
 
 <body class="container">
 	
 	<h3>Dokumente hochladen</h3><br><br>	
-	
+	Bitte wählen Sie für jede Ihrer Abwesenheiten den entsprechenden Bestätigungstyp im Dropdown aus und laden die jeweils zugehörige Bestätigung hoch.<br><br>
+	<div class="panel panel-default">
+		<div class="panel-heading">
+			<strong>Info</strong>
+		</div>
+		<div class="panel-body">
+			Die Unterscheidung zwischen Arztbesuch und Krankenstand ist wichtig.<br>
+			Arztbesuch: stundenweise, max. 1 Tag<br>
+			Krankenstand: mehr als 3 Tage
+		</div>
+	</div><br>
+		
 	<form class="form-horizontal" method="POST" enctype="multipart/form-data" action="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo $timesheet_id ?>">
 		<input type='hidden' name='kategorie_kurzbz' id='kategorie_kurzbz' value='casetime'> 
 		<input type='hidden' name='fileupload' id='fileupload'>
-		
-		<div class="form-group">
-			<label for="file" class="col-xs-2 control-label">Bestätigung</label>
-			<input type="file" id="file" name="file" class="col-xs-10">
-		</div>
+
 		<div class="form-group">
 			<label for="typ" class="col-xs-2 control-label">Typ</label>
-			<select id="typ" name='dokumenttyp' class="form-control" style='width:300px'>
+			<select id="typ" name='dokument_kurzbz' class="form-control" style='width:300px'>
 
 			<?php foreach ($dokument->result as $dok): ?>
 				<?php $onclick = "document.getElementById('titel').value='". $dok->dokument_kurzbz."';"; ?>
@@ -176,22 +186,14 @@ if(!empty($timesheet_id))
 			<?php endforeach; ?>
 
 			</select>				
-		</div>
+		</div>		
 		<div class="form-group">
-			<label for="titel" class="col-xs-2 control-label">Titel</label>
-			<div class="col-xs-10">
-				<input type="text" class="form-control" id="titel" size="45" maxlength="32" name="titel">
-			</div>
-		</div>
-		<div class="form-group">
-			<label for="anmerkung" class="col-xs-2 control-label">Anmerkung</label>
-			<div class="col-xs-10">
-			  <textarea class="form-control" rows="3" name="anmerkung" id="anmerkung"></textarea>
-			</div>
-		</div>
+			<label for="file" class="col-xs-2 control-label">Bestätigung</label>
+			<input type="file" id="file" name="file" class="col-xs-10">
+		</div><br>
 		<div class="form-group">
 			<div class="col-xs-offset-2 col-xs-10">
-				<button type="submit" class="btn btn-default" name="submitBestaetigung" value="upload">Hochladen</button>
+				<button type="submit" class="btn btn-default" name="submitBestaetigung" value="upload" onclick="onUploadRefresh()">Hochladen</button>
 			</div>
 		</div>
 	</form>

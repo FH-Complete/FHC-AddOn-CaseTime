@@ -24,32 +24,44 @@ require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
+require_once('../../../include/mitarbeiter.class.php');
+require_once('../../../include/mail.class.php');
 
 // Input params
 $uid = 'hainberg';
-$month = 1;
+$month = 3;
 $year = 2018;
 
 $benutzer = new Benutzer($uid);
-$full_name = $benutzer->getFullName();									// full name of user
+$full_name = $benutzer->getFullName();									// string full name of user
+
 $sprache_obj = new sprache();
 $sprache = getSprache();												// users language
 $sprache_index = $sprache_obj->getIndexFromSprache($sprache);			// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
-$month_name = DateTime::createFromFormat('!m', $month);					// get the correct full date out of the chosen month
-$month_name = $month_name->format('F');									// get month as string to be used in modify-method
-$date_chosen = new DateTime();											// date obj of input month/year 
-$date_chosen->modify('last day of ' . $month_name . ' '. $year);		// date obj of input month/year with last day of month (to operate with diff method)
-$date_chosen_year = $date_chosen->format('Y');
-$date_chosen_month = $date_chosen->format('m');		
+$mitarbeiter = new Mitarbeiter($uid);
+$mitarbeiter->getVorgesetzte($uid);
+$vorgesetzten_uid = $mitarbeiter->vorgesetzte[0]; //...hier noch check: falls array mehrere vorgesetzte hat, passts dann auch, wenn der erste genommen wird? 
+$benutzer = new Benutzer($vorgesetzten_uid);
+$vorgesetzter_full_name = $benutzer->getFullName();						// string full name of supervisor
+$vorgesetzter_vorname = $benutzer->vorname;								// string first name of supervisor
+$vorgesetzter_nachname = $benutzer->nachname;							// string family name of supervisor
 
-$monthyear_chosen = $date_chosen->format('Y-m');						// date string of input month/year
+$month_name = DateTime::createFromFormat('!m', $month);					
+$month_name = $month_name->format('F');									// string month-name to be used in modify-method
+$date_selected = new DateTime();										
+$date_selected->modify('last day of ' . $month_name . ' '. $year);		// date obj of month/year selected with last day of month (to operate with diff method)
+$date_selected_year = $date_selected->format('Y');						// string year selected
+$date_selected_month = $date_selected->format('m');						// string month selected
+
+$monthyear_chosen = $date_selected->format('Y-m');						// string month/year selected
 
 $date_actual = new DateTime();											// date obj of actual date
-$monthyear_actual = $date_actual->format('Y-m');						// date string of actual date
+$monthyear_actual = $date_actual->format('Y-m');						// string month/year of actual date
 
-$isFuture = false;														// boolean if chosen monthyear is in the future (after actual monthyear)
+$isFuture = false;														// bool if chosen monthyear is in the future (after actual monthyear)
+$isMissing_doc = false;													// bool if upload documents are missing after check against absences
 
 // *********************************	ALL TIMESHEETS 
 // Get all timesheets
@@ -70,8 +82,8 @@ if (empty($timesheet_arr))
 }
 
 $timesheet_years = array();												// list of unique timesheet years to set title in "Alle Monatslisten" - panel
-$isDisabled_by_formerUnsentTimesheet = false;							// boolean if there are existing former unsent timesheets (up to the chosen date)
-$isDisabled_by_missingTimesheet = false;								// boolean if there are missing timesheets (up to the chosen date)
+$isDisabled_by_formerUnsentTimesheet = false;							// bool if there are existing former unsent timesheets (up to the chosen date)
+$isDisabled_by_missingTimesheet = false;								// bool if there are missing timesheets (up to the chosen date)
 $month_diff = 0;
 $cnt = 0;
 
@@ -83,7 +95,7 @@ foreach ($timesheet_arr as $ts)
 	$ts_monthyear = $ts_date->format('Y-m');
 	$ts_isSent = (is_null($ts->abgeschicktamum)) ? false : true;
 	
-	// collect years (unique), where timesheet exist
+	// get years (unique), where timesheet exist
 	if ($ts_year != end($timesheet_years))
 		$timesheet_years[] = $ts_year;
 	
@@ -100,7 +112,7 @@ foreach ($timesheet_arr as $ts)
 	if ($cnt == 0)
 	{		
 		// get month amount between last timesheet and chosen date
-		$month_diff = (($date_chosen_year - $ts_year) * 12) + ($date_chosen_month - $ts_month);
+		$month_diff = (($date_selected_year - $ts_year) * 12) + ($date_selected_month - $ts_month);
 		// diff of 1 month is okay, as timesheet is mostly created for the month before
 		if ($month_diff > 1)
 			$isDisabled_by_missingTimesheet = true;
@@ -108,15 +120,11 @@ foreach ($timesheet_arr as $ts)
 	$cnt++;
 }
 
-// *********************************	ALL ABSENT TIMES 
-$timesheet = new Timesheet();
-$timesheet->getAllAbsentTimes($uid);
-$absent_times_arr = $timesheet->result;
 
-
-// *********************************	ACTUAL TIMESHEET (by chosen month/year)
+// *********************************	ACTUAL TIMESHEET (of month/year selected)
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
+$timesheet->new = (is_null($timesheet_id) ? true : false);
 $timesheet_datum = $timesheet->datum;									// date string of timesheet
 $isSent = (is_null($timesheet->abgeschicktamum) ? false : true);		// boolean if timesheet was already sent
 $isConfirmed = (is_null($timesheet->genehmigtamum) ? false : true);		// boolean if timesheet was already confirmed
@@ -130,7 +138,7 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 		if (!$isDisabled_by_missingTimesheet)
 		{
 			$timesheet->uid = $uid;
-			$timesheet->datum = $date_chosen->format('Y-m-t'); 	//saved with last day of month
+			$timesheet->datum = $date_selected->format('Y-m-t'); 	//saved with last day of month
 			$timesheet->insertvon = $uid;
 
 			// if saving succeeded, last inserted timesheet_id is returned
@@ -144,6 +152,69 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 	else 
 	{
 		$isFuture = true;
+	}
+}
+
+// *********************************	ALL ABSENT TIMES 
+$timesheet = new Timesheet();
+$timesheet->getAllAbsentTimes($uid);
+$absent_times_arr = $timesheet->result;
+
+
+// *********************************	ACTUAL ABSENT TIMES (of month/year selected)
+$actual_absent_times_arr = array();
+
+foreach ($absent_times_arr as $absence)
+{
+	if ($absence->timesheet_id == $timesheet_id)
+	{
+		$actual_absent_times_arr []= $absence;
+	}
+}
+
+// Get absences that need to checked against document upload
+$cnt_ab = 0;		// counter arztbesuch
+$cnt_beh = 0;		// counter behöre
+$cnt_kst = 0;		// counter krankenstand
+$cnt_pfl = 0;		// counter pflegeurlaub
+foreach ($actual_absent_times_arr as $actual_absence)
+{
+	switch ($actual_absence->abwesenheit_kurzbz)
+	{
+		case 'Arztbesuch':
+		{
+			// each Arztbesuch-absence needs to be attested
+			$cnt_ab++;
+			continue;	
+		}
+		case 'Behoerde':
+		{
+			// each Behörden-absence needs to be attested
+			$cnt_beh++;
+			continue;	
+		}
+		case 'PflegeU':
+		{
+			$von = new DateTime($actual_absence->von);
+			$bis = new DateTime($actual_absence->bis);
+			
+			// Pflegeurlaub needs to be attested only from the 3rd day on
+			if($von->diff($bis)->d >= 2)
+				$cnt_pfl++;
+			
+			continue;
+		}
+		case 'Krank':
+		{
+			$von = new DateTime($actual_absence->von);
+			$bis = new DateTime($actual_absence->bis);
+			
+			// Krankenstand needs to be attested only from the 3rd day on
+			if($von->diff($bis)->d >= 2)
+				$cnt_kst++;
+			
+			continue;
+		}
 	}
 }
 
@@ -164,6 +235,37 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 		$all_actualMonth_bestaetigungen []= $bestaetigung;
 }
 
+// Get document amount that need to be checked against absences
+$cnt_ab_doc = 0;		// counter arztbesuch bestätigungen
+$cnt_beh_doc = 0;		// counter behöre bestätigungen
+$cnt_kst_doc = 0;		// counter krankenstand bestätigungen
+$cnt_pfl_doc = 0;		// counter pflegeurlaub bestätigungen
+foreach ($all_actualMonth_bestaetigungen as $actual_bestaetigung)
+{
+	switch ($actual_bestaetigung->dokument_kurzbz)
+	{
+		case 'bst_arzt':
+		{
+			$cnt_ab_doc++;
+			continue;	
+		}
+		case 'bst_bhrd':
+		{
+			$cnt_beh_doc++;
+			continue;	
+		}
+		case 'bst_pfur':
+		{
+			$cnt_pfl_doc++;
+			continue;
+		}
+		case 'bst_krnk':
+		{
+			$cnt_kst_doc++;
+			continue;
+		}
+	}
+}
 
 // *********************************	AJAX REQUESTS
 // Delete single Bestätigung (on ajax call)
@@ -183,6 +285,71 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 			echo json_encode($result);	
 			exit;
 		}		
+	}
+}
+
+// *********************************	EMAIL SENDING (and document check)
+// Send email to supervisor
+if (isset($_POST['submitTimesheet']))
+{
+	// First check if documents according have been uploaded to absences 
+	$missing_docs = "<ul>";
+	if ($cnt_ab > $cnt_ab_doc)
+	{
+		$isMissing_doc = true;
+		$missing_docs .= "<li>". ($cnt_ab - $cnt_ab_doc). " Arztbesuch(e)</li>";
+	}
+	if ($cnt_beh > $cnt_beh_doc)
+	{
+		$isMissing_doc = true;
+		$missing_docs .= "<li>". ($cnt_beh - $cnt_beh_doc). " Behördenbesuch(e)</li>";
+	}
+	// if one or more krankenstände there need to be at least one krankenstandsbestätigung
+	if ($cnt_kst >= 1 && $cnt_kst_doc == 0)
+	{
+		$isMissing_doc = true;
+		$missing_docs .= "<li>mindestens einen Krankenstand</li>";
+	}
+	if ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)
+	{
+		$isMissing_doc = true;
+		$missing_docs .= "<li>mindestens einen Pflegeurlaub</li>";
+	}
+	
+	$missing_docs .= "</ul>";
+	
+	// if document check ok, prepare for email sending
+	if(!$isMissing_doc)
+	{	
+		$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
+		$from = 'noreply@'. DOMAIN;				
+		$subject = 'Monatsliste '. $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year. ' von '. $full_name;
+		$text = '';
+		$mail = new Mail($to, $from, $subject, $text);
+
+		// send email
+		if($mail->send())
+		{
+			$send_date = new DateTime();
+			$timesheet = new Timesheet();	
+			$timesheet->timesheet_id = $timesheet_id;
+			$timesheet->abgeschicktamum = $send_date->format('Y-m-d H:i:s');
+
+			// save sending date
+			if($timesheet->save(true))
+			{
+				// reload page to refresh actual and all monthlist display vars
+				header('Location: '.$_SERVER['PHP_SELF']);  
+			}
+			else
+			{
+				echo $timesheet->errormsg;
+			}	
+		}
+		else
+		{
+			echo 'Mail konnte nicht versendet werden.';
+		}
 	}
 }
 ?>
@@ -219,25 +386,12 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 			color: grey;
 		}
 	</style>
-	<script>
-		
+	<script>			
 	// Open popup window for uploading documents & refresh site when window closed (to display new uploaded documents)
     function FensterOeffnen (adresse)
 	{
-		MeinFenster = window.open(adresse, '', 'width = 820px; height = 500px;');
+		MeinFenster = window.open(adresse, '', 'width = 820px; height = 600px;');
 		MeinFenster.focus();
-
-		// capture popup window closing
-		var winTimer = window.setInterval(function()
-		{
-			// Refresh and display (new) timesheets, when popup window is closed
-			if (MeinFenster.closed !== false)	// !== required for compatibility with Opera
-			{			
-				window.clearInterval(winTimer);
-				$('#tbl_all_actualMonth_bestaetigungen').load(window.location.href + ' #tbl_all_actualMonth_bestaetigungen');
-				$('#panel_all_user_bestaetigungen').load(window.location.href + ' #panel_all_user_bestaetigungen');		
-			}
-		}, 200);	
 	}
 	
 	function deleteBestaetigung(dms_id)
@@ -259,7 +413,18 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 				}
 			}
 		});
-
+	}	
+	
+	function onUploadRefresh()
+	{
+		// display table to be able to be refreshed afterwards
+		if ($('#tbl_all_actualMonth_bestaetigungen').is(':hidden'))
+		{
+			$('#tbl_all_actualMonth_bestaetigungen').css('display', '');
+		};
+		
+		$('#tbl_all_actualMonth_bestaetigungen').load(window.location.href + ' #tbl_all_actualMonth_bestaetigungen');
+		$('#panel_all_user_bestaetigungen').load(window.location.href + ' #panel_all_user_bestaetigungen');	
 	}
 	</script>
 </head>
@@ -270,11 +435,11 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 	
 	<!--************************************	PANEL ACTUAL TIMESHEET	 -->
 
-	<h4>Aktuelle Monatsliste: <?php echo $monatsname[$sprache_index][$date_chosen_month-1]. ' '. $date_chosen_year ?></h4><br>
+	<h4>Aktuelle Monatsliste: <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year ?></h4><br>
 	
 	<div class="row custom-panel" <?php echo ($isFuture || !$isAllowed_createTimesheet) ? 'style="display: none;"' : '' ?>>
 		<div class="col-xs-8">
-			<b>Monatsliste für <?php echo $monatsname[$sprache_index][$date_chosen_month-1]. ' '. $date_chosen_year?> herunterladen (xls):</b><br><br>
+			<b>Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year?> herunterladen (xls):</b><br><br>
 			Diese Liste ist nur für Ihren Bedarf und Ihre Eigenkontrolle.<br>
 			Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
 		</div>
@@ -309,7 +474,7 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 				
 			<!--if no absent times in actual timesheet found, display other text-->		
 			<?php if($counter = 0): ?>	
-				Sie haben im <?php echo $monatsname[$sprache_index][$date_chosen_month-1]. ' '. $date_chosen_year?> keine Fehlzeiten.
+				Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year?> keine Fehlzeiten.
 			<?php endif; ?>			
 		</div>
 		<div class="col-xs-4"><br>
@@ -321,8 +486,8 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 			<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
 			<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
 				<tr>
-					<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>" 
-						<?php echo ($isSent) ? 'class="inactive"' : '' ?>><?php echo $bestaetigung->name ?></a></td>
+					<td><?php echo $bestaetigung->dokument_bezeichnung ?>: </td>
+					<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $bestaetigung->name ?></a></td>
 					<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id" 
 						   onclick="deleteBestaetigung(<?php echo $bestaetigung->dms_id ?>)"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
 				</tr>
@@ -337,34 +502,98 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 			Wenn  Sie alle erforderlichen Dokumente hochgeladen haben, verschicken Sie Ihrem Vorgesetzten bis zum 05. des Folgemonats Ihre Monatsliste.<br>
 			Nach dem Verschicken kann diese <b>nicht</b> mehr bearbeitet werden.
 		</div>
-		<div class="col-xs-4"><br>
-			<button type="button" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> class="btn btn-default pull-right">Monatsliste verschicken</button>
-		</div>
+		<form method="POST" action="">
+			<div class="col-xs-4"><br>
+				<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> 
+						name="submitTimesheet" class="btn btn-default pull-right"
+						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year ?>\n\
+								jetzt an <?php echo $vorgesetzter_vorname. ' ', $vorgesetzter_nachname ?> verschicken?');">Monatsliste verschicken</button>
+			</div>
+		</form>
 	</div><br><br>
 	
 	
 
 	<!--************************************	ALERTS	 -->
+	<!-- IF document uploads are missing (after check against absences) -->
+	<?php if ($isMissing_doc): ?>
+	<div class="alert alert-danger alert-dismissible" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<div class="col-xs-offset-4">
+			<b>Die Monatsliste konnte noch nicht versendet werden!</b>&nbsp;&nbsp;
+			<a role="button" data-toggle="modal" data-target="#modalSendMonatsliste"><i class="alert-danger fa fa-question-circle-o fa-lg" aria-hidden="true"></i></a><br>
+			Es fehlen noch Bestätigungen für:
+			<?php echo $missing_docs ?>
+		</div>
+		
+		<!--POPUP WINDOW with document upload help information-->
+		<div class="modal fade text-muted" tabindex="-1" role="dialog" id="modalSendMonatsliste">
+			<div class="modal-dialog" role="document">
+				<div class="modal-content">
+					<div class="modal-header">
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+						<h4 class="modal-title">Monatsliste versenden</h4>
+					</div>
+					<div class="modal-body">
+						<p>
+							1. Vergewissern Sie sich, dass Sie für alle Ihre Abwesenheitszeiten jeweils SEPARAT eine Bestätigung hochgeladen haben.<br>
+						</p>
+						<p>
+							2. Prüfen Sie in in der Auflistung Ihrer Dokumentenuploads, ob der Bestätigungstyp richtig ist und zur Bestätigung passt:<br>
+						<ul>
+							<li>Bestätigung Arzbesuch: für Arztbesuche, Dauer max. 1 Tag.<br>Abwesenheit wurde im CIS in der täglichen Zeiterfassung eingetragen.</li>
+							<li>Bestätigung Behörde: für Behördenwege, Dauer max. 1 Tag.<br>Abwesenheit wurde im CIS in der täglichen Zeiterfassung eingetragen.</li>
+							<li>Bestätigung Dienstverhinderung: für Dienstverhinderungen, Dauer max. 1 Tag.<br>Abwesenheit wurde im CIS in der täglichen Zeiterfassung eingetragen.</li>
+							<li>Bestätigung Krankenstand: für Krankenstände/Spitalsaufenthalte, ab 3 Tage Dauer.<br>Abwesenheit wurde im CIS über die Zeitsperre eingetragen.</li>
+							<li>Bestätigung Pflegeurlaub: für Pflegeurlaube, ab 3 Tage Dauer.<br>Abwesenheit wurde im CIS über die Zeitsperre eingetragen.</li>
+						</ul>
+						Sollte der Bestätigunstyp nicht passen, so löschen Sie das Dokument. Laden Sie es dann erneut mit dem richtigen Typ wieder hoch.
+						</p>
+						<p>
+							3. Sammelscans (EINE Datei, in der mehrere Bestätigungen eingescant sind), können nicht den entsprechenden Bestätigunstypen zugeordnet werden und werden daher nicht akzeptiert.
+						</p>
+					</div>
+					<div class="modal-footer">
+						<button type="button" class="btn btn-default" data-dismiss="modal">Schließen</button>
+					</div>
+				</div><!-- /.modal-content -->
+			</div><!-- /.modal-dialog -->
+		</div><!-- /.modal -->
+	</div><!-- /.alert -->
+	<?php endif; ?>
+	
+	
 	<!-- IF chosen date is in the future -->
 	<?php if ($isFuture): ?>
-	<div class="alert alert-danger text-center" role="alert">
-		<b>Für <?php echo $monatsname[$sprache_index][$date_chosen_month-1] . ' ' .$date_chosen_year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
+	<div class="alert alert-danger alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<b>Für <?php echo $monatsname[$sprache_index][$date_selected_month-1] . ' ' .$date_selected_year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
 		Es können nur Monatslisten für den aktuellen oder vergangene Monate erstellt werden.
 	</div>
 	<?php endif; ?>
 	
 	<!-- IF timesheets are missing before actual monthyear -->	
 	<?php if ($isDisabled_by_missingTimesheet && !$isFuture && !$isConfirmed): ?>
-	<div class="alert alert-danger text-center" role="alert">
-		<b>Für <?php echo $monatsname[$sprache_index][$date_chosen_month-1] . ' ' .$date_chosen_year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
+	<div class="alert alert-danger alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<b>Für <?php echo $monatsname[$sprache_index][$date_selected_month-1] . ' ' .$date_selected_year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
 		Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
 		Bitte erstellen Sie erst die Monatslisten vergangener Monate.<br>
 		
 		<!--list months of missing timesheets and provide link to timesheet-->
 		<?php 
-		for ($i = $month_diff - 1; $i > 0; $i--)
+		if ($month_diff > 2)
 		{
-			echo '<br><a role="button" href="#" class="text-danger"><b>Monatsliste ' . $monatsname[$sprache_index][$date_chosen_month-1-$i]. ' '. $date_chosen_year. '</b> erstellen</a>';
+			for ($i = $month_diff - 1; $i > 0; $i--)
+			{
+				echo '<br>Monatsliste ' . $monatsname[$sprache_index][$date_selected_month-1-$i]. ' '. $date_selected_year. ' fehlt';
+			}
+			echo '<br>';
+		}
+	
+		if ($isDisabled_by_missingTimesheet)
+		{
+			echo '<br><a role="button" href="#" class="text-danger"><b>Monatsliste ' . $monatsname[$sprache_index][$date_selected_month - $month_diff]. ' '. $date_selected_year. ' jetzt erstellen</b></a><br>';
 		}
 		?>
 	</div> 
@@ -372,7 +601,8 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 		
 	<!-- IF former timesheets were not sent -->
 	<?php if ($isDisabled_by_formerUnsentTimesheet): ?>
-	<div class="alert alert-danger text-center" role="alert">
+	<div class="alert alert-danger alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 		<b>Sie müssen noch frühere Monatslisten versenden!</b><br><br>
 		Monatslisten müssen chronologisch an Vorgesetzte gesendet werden.<br>
 		Bitte entnehmen Sie der unten stehenden Tabelle "Alle Monatslisten", welche Monatslisten noch nicht versendet wurden.
@@ -381,8 +611,9 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 	
 	<!-- if timesheet is sent AND NOT confirmed -->
 	<?php if ($isSent && !$isConfirmed): ?>
-	<div class="alert alert-success text-center" role="alert">
-		<b>Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$date_chosen_month-1]. ' '. $date_chosen_year ?> ist erfolgreich an Andreas Österreicher versendet worden!</b><br><br>
+	<div class="alert alert-success alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<b>Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year ?> ist erfolgreich an <?php echo $vorgesetzter_vorname. ' '. $vorgesetzter_nachname ?> versendet worden!</b><br><br>
 		Nach dem Versenden können keine Änderungen mehr vorgenommen werden.<br>
 		Sollte dies dennoch nötig sein, wenden Sie sich an Ihren Vorgesetzten für eine erneute Freigabe.<br><br>
 		Sobald Ihre Monatsliste genehmigt wurde, wird sie in der unteren Tabelle "Alle Monatslisten" mit einer grünen Ampel versehen.
@@ -391,16 +622,18 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 	
 	<!-- IF timesheet is sent AND confirmed -->
 	<?php if ($isSent && $isConfirmed): ?>
-	<div class="alert alert-info text-center" role="alert">
-		<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_chosen_month-1]. ' '. $date_chosen_year?> ist bereits genehmigt worden.</b><br><br>
+	<div class="alert alert-info alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year?> ist bereits genehmigt worden.</b><br><br>
 		Sie können diese aber weiterhin für Ihren persönlichen Bedarf als Excel Datei herunterladen.
 	</div>
 	<?php endif; ?>
 		
 	<!-- IF not allowed to create timesheet (only checked when trying to create FIRST timesheet 2 or more months before actual monthyear) -->
 	<?php if (!$isAllowed_createTimesheet): ?>
-	<div class="alert alert-danger text-center" role="alert">
-		<b>Für <?php echo $monatsname[$sprache_index][$date_chosen_month-1]. ' '. $date_chosen_year ?> kann keine Monatsliste angelegt werden!</b><br><br>
+	<div class="alert alert-danger alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<b>Für <?php echo $monatsname[$sprache_index][$date_selected_month-1]. ' '. $date_selected_year ?> kann keine Monatsliste angelegt werden!</b><br><br>
 		Die erste Monatsliste kann nur für den aktuellen oder den vergangenen Monat erstellt werden.
 	</div>
 	<?php endif; ?>
@@ -424,7 +657,7 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 		<?php $year_cnt = 1; ?>	
 		
 		<!--loop through years-->	
-		<div class="panel" id="panel_all_user_bestaetigungen">
+		<div id="panel_all_user_bestaetigungen">  <!-- class="panel" -->
 		<?php foreach ($timesheet_years as $year): ?>
 			<div class="text-center" role="tab" id="heading<?php echo $year_cnt ?>">
 				<h4 class="panel-title">
@@ -511,3 +744,14 @@ if( isset($_POST['action']) && isset($_POST['method']) ){
 	
 </body>
 </html>
+
+<?php
+// NOTE: Code at the END of script to recognize JS-methods
+// Refresh data when document was uploaded (GET request from timesheet_dmsupload.php)
+if( isset($_GET['uploadRefresh']) && $_GET['uploadRefresh'] == true ){
+	echo 
+		'<script type="text/javascript">',
+		'onUploadRefresh();',               
+		'</script>';
+}
+?>

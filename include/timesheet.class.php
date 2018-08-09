@@ -16,7 +16,7 @@ require_once(dirname(__FILE__). '/../../../include/dms.class.php');
  */
 class Timesheet extends basis_db 
 {
-	public $new = true;			// boolean
+	public $new = false;			// boolean
 	public $result = array();	
 	
 	//table columns
@@ -153,8 +153,9 @@ class Timesheet extends basis_db
 	}
 	
 	// Save single timesheet for one person
-	public function save()
-	{
+	public function save($sent = false, $genehmigt = false)
+	{	
+		// Insert new timesheet
 		if ($this->new)
 		{
 			$qry = ' 
@@ -173,29 +174,60 @@ class Timesheet extends basis_db
 					timesheet_id
 			';
 		}
-		else //...AUFTEILEN IN extra if abfrage für abgeschickt und genehmigt...?!
+		elseif ($sent || $genehmigt)
 		{
 			$qry = '
 				UPDATE
 					addon.tbl_casetime_timesheet
-				SET'.
-					'abgeschicktamum='. $this->db_add_param($this->abgeschicktamum). ', '.
+				SET '; 
+			
+			// Update when timesheet is sent
+			if ($sent)
+			{
+				$qry.= 	
+					'abgeschicktamum = '. $this->db_add_param($this->abgeschicktamum). ' ';
+			}
+			
+			// Update when timesheet is confirmed
+			if ($genehmigt)
+			{
+				$qry.= 
 					'genehmigtamum='. $this->db_add_param($this->genehmigtamum). ','.
-					'genehmigtvon='. $this->db_add_param($this->genehmigtvon) . '
+					'genehmigtvon='. $this->db_add_param($this->genehmigtvon). ' ';
+			}
+			
+			$qry.= '
 				WHERE 
 					timesheet_id='. $this->db_add_param($this->timesheet_id);
 		}
 		
-		if($result = $this->db_query($qry))
+		if ($this->new)
 		{
-			list($last_insert_timesheet_id) = $this->db_fetch_row($result);
-			return $last_insert_timesheet_id;
+			if($result = $this->db_query($qry))
+			{
+				$this->new = false;
+				list($last_insert_timesheet_id) = $this->db_fetch_row($result);
+				return $last_insert_timesheet_id;
+			}
+			else
+			{
+				$this->errormsg = 'Fehler beim Speichern der Daten';
+				return false;
+			}
 		}
 		else
 		{
-			$this->errormsg = 'Fehler beim Speichern der Daten';
-			return false;
+			if($this->db_query($qry))
+			{
+				return true;
+			}
+			else
+			{
+				$this->errormsg = 'Fehler beim Speichern der Daten';
+				return false;
+			}
 		}
+		
 	}	
 	
 	// Get all times and reasons of absence which need to be reported. (of all users timesheets) 
@@ -213,6 +245,7 @@ class Timesheet extends basis_db
 					zeitsperre_id,
 					null AS zeitaufzeichnung_id,
 					tbl_zeitsperretyp.beschreibung AS abwesenheitsgrund, 
+					tbl_zeitsperretyp.zeitsperretyp_kurzbz AS abwesenheit_kurzbz, 
 					vondatum AS von,
 					bisdatum AS bis
 				FROM
@@ -237,6 +270,7 @@ class Timesheet extends basis_db
 					null,
 					zeitaufzeichnung_id,
 					aktivitaet_kurzbz,
+					aktivitaet_kurzbz,
 					start,
 					ende
 				FROM
@@ -260,6 +294,7 @@ class Timesheet extends basis_db
 					$obj = new stdClass();
 					
 					$obj->datum = $row->datum;
+					$obj->abwesenheit_kurzbz = $row->abwesenheit_kurzbz;
 					$obj->abwesenheitsgrund = $row->abwesenheitsgrund;
 					$obj->von = $row->von;
 					$obj->bis = $row->bis;
@@ -283,49 +318,6 @@ class Timesheet extends basis_db
 			return false;
 		}	
 	}
-	
-	// Load all documents to one single timesheet
-	public function loadDocuments()
-	{
-		if ($this->new)
-		{
-			$qry = ' 
-				INSERT INTO
-					addon.tbl_casetime_timesheet(
-						uid,
-						datum,
-						insertvon
-					)
-				VALUES ('.
-					$this->db_add_param($this->uid). ', '.
-					$this->db_add_param($this->datum). ', '.
-					$this->db_add_param($this->insertvon). '
-				)
-			';
-		}
-		else //...AUFTEILEN IN extra if abfrage für abgeschickt und genehmigt...?!
-		{
-			$qry = '
-				UPDATE
-					addon.tbl_casetime_timesheet
-				SET'.
-					'abgeschicktamum='. $this->db_add_param($this->abgeschicktamum). ', '.
-					'genehmigtamum='. $this->db_add_param($this->genehmigtamum). ','.
-					'genehmigtvon='. $this->db_add_param($this->genehmigtvon) . '
-				WHERE 
-					timesheet_id='. $this->db_add_param($this->timesheet_id);
-		}
-		
-		if($this->db_query($qry))
-		{
-			return true;
-		}
-		else
-		{
-			$this->errormsg = 'Fehler beim Speichern der Daten';
-			return false;
-		}
-	}	
 	
 	// Save Bestätigung realted to a certain timesheet
 	public function saveBestaetigung($timesheet_id, $dms_id, $uid)
@@ -373,11 +365,15 @@ class Timesheet extends basis_db
 				SELECT
 					dms_id,
 					name,
-					beschreibung
+					beschreibung,
+					dokument_kurzbz
 				FROM
 					campus.tbl_dms_version
 				JOIN
 					addon.tbl_casetime_timesheet_dms
+				USING (dms_id)
+				JOIN
+					campus.tbl_dms
 				USING (dms_id)
 				WHERE
 					tbl_casetime_timesheet_dms.timesheet_id=' . $this->db_add_param($timesheet_id, FHC_INTEGER);
@@ -391,6 +387,7 @@ class Timesheet extends basis_db
 					$obj->dms_id = $row->dms_id;
 					$obj->name = $row->name;
 					$obj->beschreibung = $row->beschreibung;
+					$obj->dokument_kurzbz = $row->dokument_kurzbz;
 					
 					$this->result[] = $obj;					
 				}
@@ -421,15 +418,23 @@ class Timesheet extends basis_db
 					datum,
 					dms_id,
 					name,
-					beschreibung
+					beschreibung,
+					dokument_kurzbz,
+					tbl_dokument.bezeichnung as dokument_bezeichnung
 				FROM
 					campus.tbl_dms_version
 				JOIN
 					addon.tbl_casetime_timesheet_dms
 				USING (dms_id)
 				JOIN
+					campus.tbl_dms
+				USING (dms_id)
+				JOIN
 					addon.tbl_casetime_timesheet
 				USING (timesheet_id)
+				JOIN
+					public.tbl_dokument
+				USING (dokument_kurzbz)
 				WHERE
 					tbl_casetime_timesheet.uid=' . $this->db_add_param($uid, FHC_STRING) . '
 				ORDER BY
@@ -446,6 +451,8 @@ class Timesheet extends basis_db
 					$obj->dms_id = $row->dms_id;
 					$obj->name = $row->name;
 					$obj->beschreibung = $row->beschreibung;
+					$obj->dokument_kurzbz = $row->dokument_kurzbz;
+					$obj->dokument_bezeichnung = $row->dokument_bezeichnung;
 					
 					$this->result[] = $obj;					
 				}
