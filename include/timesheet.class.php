@@ -97,6 +97,60 @@ class Timesheet extends basis_db
 		}
 	}
 	
+	// Load single timesheet by timesheet_id
+	public function load_byID($timesheet_id)
+	{
+		if (isset($timesheet_id) && is_numeric($timesheet_id))
+		{
+			$qry = '
+				SELECT
+					timesheet_id,
+					uid,
+					datum,
+					insertamum,
+					insertvon,
+					abgeschicktamum,
+					genehmigtamum,
+					genehmigtvon
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					timesheet_id ='. $this->db_add_param($timesheet_id, FHC_INTEGER);
+				
+			if ($this->db_query($qry))
+			{
+				if ($row = $this->db_fetch_object())
+				{
+					$this->timesheet_id = $row->timesheet_id;
+					$this->uid = $row->uid;
+					$this->datum = $row->datum;
+					$this->insertamum = $row->insertamum;
+					$this->insertvon = $row->insertvon;
+					$this->abgeschicktamum = $row->abgeschicktamum;
+					$this->genehmigtamum = $row->genehmigtamum;
+					$this->genehmigtvon = $row->genehmigtvon;
+					
+					return true;
+				}
+				else
+				{
+					$this->errormsg = "Kein timesheet zu dieser timesheet_id vorhanden.";
+					return false;
+				}
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage zum Laden des timesheets.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "Timesheet_ID muss vorhanden und numerisch sein";
+			return false;
+		}
+	}
+	
 	// Load all timesheets for one person
 	public function loadAll($uid)
 	{
