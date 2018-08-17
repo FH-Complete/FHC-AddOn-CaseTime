@@ -211,7 +211,7 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_gruppen"))
 
 }
 
-//Spalte statusgrund_id in tbl_prestudentstauts
+//Spalte datum_bis in addon.tbl_casetime_zeitaufzeichnung
 if(!$result = @$db->db_query("SELECT datum_bis FROM addon.tbl_casetime_zeitaufzeichnung LIMIT 1"))
 {
 	$qry = "ALTER TABLE addon.tbl_casetime_zeitaufzeichnung ADD COLUMN datum_bis date;";
@@ -220,6 +220,240 @@ if(!$result = @$db->db_query("SELECT datum_bis FROM addon.tbl_casetime_zeitaufze
 		echo '<strong>addon.tbl_casetime_zeitaufzeichnung: '.$db->db_last_error().'</strong><br>';
 	else
 		echo '<br>addon.tbl_casetime_zeitaufzeichnung: Spalte datum_bis hinzugefuegt';
+}
+
+// Tabelle für die monatlich zu genehmigenden Timesheets
+if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet"))
+{
+
+	$qry = "CREATE TABLE addon.tbl_casetime_timesheet
+			(
+				timesheet_id bigint NOT NULL,
+				uid varchar(32) NOT NULL,
+				datum date NOT NULL,
+				insertamum timestamp DEFAULT now(),
+				insertvon varchar(32),
+				abgeschicktamum timestamp,
+				genehmigtamum timestamp,
+				genehmigtvon varchar(32)
+			);
+
+	COMMENT ON TABLE addon.tbl_casetime_timesheet IS 'CaseTime Addon Monatslisten, die genehmigt werden sollen';
+
+	ALTER TABLE addon.tbl_casetime_timesheet ADD CONSTRAINT pk_casetime_timesheet PRIMARY KEY (timesheet_id);
+
+	CREATE SEQUENCE addon.tbl_casetime_timesheet_timesheet_id_seq
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 1;
+
+	ALTER TABLE addon.tbl_casetime_timesheet ALTER COLUMN timesheet_id SET DEFAULT nextval('addon.tbl_casetime_timesheet_timesheet_id_seq');
+
+	ALTER TABLE addon.tbl_casetime_timesheet ADD CONSTRAINT fk_benutzer_casetime_timesheet_uid FOREIGN KEY (uid) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
+	ALTER TABLE addon.tbl_casetime_timesheet ADD CONSTRAINT fk_benutzer_casetime_timesheet_genehmigtvon FOREIGN KEY (genehmigtvon) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet TO vilesci;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_timesheet_id_seq TO vilesci;
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet TO web;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_timesheet_id_seq TO web;
+	";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_timesheet: '.$db->db_last_error().'</strong><br>';
+	else
+		echo ' addon.tbl_casetime_timesheet: Tabelle addon.tbl_casetime_timesheet hinzugefuegt!<br>';
+}
+
+
+// Tabelle für die DMS Dokumenten IDs, die zu den monatlich zu genehmigenden Timesheets angehängt werden müssen (Krankenstände etc)
+if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet_dms"))
+{
+
+	$qry = "CREATE TABLE addon.tbl_casetime_timesheet_dms
+			(
+				timesheet_dms_id bigint NOT NULL,
+				timesheet_id bigint NOT NULL,
+				dms_id bigint NOT NULL,
+				insertamum timestamp DEFAULT now(),
+				insertvon varchar(32)
+			);
+
+	COMMENT ON TABLE addon.tbl_casetime_timesheet_dms IS 'CaseTime Addon Dokumenten IDs, die zu Monatslisten angehängt werden sollen';
+
+	ALTER TABLE addon.tbl_casetime_timesheet_dms ADD CONSTRAINT pk_casetime_timesheet_dms PRIMARY KEY (timesheet_dms_id);
+
+	CREATE SEQUENCE addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 1;
+
+	ALTER TABLE addon.tbl_casetime_timesheet_dms ALTER COLUMN timesheet_dms_id SET DEFAULT nextval('addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq');
+
+	ALTER TABLE addon.tbl_casetime_timesheet_dms ADD CONSTRAINT fk_casetime_timesheet_casetime_timesheet_dms FOREIGN KEY (timesheet_id) REFERENCES addon.tbl_casetime_timesheet(timesheet_id) ON DELETE RESTRICT ON UPDATE CASCADE;
+	ALTER TABLE addon.tbl_casetime_timesheet_dms ADD CONSTRAINT fk_dms_casetime_timesheet_dms FOREIGN KEY (dms_id) REFERENCES campus.tbl_dms(dms_id) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet_dms TO vilesci;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq TO vilesci;
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_timesheet_dms TO web;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_timesheet_dms_timesheet_dms_id_seq TO web;
+	";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_timesheet_dms: '.$db->db_last_error().'</strong><br>';
+	else
+		echo ' addon.tbl_casetime_timesheet_dms: Tabelle addon.tbl_casetime_timesheet_dms hinzugefuegt!<br>';
+}
+
+// Add DMS category "casetime" (for timesheet upload-documents)
+if ($result = @$db->db_query("SELECT 1 FROM campus.tbl_dms_kategorie WHERE kategorie_kurzbz = 'casetime';"))
+{
+	if ($db->db_num_rows($result) == 0)
+	{
+		$qry = "INSERT INTO campus.tbl_dms_kategorie (
+					kategorie_kurzbz,
+					bezeichnung,
+					beschreibung,
+					parent_kategorie_kurzbz,
+					oe_kurzbz,
+					berechtigung_kurzbz
+			   ) VALUES(
+					'casetime',
+					'Casetime',
+					'Dokumente aus der Zeiterfassung',
+					'personal',
+					'etw',
+					NULL
+			   );";
+		if (!$db->db_query($qry))
+			echo '<strong>campus.tbl_dms_kategorie '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' campus.tbl_dms_kategorie: Added category "casetime"!<br>';
+	}
+}
+
+
+// Add DMS category permissiongroup for DMS category "casetime"
+if ($result = @$db->db_query("SELECT 1 FROM campus.tbl_dms_kategorie_gruppe WHERE kategorie_kurzbz = 'casetime';"))
+{
+	if ($db->db_num_rows($result) == 0)
+	{
+		$qry = "INSERT INTO campus.tbl_dms_kategorie_gruppe (
+					kategorie_kurzbz,
+					gruppe_kurzbz,
+					insertamum,
+					insertvon
+			   ) VALUES(
+					'casetime',
+					'CMS_LOCK',
+					NOW(),
+					'dbcheck'
+			   );";
+		if (!$db->db_query($qry))
+			echo '<strong>campus.tbl_dms_kategorie_gruppe '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' campus.tbl_dms_kategorie_gruppe: Added category group "CMS_LOCK" to category "casetime"!<br>';
+	}
+}
+
+// Add document types
+if ($result = @$db->db_query("SELECT 1 FROM public.tbl_dokument WHERE dokument_kurzbz = 'bst_arzt';"))
+{
+	if ($db->db_num_rows($result) == 0)
+	{
+		$qry = "INSERT INTO public.tbl_dokument (
+					dokument_kurzbz,
+					bezeichnung,
+					ext_id,
+					bezeichnung_mehrsprachig,
+					dokumentbeschreibung_mehrsprachig
+			   ) VALUES(
+					'bst_arzt',
+					'Bestätigung Arztbesuch',
+					NULL,
+					'{\"Bestätigung Arztbesuch\",\"Bestätigung Arztbesuch\"}',
+					NULL
+			   );";
+		if (!$db->db_query($qry))
+			echo '<strong>public.tbl_dokument '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' public.tbl_dokument: Added document type bst_arzt<br>';
+
+		$qry = "INSERT INTO public.tbl_dokument (
+					dokument_kurzbz,
+					bezeichnung,
+					ext_id,
+					bezeichnung_mehrsprachig,
+					dokumentbeschreibung_mehrsprachig
+			   ) VALUES(
+					'bst_bhrd',
+					'Bestätigung Behörde',
+					NULL,
+					'{\"Bestätigung Behörde\",\"Bestätigung Behörde\"}',
+					NULL
+			   );";
+		if (!$db->db_query($qry))
+			echo '<strong>public.tbl_dokument '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' public.tbl_dokument: Added document type bst_bhrd<br>';
+
+		$qry = "INSERT INTO public.tbl_dokument (
+					dokument_kurzbz,
+					bezeichnung,
+					ext_id,
+					bezeichnung_mehrsprachig,
+					dokumentbeschreibung_mehrsprachig
+			   ) VALUES(
+					'bst_dv',
+					'Bestätigung Dienstverhinderung',
+					NULL,
+					'{\"Bestätigung Dienstverhinderung\",\"Bestätigung Dienstverhinderung\"}',
+					NULL
+			   );";
+		if (!$db->db_query($qry))
+			echo '<strong>public.tbl_dokument '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' public.tbl_dokument: Added document type bst_dv<br>';
+
+		$qry = "INSERT INTO public.tbl_dokument (
+					dokument_kurzbz,
+					bezeichnung,
+					ext_id,
+					bezeichnung_mehrsprachig,
+					dokumentbeschreibung_mehrsprachig
+			   ) VALUES(
+					'bst_krnk',
+					'Bestätigung Krankenstand',
+					NULL,
+					'{\"Bestätigung Krankenstand\",\"Bestätigung Krankenstand\"}',
+					NULL
+			   );";
+		if (!$db->db_query($qry))
+			echo '<strong>public.tbl_dokument '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' public.tbl_dokument: Added document type bst_krnk<br>';
+
+
+		$qry = "INSERT INTO public.tbl_dokument (
+					dokument_kurzbz,
+					bezeichnung,
+					ext_id,
+					bezeichnung_mehrsprachig,
+					dokumentbeschreibung_mehrsprachig
+			   ) VALUES(
+					'bst_pfur',
+					'Bestätigung Pflegeurlaub',
+					NULL,
+					'{\"Bestätigung Pflegeurlaub\",\"Bestätigung Pflegeurlaub\"}',
+					NULL
+			   );";
+		if (!$db->db_query($qry))
+			echo '<strong>public.tbl_dokument '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' public.tbl_dokument: Added document type bst_pfur<br>';
+
+	}
 }
 
 echo '<br>Aktualisierung abgeschlossen<br><br>';
@@ -231,6 +465,8 @@ $tabellen=array(
 	"addon.tbl_casetime_gruppen"  => array("casetime_gruppen_id","oe_kurzbz","uid","sync"),
 	"addon.tbl_casetime_zeitsperre"  => array("casetime_zeitsperre_id","uid","datum","typ"),
 	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id", "datum_bis"),
+	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon"),
+	"addon.tbl_casetime_timesheet_dms"  => array("timesheet_dms_id","timesheet_id","dms_id","insertamum", "insertvon"),
 );
 
 
