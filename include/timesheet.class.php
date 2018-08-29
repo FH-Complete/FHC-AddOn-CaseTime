@@ -323,7 +323,7 @@ class Timesheet extends basis_db
 					datum,
 					null,
 					zeitaufzeichnung_id,
-					aktivitaet_kurzbz,
+					tbl_aktivitaet.beschreibung,
 					aktivitaet_kurzbz,
 					start,
 					ende
@@ -331,6 +331,8 @@ class Timesheet extends basis_db
 					addon.tbl_casetime_timesheet
 				JOIN 
 					campus.tbl_zeitaufzeichnung USING (uid)
+				JOIN
+					fue.tbl_aktivitaet USING (aktivitaet_kurzbz)
 				WHERE
 					uid = '. $this->db_add_param($uid). '
 				AND 
@@ -552,7 +554,7 @@ class Timesheet extends basis_db
 				else
 				{
 					$this->db_query('ROLLBACK;');
-					$this->errormsg = "Fehler beim Löschen des Dokuments aufgetreten.";  //...ROLLBACK über methoden ZWEIER Klassen so korrekt?
+					$this->errormsg = "Fehler beim Löschen des Dokuments aufgetreten.";
 					return false;	
 				}					
 			}
@@ -565,9 +567,10 @@ class Timesheet extends basis_db
 		}
 	}
 	
+	// Get user of timesheet
 	public function getUser($timesheet_id)
 	{
-		if (isset($timesheet_id) && !empty($timesheet_id))
+		if (isset($timesheet_id) && is_numeric($timesheet_id))
 		{
 			$qry = '
 				SELECT
@@ -592,7 +595,49 @@ class Timesheet extends basis_db
 		}
 		else
 		{
-			$this->errormsg = "Timesheet_ID muss vorhanden und nicht leer sein";
+			$this->errormsg = "Timesheet_ID muss vorhanden und numerisch sein";
+			return false;
+		}
+			
+	}
+	
+	// Get user by dms id
+	public function getUserByDMSId($dms_id)
+	{
+		if (isset($dms_id) && is_numeric($dms_id))
+		{
+			$qry = '
+				SELECT
+					uid
+				FROM
+					addon.tbl_casetime_timesheet
+				JOIN
+					addon.tbl_casetime_timesheet_dms
+				USING
+					(timesheet_id)
+				JOIN 
+					campus.tbl_dms
+				USING
+					(dms_id)
+				WHERE
+					dms_id ='. $this->db_add_param($dms_id, FHC_INTEGER);
+		
+		if ($this->db_query($qry))
+			{
+			if ($row = $this->db_fetch_object())
+				{			
+					return $this->result = $row->uid;
+				}
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage des users zur dms_id.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "DMS_ID muss vorhanden und numerisch sein";
 			return false;
 		}
 			

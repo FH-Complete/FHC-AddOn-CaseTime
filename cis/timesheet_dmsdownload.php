@@ -17,26 +17,50 @@
  *
  * Authors: Cristina Hainberger	<hainberg@technikum-wien.at>
  */
-require_once('../../../config/vilesci.config.inc.php');		//...VILESCI ok? oder muss im CIS config sein?
+require_once('../../../config/cis.config.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/dms.class.php');
+require_once('../../../include/mitarbeiter.class.php');
+require_once('../include/timesheet.class.php');
 
 session_cache_limiter('none'); //muss gesetzt werden sonst funktioniert der Download mit IE8 nicht
 session_start();
 
-$uid= get_uid();
+$uid = get_uid();
 $p = new phrasen();
-$rechte = new benutzerberechtigung();
-$rechte->getBerechtigungen($uid);
-if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('assistenz') && !$rechte->isBerechtigt('mitarbeiter'))
-	die('Keine Berechtigung');
 
 if(isset($_GET['dms_id']) && is_numeric($_GET['dms_id']))
 	$dms_id = $_GET['dms_id'];
 else
 	echo 'dms ID muss gesetzt sein.';
-	
+
+// Permission check
+// * flag documents owner
+$timesheet = new Timesheet();
+$uid_of_dms_id = $timesheet->getUserByDMSId($dms_id);
+$isDocumentOwner = ($uid == $uid_of_dms_id) ? true : false;		// bool for permission check; true if timesheet belongs to uid
+
+// * flag supervisor of documents owner
+$isDocumentOwner_supervisor = false;
+$mitarbeiter = new Mitarbeiter();
+$mitarbeiter->getUntergebene($uid);
+$untergebenen_arr = $mitarbeiter->untergebene;
+if (!empty($untergebenen_arr) && in_array($uid_of_dms_id, $untergebenen_arr))
+{
+	$isDocumentOwner_supervisor = true;
+}
+
+// * for other permissions
+$rechte = new benutzerberechtigung();
+$rechte->getBerechtigungen($uid);
+
+// * permission check
+if (!$isDocumentOwner &&	// documents owner
+	!$isDocumentOwner_supervisor &&	// supervisor
+	!$rechte->isBerechtigt('mitarbeiter/zeitsperre', null, 'suid') &&	// personnel department
+	!$rechte->isBerechtigt('admin'))	// admin
+		die('Keine Berechtigung');
 	
 $doc = new dms();
 
@@ -45,18 +69,18 @@ if(!$doc->load($dms_id))
 	die('Dieses Dokument existiert nicht mehr');
 
 $filename = DMS_PATH. $doc->filename;
-if(file_exists($filename))
+if (file_exists($filename))
 {
-	if($handle = fopen($filename, "r"))
+	if ($handle = fopen($filename, "r"))
 	{
-		if($doc->mimetype=='')
-			$doc->mimetype='application/octetstream';
+		if ($doc->mimetype == '')
+			$doc->mimetype = 'application/octetstream';
 		
 		header('Content-type: '.$doc->mimetype);
 		header('Content-Disposition: inline; filename="'. $doc->name. '"');
 		header('Content-Length: '. filesize($filename));
 		
-		while (!feof($handle)) 
+		while (!feof($handle))
 		{
 			echo fread($handle, 8192);
 		}
@@ -67,4 +91,3 @@ if(file_exists($filename))
 }
 else
 	echo 'Die Datei existiert nicht';
-?>
