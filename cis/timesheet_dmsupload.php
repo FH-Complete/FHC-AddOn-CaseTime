@@ -220,15 +220,13 @@ if (!empty($timesheet_id))
 	<form class="form-horizontal" method="POST" enctype="multipart/form-data" action="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo $timesheet_id ?>">
 		<input type='hidden' name='kategorie_kurzbz' id='kategorie_kurzbz' value='casetime'> 
 		<input type='hidden' name='fileupload' id='fileupload'>
-
 		<div class="form-group">
 			<label for="typ" class="col-xs-2 control-label">Typ</label>
 			<select id="typ" name='dokument_kurzbz' class="form-control" style='width:300px'>
 
-			<?php foreach ($dokument->result as $dok): ?>
-				<?php $onclick = "document.getElementById('titel').value='". $dok->dokument_kurzbz."';"; ?>
-				<option value="<?php echo $dok->dokument_kurzbz ?>" onclick="<?php echo $onclick ?>" 
-						<?php echo (isset($_GET['dokument_kurzbz']) && $_GET['dokument_kurzbz'] == $dok->dokument_kurzbz) ? 'selected' : ''; ?>>
+			<?php foreach ($dokument->result as $dok): ?>	
+				<option value="<?php echo $dok->dokument_kurzbz ?>" 
+						<?php echo (isset($_POST['dokument_kurzbz']) && $_POST['dokument_kurzbz'] == $dok->dokument_kurzbz) ? 'selected' : ''; ?>>
 						<?php echo $dok->bezeichnung ?>
 				</option>
 			<?php endforeach; ?>
