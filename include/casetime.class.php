@@ -166,7 +166,7 @@ class casetime extends basis_db
 	 */
 	public function deleteDay($uid, $datum)
 	{
-		$qry = "DELETE FROM addon.tbl_casetime_zeitaufzeichnung WHERE uid=".$this->db_add_param($uid)." AND datum=".$this->db_add_param($datum);
+		$qry = "DELETE FROM addon.tbl_casetime_zeitaufzeichnung WHERE typ != 'da' AND uid=".$this->db_add_param($uid)." AND datum=".$this->db_add_param($datum);
 
 		if($this->db_query($qry))
 		{

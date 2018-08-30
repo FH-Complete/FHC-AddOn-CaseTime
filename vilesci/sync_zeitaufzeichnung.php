@@ -108,7 +108,9 @@ WHERE
 AND
 	uid in(".$db->db_implode4SQL($user_arr).")
 AND
-	not exists (select 1 from campus.tbl_zeitaufzeichnung where start::date = tbl_casetime_zeitaufzeichnung.datum and uid=tbl_casetime_zeitaufzeichnung.uid);";
+	not exists (select 1 from campus.tbl_zeitaufzeichnung where start::date = tbl_casetime_zeitaufzeichnung.datum and uid=tbl_casetime_zeitaufzeichnung.uid
+	and (ende::date = tbl_casetime_zeitaufzeichnung.datum_bis or tbl_casetime_zeitaufzeichnung.datum_bis is null)
+);";
 // geaenderte Ko/Ge Eintraege markieren
 $qry.="
 UPDATE
