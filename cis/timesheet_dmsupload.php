@@ -64,6 +64,12 @@ $timesheet_date = new DateTime($timesheet->datum);
 $year = $timesheet_date->format('Y');
 $month = $timesheet_date->format('m');
 
+//get max serverside size upload
+$max_upload = (int)(ini_get('upload_max_filesize'));
+$max_post = (int)(ini_get('post_max_size'));
+$memory_limit = (int)(ini_get('memory_limit'));
+$max_upload_mb = min($max_upload, $max_post, $memory_limit);	// smallest of 3 config values
+
 if (isset($_POST['submitBestaetigung']))
 {
 	$error = false;
@@ -76,11 +82,11 @@ if (isset($_POST['submitBestaetigung']))
 		$filename .= ".". $ext;
 		$uploadfile = DMS_PATH. $filename;
 		$mime = $_FILES['file']['type'];
-	
-		if (move_uploaded_file($_FILES['file']['tmp_name'], $uploadfile))
-		{		
-			if ($mime == 'image/jpeg' || $mime == 'application/pdf')
-			{
+		
+		if ($mime == 'image/jpeg' || $mime == 'application/pdf' || empty($mime))
+		{
+			if (move_uploaded_file($_FILES['file']['tmp_name'], $uploadfile))
+			{		
 				$kategorie_kurzbz = isset($_POST['kategorie_kurzbz']) ? $_POST['kategorie_kurzbz'] : '';
 				$dokument_kurzbz = isset($_POST['dokument_kurzbz']) ? $_POST['dokument_kurzbz'] : '';
 
@@ -106,18 +112,18 @@ if (isset($_POST['submitBestaetigung']))
 					echo 'Fehler beim Speichern der Daten';
 					$error = true;
 				}
-			}
+			}		
 			else
 			{
 				$isError = true;
-				$err_msg = 'Bitte wählen Sie eine Datei im PDF oder JPG Format.';
+				$err_msg = 'Fehler beim Hochladen der Datei. Haben Sie eine Datei ausgewählt?';
 				$error = true;
 			}
 		}
 		else
 		{
 			$isError = true;
-			$err_msg = 'Fehler beim Hochladen der Datei. Haben Sie eine Datei ausgewählt?';
+			$err_msg = 'Bitte wählen Sie eine Datei im PDF oder JPG Format.';
 			$error = true;
 		}
 	}
@@ -184,8 +190,9 @@ if (!empty($timesheet_id))
 <body class="container">
 	
 	<h3>Dokumente hochladen</h3><br><br>	
-	Bitte wählen Sie für jede Ihrer Abwesenheiten den entsprechenden Bestätigungstyp im Dropdown aus und laden die jeweils zugehörige Bestätigung (im PDF oder JPG Format) hoch.
-	<a role="button" data-toggle="modal" data-target="#modalUploadDocuments"><i class="fa fa-question-circle-o fa-lg" aria-hidden="true"></i></a><br><br><br>
+	Bitte wählen Sie für jede Ihrer Abwesenheiten den entsprechenden Bestätigungstyp im Dropdown aus und laden die jeweils zugehörige Bestätigung hoch.
+	<a role="button" data-toggle="modal" data-target="#modalUploadDocuments"><i class="fa fa-question-circle-o fa-lg" aria-hidden="true"></i></a><br><br>
+	<i>Format: PDF oder JPG, max. <?php echo $max_upload_mb ?> MB</i><br><br><br>
 	
 	<!--POPUP WINDOW with document upload help information-->
 		<div class="modal fade text-muted" tabindex="-1" role="dialog" id="modalUploadDocuments">

@@ -70,7 +70,11 @@ if (isset($_GET['timesheet_id']))
 
 	// set month and year to timesheets month and year to enter correct timesheet
 	$timesheet = new Timesheet();
-	$timesheet->load_byID($timesheet_id);
+	$timesheet->load_byID($timesheet_id);	
+	// exit if no existing timesheet for this timesheet_id
+	if (is_null($timesheet->timesheet_id))
+		die($timesheet->errormsg);
+	
 	$timesheet_date = new DateTime($timesheet->datum);
 	$year = $timesheet_date->format('Y');
 	$month = $timesheet_date->format('m');
@@ -122,7 +126,7 @@ $date_selected_year = $date_selected->format('Y');						// string year selected
 $date_selected_month = $date_selected->format('m');						// string month selected
 $monthyear_selected = $date_selected->format('Y-m');					// string month/year selected
 
-$date_timesheet_golive = DateTime::createFromFormat('d.!m.Y', CASETIME_TIMESHEET_GOLIVE);  // first possible date to create monthlists (timesheet go live)
+$date_timesheet_golive = DateTime::createFromFormat('Y-m-d|', CASETIME_TIMESHEET_GOLIVE);  // first possible date to create monthlists (timesheet go live)
 $date_timesheet_golive->modify('last day of this month');
 
 $isFuture = false;														// bool if chosen monthyear is in the future (after actual monthyear)
@@ -135,6 +139,13 @@ $timesheet_arr = $timesheet_arr->loadAll($uid);
 $isAllowed_createTimesheet = true;										// bool if user is allowed to create a timesheet
 $isBeforeGolive = false;												// bool if date is before casetime timesheet golive
 
+// flag if date selected is before casetime timesheet golive
+if ($date_selected < $date_timesheet_golive)
+{
+	$isAllowed_createTimesheet = false;
+	$isBeforeGolive = true;
+}
+			
 // If timesheet is created the first time: 
 // flag to only allow for actual month or one month before acutal month AND not before golive 
 if (empty($timesheet_arr))
@@ -143,13 +154,10 @@ if (empty($timesheet_arr))
 	$monthyear_actual_minus_one->modify('last day of last month');
 	$monthyear_actual_minus_one = $monthyear_actual_minus_one->format('Y-m');
 
-	// flag if chosen monthyear is before one month before actual monthyear OR after actual monthyear OR before casetime timesheet golive
-	if ($monthyear_selected < $monthyear_actual_minus_one || $monthyear_selected > $monthyear_actual || $date_selected < $date_timesheet_golive)
+	// flag if chosen monthyear is before one month before actual monthyear OR after actual monthyear
+	if ($monthyear_selected < $monthyear_actual_minus_one || $monthyear_selected > $monthyear_actual)
 	{
 		$isAllowed_createTimesheet = false;
-
-		if ($date_selected < $date_timesheet_golive)
-			$isBeforeGolive = true;
 	}
 }
 
@@ -433,12 +441,18 @@ if (isset($_POST['action']) && isset($_POST['method']))
 	if ($_POST['action'] == 'ajax' && $_POST['method'] == 'deleteDmsId')
 	{
 		if (isset($_POST['dms_id']) && is_numeric($_POST['dms_id']))
-		{
+		{							
 			$result = false;
 			$timesheet = new Timesheet();
-			if ($timesheet->deleteBestaetigung($_POST['dms_id']))
+			$dms_uid = $timesheet->getUserByDMSId($_POST['dms_id']);
+			
+			// delete only if document belongs to user			
+			if ($dms_uid == $uid)
 			{
-				$result = true;
+				if ($timesheet->deleteBestaetigung($_POST['dms_id']))
+				{
+					$result = true;
+				}
 			}
 
 			// ajax return true if deleting succeeded, false if failed
@@ -575,6 +589,11 @@ if (isset($_POST['submitTimesheetSendBack']))
 	<style>
 		.main {
 			width: 65%;
+		}
+		
+		.row {
+			margin-left: 0px;
+			margin-right: 0px;
 		}
 		.custom-panel {
 			border: solid 1px lightgrey; border-radius: 0.3em; padding: 1%;
@@ -800,7 +819,7 @@ if (isset($_POST['submitTimesheetSendBack']))
 	<?php endif; ?>
 	
 	<!-- IF month of the timesheet is not over, timesheet should not be sent -->
-	<?php if (!$isAllowed_sendTimesheet && !$isDisabled_by_missingTimesheet && !$isVorgesetzter): ?>
+	<?php if (!$isAllowed_sendTimesheet && !$isDisabled_by_missingTimesheet && !$isVorgesetzter && $isAllowed_createTimesheet && !$isFuture): ?>
 	<div class="alert alert-info alert-dismissible text-center" role="alert">
 		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 		Ab dem <?php echo $last_timesheet_entry_date_plus_1month->format('d.m.Y') ?> können Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> an Ihren Vorgesetzten schicken.<br>
@@ -809,7 +828,7 @@ if (isset($_POST['submitTimesheetSendBack']))
 	<?php endif; ?>
 
 	<!-- IF timesheets are missing before actual monthyear -->
-	<?php if ($isDisabled_by_missingTimesheet && !$isConfirmed): ?>
+	<?php if ($isDisabled_by_missingTimesheet && !$isConfirmed && $isAllowed_createTimesheet && !$isFuture): ?>
 	<div class="alert alert-danger alert-dismissible text-center" role="alert">
 		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 		<b>Für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
@@ -948,7 +967,7 @@ if (isset($_POST['submitTimesheetSendBack']))
 	<h4>Alle Monatslisten</h4><br>
 
 	<!--if there are present timesheets, show panel with all timesheets-->
-	<?php if (!empty($timesheet_arr)): ?>
+	<?php if (!empty($timesheet_arr) && empty($missing_timesheet_arr)): ?>
 
 		<div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
 
@@ -1029,7 +1048,7 @@ if (isset($_POST['submitTimesheetSendBack']))
 								<?php foreach ($all_user_bestaetigungen as $bestaetigung): ?>
 									<?php $date_bestaetigung = new DateTime($bestaetigung->datum); ?>
 									<?php if($ts_date->format('m-Y') == $date_bestaetigung->format('m-Y')): ?>
-										<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $bestaetigung->name ?></a><br>
+										<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a><br>
 									<?php endif; ?>
 								<?php endforeach; ?>
 								</td>

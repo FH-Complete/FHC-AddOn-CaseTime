@@ -322,7 +322,7 @@ if ($result = @$db->db_query("SELECT 1 FROM campus.tbl_dms_kategorie WHERE kateg
 					'casetime',
 					'Casetime',
 					'Dokumente aus der Zeiterfassung',
-					'personal',
+					'fas',
 					'etw',
 					NULL
 			   );";

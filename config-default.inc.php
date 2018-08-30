@@ -18,5 +18,5 @@ define('CASETIME_ZOPE_USER', '_user_');
 define('CASETIME_ZOPE_PASS', '_pass_');
 
 // date of casetime timesheet go-live (=first possible date to create monthlists)
-define('CASETIME_TIMESHEET_START', '01.01.1970');
+define('CASETIME_TIMESHEET_GOLIVE', '2018-09-01');
 ?>
