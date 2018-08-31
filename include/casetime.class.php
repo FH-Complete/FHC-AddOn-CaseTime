@@ -223,8 +223,8 @@ class casetime extends basis_db
 				WHERE
 					tbl_benutzer.aktiv
 					AND tbl_benutzerfunktion.funktion_kurzbz='oezuordnung'
-					AND (datum_von is null OR datum_von<=now())
-					AND (datum_bis is null OR datum_bis>=now())
+					AND (datum_von is null OR datum_von<=now()::date)
+					AND (datum_bis is null OR datum_bis>=now()::date)
 					AND oe_kurzbz IN(
 						WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as
 						(
@@ -247,8 +247,8 @@ class casetime extends basis_db
 						WHERE
 							tbl_benutzer.aktiv
 							AND tbl_benutzerfunktion.funktion_kurzbz='oezuordnung'
-							AND (datum_von is null OR datum_von<=now())
-							AND (datum_bis is null OR datum_bis>=now())
+							AND (datum_von is null OR datum_von<=now()::date)
+							AND (datum_bis is null OR datum_bis>=now()::date)
 							AND oe_kurzbz IN(
 								WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as
 								(
