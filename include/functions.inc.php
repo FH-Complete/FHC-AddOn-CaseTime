@@ -34,7 +34,7 @@ function DeleteRecords($uid, $datum)
 
 	$datum = $datum_obj->formatDatum($datum,'Ymd');
 
-	$params = 'sachb='.$uid.'&datum='.$datum;
+	$params = 'sachb='.$uid.'&datum='.$datum.'&datum_bis=&typ=';
 
 	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
@@ -81,6 +81,58 @@ function DeleteRecords($uid, $datum)
 	}
 
 }
+
+/**
+ * Sendet einen Request an den CaseTime Server um die Daten eines Mitarbeiters und Tages zu entfernen
+ */
+function DeleteRecordsDienstreiseMT($uid, $datum, $datum_bis, $typ)
+{
+	$datum_obj = new datum();
+
+	$ch = curl_init();
+
+	$url = CASETIME_SERVER.'/sync/rohdaten_delete';
+
+	$datum = $datum_obj->formatDatum($datum,'Ymd');
+	$datum_bis = $datum_obj->formatDatum($datum_bis,'Ymd');
+
+	$params = 'sachb='.$uid.'&datum='.$datum.'&datum_bis='.$datum_bis.'&typ='.$typ;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if(isset($data->STATUS) && $data->STATUS=='OK')
+		{
+			return true;
+		}
+		elseif(isset($data->STATUS) && $data->STATUS=='ERR')
+		{
+			// Error, Fehlermeldung wird zurueckgeliefert
+			return $data->RESULT;
+		}
+		else
+		{
+			return 'Invalid return from CaseTime:'.$result;
+		}
+	}
+
+}
+
 
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
@@ -155,6 +207,8 @@ function SendData($art, $uid, $datum, $beginn, $ende, $datum_bis = null)
 	}
 
 }
+
+
 
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern

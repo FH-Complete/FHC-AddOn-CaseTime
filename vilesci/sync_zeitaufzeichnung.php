@@ -96,6 +96,8 @@ AND
 AND
 	uid in (".$db->db_implode4SQL($user_arr).")
 AND
+	typ != 'da'
+AND
 	not exists (SELECT 1 FROM campus.tbl_zeitaufzeichnung WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id);";
 // Geloeschte Tage markieren
 $qry .= "
@@ -107,6 +109,8 @@ WHERE
 	datum>=".$db->db_add_param($sync_datum_start)."
 AND
 	uid in(".$db->db_implode4SQL($user_arr).")
+AND
+	typ != 'da'
 AND
 	not exists (select 1 from campus.tbl_zeitaufzeichnung where start::date = tbl_casetime_zeitaufzeichnung.datum and uid=tbl_casetime_zeitaufzeichnung.uid
 	and (ende::date = tbl_casetime_zeitaufzeichnung.datum_bis or tbl_casetime_zeitaufzeichnung.datum_bis is null)
@@ -131,7 +135,7 @@ WHERE
 				WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
-// geaenderte Ar/Pa/... Eintraege markieren
+// geaenderte Ar/Pa/... Eintraege markieren NICHT DienstreiseMT!
 $qry.="
 UPDATE
 	addon.tbl_casetime_zeitaufzeichnung
@@ -139,6 +143,8 @@ SET
 	sync=true
 WHERE
 	zeitaufzeichnung_id is not null
+	AND
+	typ != 'da'
 	AND
 	datum>=".$db->db_add_param($sync_datum_start)."
 	AND
@@ -173,6 +179,46 @@ if($result = $db->db_query($qry))
 			// Eintraege aus Sync Tabelle entfernen
 			$ct = new casetime();
 			if(!$ct->deleteDay($row->uid, $row->datum))
+				$msglog .= 'Fehler beim Loeschen aus Sync Tabelle:'.$row->uid.' '.$row->datum;
+		}
+		else
+		{
+			$msglog .= 'Fehler beim Loeschen aus CaseTime:'.$retval;
+		}
+	}
+}
+
+
+// Löschen von DienstreiseMT
+
+// Geloeschte Eintraege markieren
+$qry = "select * from
+	addon.tbl_casetime_zeitaufzeichnung
+WHERE
+	zeitaufzeichnung_id is not null
+AND
+	datum>=".$db->db_add_param($sync_datum_start)."
+AND
+	uid in (".$db->db_implode4SQL($user_arr).")
+AND
+	typ = 'da'
+AND
+	not exists (SELECT 1 FROM campus.tbl_zeitaufzeichnung WHERE zeitaufzeichnung_id=tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id);";
+
+if($result = $db->db_query($qry))
+{
+	while($row = $db->db_fetch_object($result))
+	{
+		$msglog .= "\nLoesche Dienstreise MT-Tageseintragungen ".$row->uid." am ".$row->datum." / ".$row->datum_bis;
+
+		// Eintraege aus CaseTime entfernen
+		$retval = DeleteRecordsDienstreiseMT($row->uid, $row->datum, $row->datum_bis, 'da');
+
+		if($retval===true)
+		{
+			// Eintraege aus Sync Tabelle entfernen
+			$ct = new casetime();
+			if(!$ct->deleteDayDienstreiseMT($row->uid, $row->datum))
 				$msglog .= 'Fehler beim Loeschen aus Sync Tabelle:'.$row->uid.' '.$row->datum;
 		}
 		else

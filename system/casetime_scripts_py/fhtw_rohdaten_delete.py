@@ -23,13 +23,20 @@ def rohdaten_delete(self):
     ret_dict = {'STATUS':'', 'RESULT':''}
     sachb = self.REQUEST.sachb
     datum = self.REQUEST.datum
+    datum_bis = self.REQUEST.datum_bis
+    typ = self.REQUEST.typ
 
 
     vars_dict = {}
     vars_dict['sachb'] = sachb.upper()
     vars_dict['datum'] = datum
-
-    sql_str = """ delete from zeitrohdaten where sachb = '%(sachb)s' and
+    if typ == 'da':
+        vars_dict['datum_bis'] = datum_bis
+        sql_str = """ delete from zeitrohdaten where sachb = '%(sachb)s' and
+            datum in ('%(datum)s','%(datum_bis)s') and bwart in ('DA', 'DE')
+            """ % vars_dict
+    else:
+        sql_str = """ delete from zeitrohdaten where sachb = '%(sachb)s' and
                 datum = '%(datum)s' and bwart not in ('DA', 'DE')
                 """ % vars_dict
 

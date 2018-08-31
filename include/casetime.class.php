@@ -180,6 +180,28 @@ class casetime extends basis_db
 	}
 
 	/**
+	 * Loescht die DiestreiseMT eines Mitarbeiters an einem Tag aus der Sync Tabelle
+	 * @param $uid UID des Mitarbeiters
+	 * @param $datum Datum des Tages der entfernt werden soll
+	 * @return true wenn ok
+	 * @return false wenn fehler
+	 */
+	public function deleteDayDienstreiseMT($uid, $datum)
+	{
+		$qry = "DELETE FROM addon.tbl_casetime_zeitaufzeichnung WHERE typ = 'da' AND uid=".$this->db_add_param($uid)." AND datum=".$this->db_add_param($datum);
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Loeschen der Daten';
+			return false;
+		}
+	}
+
+	/**
 	 * Laedt alle User die mit CaseTime synchronisiert werden sollen
 	 * @return array mit Usern
 	 */
