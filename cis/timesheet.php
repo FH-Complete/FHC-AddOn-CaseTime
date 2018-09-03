@@ -112,7 +112,7 @@ $p = new phrasen($sprache);
 // vars supervisor of user
 $mitarbeiter = new Mitarbeiter($uid);
 $mitarbeiter->getVorgesetzte($uid);
-$vorgesetzten_uid = $mitarbeiter->vorgesetzte[0];
+$vorgesetzten_uid = (!empty($mitarbeiter->vorgesetzte[0])) ? $mitarbeiter->vorgesetzte[0] : '';
 $benutzer = new Benutzer($vorgesetzten_uid);
 $vorgesetzter_full_name = $benutzer->getFullName();						// string full name of supervisor
 $vorgesetzter_vorname = $benutzer->vorname;								// string first name of supervisor
