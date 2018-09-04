@@ -19,4 +19,16 @@ define('CASETIME_ZOPE_PASS', '_pass_');
 
 // date of casetime timesheet go-live (=first possible date to create monthlists)
 define('CASETIME_TIMESHEET_GOLIVE', '2018-09-01');
+
+// casetime server errors that should block the sending of timesheet
+define ('CASETIME_BLOCKING_ERR', serialize(
+	array(
+		'Tag fehlt', 
+		'kein Zeitmodell zugeordnet',
+		'G erwartet',
+		'nicht alle Pausen wurden korrekt beendet',
+		'Werte sind nicht AKTUELL',
+		'jedoch nur eine Pausenzeit von',
+		'KO- bzw. GT-Stempelung'
+	)));
 ?>

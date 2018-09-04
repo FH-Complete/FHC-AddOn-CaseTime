@@ -463,9 +463,13 @@ if (isset($_POST['action']) && isset($_POST['method']))
 }
 
 // *********************************	EMAIL SENDING (and document check)
+$isCaseTimeError = false;									// boolean to flag casetime server errors which should be eliminated before timesheet sending
 if (isset($_POST['submitTimesheet']))
 {
-	// First check if documents according have been uploaded to absences
+	// Check if there are casetime server errors that are defined as blocking errors
+	$isCaseTimeError = checkCaseTimeErrors($uid, $month);
+	
+	// Check if documents according have been uploaded to absences
 	$missing_docs = "<ul>";
 	if ($cnt_ab > $cnt_ab_doc)
 	{
@@ -491,8 +495,8 @@ if (isset($_POST['submitTimesheet']))
 
 	$missing_docs .= "</ul>";
 
-	// if document check ok, prepare for email sending
-	if (!$isMissing_doc)
+	// if document $ casetime server error check ok, prepare for email sending
+	if (!$isMissing_doc && !$isCaseTimeError)
 	{
 		$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
 		$from = 'noreply@'. DOMAIN;
@@ -574,6 +578,35 @@ if (isset($_POST['submitTimesheetSendBack']))
 	{
 		echo $timesheet->errormsg;
 	}
+}
+
+// *********************************	CASETIME SERVER ERROR HANDLING
+// checks if there are casetime server errors that are defined as blocking errors
+function checkCaseTimeErrors($uid, $month)
+{
+	$isCaseTimeError = false;
+	$casetime_error_arr = getCaseTimeErrors($uid);
+	$blocking_error_arr = unserialize(CASETIME_BLOCKING_ERR);
+
+	foreach ($casetime_error_arr as $casetime_error)
+	{
+		$casetime_error_date = new DateTime($casetime_error[0]);
+		$casetime_error_month = $casetime_error_date->format('m');
+
+		// if casetime error date matches timesheet date
+		if ($casetime_error_month == $month)
+		{
+			// check if casetime error is a blocking error
+			foreach($blocking_error_arr as $blocking_err)
+			{
+				if (strpos($casetime_error[1], $blocking_err) !== false) 
+				{
+					$isCaseTimeError = true;
+				}	
+			}
+		}
+	}
+	return $isCaseTimeError;
 }
 ?>
 
@@ -882,8 +915,19 @@ if (isset($_POST['submitTimesheetSendBack']))
 	</div>
 	<?php endif; ?>
 	
+	<!-- IF there are casetime server errors that are defined as blocking errors -->
+	<?php if ($isCaseTimeError && !$isVorgesetzter && !$isDisabled_by_formerUnsentTimesheet): ?>
+	<div class="alert alert-danger alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> konnte nicht versendet werden!</b><br><br>
+		Die Zeiterfassung ist nicht vollständig oder inkorrekt.<br>
+		Bitte überprüfen und überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
+		<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
+	</div>
+	<?php endif; ?>
+	
 	<!-- IF document uploads are missing (after check against absences) -->
-	<?php if ($isMissing_doc): ?>
+	<?php if ($isMissing_doc && !$isVorgesetzter): ?>
 	<div class="alert alert-danger alert-dismissible" role="alert">
 		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 		<div class="col-xs-offset-4">
