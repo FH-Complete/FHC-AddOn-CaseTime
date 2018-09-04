@@ -278,7 +278,7 @@ function AddonCaseTimeLoadZeitsaldo(uid,exportXLS)
 				if (exportXLS)
 					moli_dd += '<select name="ftype" id="ftype"><option value="pdf">PDF</option><option value="xls">XLS</option></select>';
 				moli_dd += '<input type="button" onclick="AddonCaseTimeGenerateMonatslisteDD()" value="generieren">';
-				moli_dd += '<br><br><a href="../../../addons/casetime/cis/timesheet.php">Monatslisten verwalten</a>'
+				moli_dd += '<br><br><a href="../../../addons/casetime/cis/timesheet.php">Monatslisten verwalten</a>';
 				$('#monatsliste').html(moli_dd);
 				document.getElementById('monat').selectedIndex=MonatLetztes-1;
 				if (MonatLetztes == 12)
