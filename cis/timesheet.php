@@ -734,7 +734,7 @@ function checkCaseTimeErrors($uid, $month)
 			<?php $counter = 0; ?>
 
 			<!--loop through absent times-->
-			<?php foreach ($absent_times_arr as $absence): ?>
+			<?php foreach ($actual_absent_times_arr as $absence): ?>
 
 				<!--set absence text-->
 				<?php if ($counter == 0): ?>
@@ -752,7 +752,7 @@ function checkCaseTimeErrors($uid, $month)
 			<?php endforeach; ?>
 
 			<!--if no absent times in actual timesheet found, display other text-->
-			<?php if($counter = 0): ?>
+			<?php if($counter == 0): ?>
 				Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Fehlzeiten.
 			<?php endif; ?>
 		</div>
