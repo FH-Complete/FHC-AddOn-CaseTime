@@ -1164,7 +1164,7 @@ function checkCaseTimeErrors($uid, $month)
 	<h4>Alle Monatslisten</h4><br>
 
 	<!--if there are present timesheets, show panel with all timesheets-->
-	<?php if (!empty($timesheet_arr) && empty($missing_timesheet_arr)): ?>
+	<?php if (!empty($timesheet_arr) || !empty($missing_timesheet_arr)): ?>
 
 		<div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
 
@@ -1288,7 +1288,7 @@ function checkCaseTimeErrors($uid, $month)
 			</div>
 		</div>
 	<?php endif; ?>
-
+	
 </body>
 </html>
 
