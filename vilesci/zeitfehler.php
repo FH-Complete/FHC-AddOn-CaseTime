@@ -39,48 +39,12 @@ if($username!=$uid)
 		die('Sie haben keine Berechtigung fuer diese Seite');	
 }
 
-$retval = SendData($username);
+/**
+ * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
+ */
+$retval = getCaseTimeErrors($username);
 
 //echo '[["14.01.2015", "Zeitfehler 1"], ["14.01.2015", "Zeitfehler 2"],["01.01.2014","Zeitfehler ausserhalb der Range"]]';
 echo json_encode($retval);
 
-/**
- * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
- */
-function SendData($uid)
-{
-	$datum_obj = new datum();
-
-	$ch = curl_init();
-
-	$url = CASETIME_SERVER.'/sync/get_zeitfehler';
-
-	$params = 'sachb='.$uid;
-
-	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-
-	$result = curl_exec($ch);
-    
-	if(curl_errno($ch))
-	{
-		return 'Curl error: ' . curl_error($ch);
-		curl_close($ch);
-	}
-	else
-	{
-		curl_close($ch);
-		$data = json_decode($result);
-
-		if(isset($data->STATUS) && $data->STATUS=='OK')
-		{
-			return $data->RESULT;
-		}
-		else
-			return false;
-	}	
-}
 ?>
