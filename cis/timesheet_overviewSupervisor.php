@@ -114,6 +114,12 @@ foreach($untergebenen_arr as $untergebener)
 		}
 	}
 	
+	// balance of time
+	$time_balance = getCaseTimeZeitsaldo($untergebener);	// float time balance OR string error OR bool false
+
+	// holiday information	
+	$holiday = getCastTimeUrlaubssaldo($untergebener);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
+
 	// collect all employees data to push to overall employees array
 	$obj = new stdClass();
 	// * full data of employee who has timesheets
@@ -128,6 +134,8 @@ foreach($untergebenen_arr as $untergebener)
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = $cnt_isNotSent;
 		$obj->all_timesheets_notConfirmed = $cnt_isNotConfirmed;
+		$obj->time_balance = $time_balance;
+		$obj->holiday = $holiday;
 	}
 	// * basic data of employee who has NO timesheets
 	else
@@ -141,6 +149,8 @@ foreach($untergebenen_arr as $untergebener)
 		$obj->all_timesheets_notCreated = 0;
 		$obj->all_timesheets_notSent = 0;
 		$obj->all_timesheets_notConfirmed = 0;
+		$obj->time_balance = $time_balance;
+		$obj->holiday = $holiday;
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
@@ -163,13 +173,12 @@ function sortEmployeesName($employee1, $employee2)
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
 	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
-	<!-- mottie tablesorter css -->
 	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
 	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">	
-	
+	<link href="public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">	
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
-	<!-- mottie tablesorter js -->
 	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/jquery.tablesorter.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/jquery.tablesorter.widgets.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/extras/jquery.tablesorter.pager.min.js"></script>
@@ -208,8 +217,18 @@ function sortEmployeesName($employee1, $employee2)
 	$(document).ready(function() 
 	{
 		// init tablesorter
-		$("#table_monthlists").tablesorter();
-
+		$("#tbl_monthlist_overview").tablesorter(
+			{
+				theme: "default",
+				headerTemplate: '{content} {icon}',
+				widgets: ["filter"],
+				widgetOptions: 
+					{
+						filter_saveFilters : true,
+						filter_searchFiltered: false
+					}			
+			}
+		);
 	});
 	</script>
 </head>
@@ -228,7 +247,7 @@ function sortEmployeesName($employee1, $employee2)
 	
 	<!--************************************	TABLE with EMPLOYEES MONTHLIST INFORMATION	 -->
 				
-	<table class="table table-bordered tablesorter" id="table_monthlists">
+	<table class="table table-condensed table-bordered tablesorter tablesort-active" id="tbl_monthlist_overview" role="grid">
 		
 		<!--************************************	TABLE HEAD	 -->
 		<thead class="text-center">
@@ -236,19 +255,19 @@ function sortEmployeesName($employee1, $employee2)
 				<td></td>
 				<td colspan="3" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
-				<td colspan="4" class="text-uppercase"><b>Insgesamt</b></td>
+				<td colspan="3" class="text-uppercase"><b>Insgesamt</b></td>
 			</tr>
 			<tr>
-				<th>Mitarbeiter</th>
+				<th>Mitarbeiter</th>		
 				<th>Status</th>
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
 				<!--<th>Nicht angelegt/abgeschickt<br>(insgesamt)</th>-->
-				<th>Nicht genehmigt</th>
-				<th>Stundenübertrag</th>
+				<th data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis zum Vormonat. Das können Monatslisten sein, die vom Mitarbeiter nicht erstellt oder abgeschickt wurden, oder bereits abgeschickt aber von Ihnen noch nicht genehmigt wurden. ">Nicht genehmigt</th>
+				<th>Zeitsaldo</th>
 				<th>Überstunden</th>
-				<th>Konsumierte Urlaubstage</th>
-			</tr>
+				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage</th>
+			</tr>			
 		</thead>
 		
 		<!--************************************	TABLE BODY	 -->
@@ -257,7 +276,7 @@ function sortEmployeesName($employee1, $employee2)
 				
 				<!--if employee has at least one timesheet-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
-				<tr>
+				<tr role="row" class>
 					<!--employee name & link to most last timesheet-->
 					<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a></td>
 					
@@ -312,32 +331,45 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 					
 					<!--balance of working hours on next account-->
-					<td class='text-center'>20 h</td>
+					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
 					
 					<!--overtime hours-->
 					<td class='text-center'>5,0 h</td>
 					
 					<!--holidays cosumed-->
-					<td class='text-center'>17 / 25</td>						
+					<td class='text-center'>
+						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
+					</td>						
 				
 				</tr>
 				
 				<!--if employee has NO timesheet yet-->
 				<?php else: ?>
 				<tr>
+					<!--employee name to most last timesheet-->
 					<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+					<!--status-->
 					<td class='text-center'>nicht angelegt</td>
+					<!--sending date-->
 					<td class='text-center'>-</td>
+					<!--confirmation date-->
 					<td class='text-center'>-</td>
+					<!--amount of all timesheets not sent-->
 					<!--<td class='text-center'>-</td>-->	
+					<!--amount of all timesheets not confirmed-->
 					<td class='text-center'>-</td>
+					<!--balance of working hours on next account-->
+					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
+					<!--overtime hours-->
 					<td class='text-center'>-</td>	
-					<td class='text-center'>-</td>	
-					<td class='text-center'>-</td>
+					<!--holidays cosumed-->
+					<td class='text-center'>
+						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
+					</td>
 				</tr>
 				<?php endif; ?>
 			<?php endforeach; ?>
 		</tbody>
-	</table>		
+	</table>
 </body>
 </html>
