@@ -17,7 +17,7 @@
  *
  * Authors:		Cristina Hainberger <cristina.hainberger@technikum-wien.at>
  */
-
+require_once('../../../include/basis_db.class.php');
 require_once('../../../config/cis.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/person.class.php');
@@ -28,6 +28,7 @@ require_once('../../../include/dms.class.php');
 require_once('../../../include/phrasen.class.php');
 
 $uid = get_uid();
+$db = new basis_db();
 $p = new phrasen();
 
 if (!isset($_GET['timesheet_id']) || empty($_GET['timesheet_id']))
@@ -77,71 +78,84 @@ if (isset($_POST['submitBestaetigung']))
 	// Save document in DMS
 	if (isset($_POST['fileupload']))
 	{
-		$ext = pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION);
-		$filename = uniqid();
-		$filename .= ".". $ext;
-		$uploadfile = DMS_PATH. $filename;
-		$mime = $_FILES['file']['type'];
-		
-		if ($mime == 'image/jpeg' || $mime == 'application/pdf' || empty($mime))
+		if (isset($_FILES))
 		{
-			if (move_uploaded_file($_FILES['file']['tmp_name'], $uploadfile))
-			{		
-				$kategorie_kurzbz = isset($_POST['kategorie_kurzbz']) ? $_POST['kategorie_kurzbz'] : '';
-				$dokument_kurzbz = isset($_POST['dokument_kurzbz']) ? $_POST['dokument_kurzbz'] : '';
+			// strip HTML/XML/PHP tags
+			if (!empty($_FILES['file']['name']))
+			{
+				$_FILES['file']['name'] = $db->convert_html_chars($_FILES['file']['name']);
+			}
+			
+			// prepare upload target
+			$ext = pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION);
+			$filename = uniqid();
+			$filename .= ".". $ext;
+			$upload_target = DMS_PATH. $filename;
+			$mime = $_FILES['file']['type'];
 
-				$dms = new dms();
+			// allow only jpeg, pdf, empty
+			// :NOTE: empty to enter condition and trigger move_uploaded_file errormsg
+			if ($mime == 'image/jpeg' || $mime == 'application/pdf' || empty($mime))
+			{
+				// upload files
+				if (move_uploaded_file($_FILES['file']['tmp_name'], $upload_target))
+				{		
+					$kategorie_kurzbz = isset($_POST['kategorie_kurzbz']) ? $_POST['kategorie_kurzbz'] : '';
+					$dokument_kurzbz = isset($_POST['dokument_kurzbz']) ? $_POST['dokument_kurzbz'] : '';
 
-				$dms->setPermission($uploadfile);
+					$dms = new dms();
 
-				$dms->version = 0;
-				$dms->filename = $filename;
-				$dms->mimetype = $_FILES['file']['type'];
-				$dms->name = $_FILES['file']['name'];
-				$dms->kategorie_kurzbz = $kategorie_kurzbz;
-				$dms->insertamum = date('Y-m-d H:i:s');
-				$dms->insertvon = $uid;
-				$dms->dokument_kurzbz = $dokument_kurzbz;
+					$dms->setPermission($upload_target);
 
-				if ($dms->save(true))
-				{
-					$dms_id = $dms->dms_id;
-				}
+					$dms->version = 0;
+					$dms->filename = $filename;
+					$dms->mimetype = $_FILES['file']['type'];
+					$dms->name = $_FILES['file']['name'];
+					$dms->kategorie_kurzbz = $kategorie_kurzbz;
+					$dms->insertamum = date('Y-m-d H:i:s');
+					$dms->insertvon = $uid;
+					$dms->dokument_kurzbz = $dokument_kurzbz;
+
+					if ($dms->save(true))
+					{
+						$dms_id = $dms->dms_id;
+					}
+					else
+					{
+						echo 'Fehler beim Speichern der Daten';
+						$error = true;
+					}
+				}		
 				else
 				{
-					echo 'Fehler beim Speichern der Daten';
+					$isError = true;
+					$err_msg = 'Fehler beim Hochladen der Datei. Haben Sie eine Datei ausgewählt?';
 					$error = true;
 				}
-			}		
+			}
 			else
 			{
 				$isError = true;
-				$err_msg = 'Fehler beim Hochladen der Datei. Haben Sie eine Datei ausgewählt?';
+				$err_msg = 'Bitte wählen Sie eine Datei im PDF oder JPG Format.';
 				$error = true;
 			}
 		}
-		else
-		{
-			$isError = true;
-			$err_msg = 'Bitte wählen Sie eine Datei im PDF oder JPG Format.';
-			$error = true;
-		}
-	}
 
-	// Save document to certain timesheet, if no errors occured when saving to DMS
-	if (isset($_FILES['file']['tmp_name']) && !$error)
-	{
-		$timesheet = new Timesheet();
+		// Save document to certain timesheet, if no errors occured when saving to DMS
+		if (isset($_FILES['file']['tmp_name']) && !$error)
+		{
+			$timesheet = new Timesheet();
 
-		if ($timesheet->saveBestaetigung($timesheet_id, $dms_id, $uid))
-		{
-			$isSuccess = true;
-			$msg = "Hochladen von <b>". $dms->name. "</b> war erfolgreich!";
-		}
-		else
-		{
-			$isError = true;
-			$err_msg = $timesheet->errormsg;
+			if ($timesheet->saveBestaetigung($timesheet_id, $dms_id, $uid))
+			{
+				$isSuccess = true;
+				$msg = "Hochladen von <b>". $dms->name. "</b> war erfolgreich!";
+			}
+			else
+			{
+				$isError = true;
+				$err_msg = "Bitte kontaktieren Sie Ihren Systemadministrator.<br>Fehler: ". $timesheet->errormsg;
+			}
 		}
 	}
 }
