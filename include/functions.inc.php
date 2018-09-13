@@ -208,8 +208,6 @@ function SendData($art, $uid, $datum, $beginn, $ende, $datum_bis = null)
 
 }
 
-
-
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
  */
@@ -364,5 +362,241 @@ function SendDataDelete($uid, $datum, $typ)
 
 }
 
+/**
+ * Sendet einen Request an den CaseTime Server um die Zeitfehler abzufragen
+ */
+function getCaseTimeErrors($uid)
+{
+	$ch = curl_init();
 
+	$url = CASETIME_SERVER.'/sync/get_zeitfehler';
+
+	$params = 'sachb='.$uid;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+    
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if(isset($data->STATUS) && $data->STATUS=='OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return false;
+	}	
+}
+
+/**
+ * Sendet einen Request an den CaseTime Server um den Zeitsaldo abzufragen
+ */
+function getCaseTimeZeitsaldo($uid)
+{
+	$ch = curl_init();
+
+	$url = CASETIME_SERVER.'/sync/get_zeitsaldo';
+
+	$params = 'sachb='.$uid;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+    
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if(isset($data->STATUS) && $data->STATUS=='OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return false;
+	}	
+}
+
+/**
+ * Sendet einen Request an den CaseTime Server um den Urlaubssaldo abzufragen
+ */
+function getCastTimeUrlaubssaldo($uid)
+{
+	$ch = curl_init();
+	
+	$url = CASETIME_SERVER.'/sync/get_urlaubsaldo';
+
+	$params = 'sachb='.$uid;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT, "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+    
+	if (curl_errno($ch))
+	{
+		return 'Curl error: '.curl_error($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if (isset($data->STATUS) && $data->STATUS == 'OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return false;
+	}
+}
+
+/**
+ * Sendet einen Request an den CaseTime Server um eine Monatsliste zu generieren und am Casetime Server abzulegen
+ */
+function generateCaseTimeTimesheet($uid, $month, $year, $ftype)
+{
+	$ch = curl_init();
+
+	$url = CASETIME_SERVER.'/sync/generate_monatsliste.py';
+
+	$params = 'ftype='.$ftype.'&ps_sachb='.$uid.'&ps_monat='.$month.'.'.$year;
+	$authstr = base64_encode(CASETIME_ZOPE_USER.':'.CASETIME_ZOPE_PASS);
+	$headers = array();
+	$headers[] = "Authorization: Basic ".$authstr;
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$result = curl_exec($ch);
+
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if(isset($data->sysfile))
+		{
+			return $data->sysfile;
+		}
+		else
+			return false;
+	}
+}
+
+/**
+ * Sendet einen Request an den CaseTime Server um eine generierte Monatsliste abzurufen und am Browser anzuzeigen
+ */
+function renderCaseTimeTimesheet($uid, $sysFile)
+{	
+	// create temp filename
+	$tmp_file = tempnam(sys_get_temp_dir(), "FHC_TIMESHEET_");
+	
+	// create filename (e.g. uid_zrep_monatsliste_09_2019.pdf)
+	$filename = $uid. '_'. basename($sysFile);
+	
+	// connect to CaseTimeServer and get timesheet pdf via sysFile-path
+	$conn = ssh2_connect(CASETIME_SERVER_IP, CASETIME_SERVER_PORT);
+	ssh2_auth_password($conn, CASETIME_ZOPE_SYSUSER, CASETIME_ZOPE_SYSPASS);
+	ssh2_scp_recv($conn, $sysFile, $tmp_file);
+	
+	// close connection
+	$conn = null;
+
+	// display pdf in browser
+	if ($handle = fopen($tmp_file, "r")) 
+	{		
+		header('Content-type: application/pdf');
+		header('Content-Disposition: inline; filename="'. $filename.'"');
+		header('Content-Length: '. filesize($tmp_file));
+
+		while (!feof($handle)) 
+		{
+			echo fread($handle, 8192);
+		}
+		fclose($handle);
+	}
+	else
+	{
+		echo 'Fehler: Datei konnte nicht geoeffnet werden';
+	}
+	
+	// deletes temp file
+	unlink($tmp_file);
+}
+
+/**
+ * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
+ */
+function generateTimesheetAndMail($uid, $monat, $jahr, $ftype)
+{
+	$datum_obj = new datum();
+
+	$ch = curl_init();
+
+	$url = CASETIME_SERVER.'/sync/generate_monatsliste.py';
+
+	$params = 'ftype='.$ftype.'&ps_sachb='.$uid.'&ps_monat='.$monat.'.'.$jahr.'&ps_email='.$uid.'@'.DOMAIN;
+	$authstr = base64_encode(CASETIME_ZOPE_USER.':'.CASETIME_ZOPE_PASS);
+	$headers = array();
+	$headers[] = "Authorization: Basic ".$authstr;
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+	$result = curl_exec($ch);
+
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if(isset($data->message))
+		{
+			return $data->message;
+		}
+		else
+			return false;
+	}
+}
 ?>

@@ -26,8 +26,10 @@ require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/mitarbeiter.class.php');
+require_once('../include/functions.inc.php');
 
 $uid = get_uid();
+$uid = 'oesi';
 $db = new basis_db();
 $sprache_obj = new sprache();
 $sprache = getSprache();	// users language
@@ -119,7 +121,7 @@ foreach($untergebenen_arr as $untergebener)
 
 	// holiday information	
 	$holiday = getCastTimeUrlaubssaldo($untergebener);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
-
+	
 	// collect all employees data to push to overall employees array
 	$obj = new stdClass();
 	// * full data of employee who has timesheets
