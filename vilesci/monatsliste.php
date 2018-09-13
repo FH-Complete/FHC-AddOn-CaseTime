@@ -24,6 +24,7 @@ require_once('../../../config/vilesci.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../include/casetime.class.php');
+require_once('../include/functions.inc.php');  // casetime functions.inc
 
 $uid = get_uid();
 
@@ -60,50 +61,21 @@ if (!$rechte->isBerechtigt('addon/casetimeGenerateXLS'))
 
 if (!isset($_GET['uid']))
 	$username = $uid;
-$retval = SendData($username, $monat, $jahr, $ftype);
-//echo "-18.66";
-echo json_encode($retval);
 
-/**
- * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
- */
-function SendData($uid, $monat, $jahr, $ftype)
+if(!isset($_GET['download']))
 {
-	$datum_obj = new datum();
-
-	$ch = curl_init();
-
-	$url = CASETIME_SERVER.'/sync/generate_monatsliste.py';
-
-	$params = 'ftype='.$ftype.'&ps_sachb='.$uid.'&ps_monat='.$monat.'.'.$jahr.'&ps_email='.$uid.'@'.DOMAIN;
-	$authstr = base64_encode(CASETIME_ZOPE_USER.':'.CASETIME_ZOPE_PASS);
-	$headers = array();
-	$headers[] = "Authorization: Basic ".$authstr;
-	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
-	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
-	curl_setopt($ch, CURLOPT_HEADER, 0);
-	curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
-	$result = curl_exec($ch);
-
-	if(curl_errno($ch))
-	{
-		return 'Curl error: ' . curl_error($ch);
-		curl_close($ch);
-	}
-	else
-	{
-		curl_close($ch);
-		$data = json_decode($result);
-
-		if(isset($data->message))
-		{
-			return $data->message;
-		}
-		else
-			return false;
-	}
+	$retval = generateTimesheetAndMail($username, $monat, $jahr, $ftype);
+	//echo "-18.66";
+	echo json_encode($retval);
 }
+
+if(isset($_GET['download']))
+{
+	// get casetime server filepath with filename
+	$sysFile = generateCaseTimeTimesheet($uid, $monat, $jahr, $ftype);
+	
+	// connect to casetime server, get timesheet pdf and display in browser
+	renderCaseTimeTimesheet($uid, $sysFile);
+}
+
 ?>

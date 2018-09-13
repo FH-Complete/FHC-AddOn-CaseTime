@@ -772,7 +772,10 @@ function checkCaseTimeErrors($uid, $month)
 			Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
 		</div>
 		<div class="col-xs-4"><br>
-			<button type="button" class="btn btn-default pull-right" disabled data-toggle="tooltip" title="Wird ab 01. Oktober 2018 freigeschalten.">Monatsliste herunterladen</button>
+			<a role="button" class="btn btn-default pull-right" data-toggle="tooltip" title="Wird ab 01. Oktober 2018 freigeschalten."
+			    href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
+				target="_blank">Monatsliste herunterladen
+			</a>
 		</div>
 	</div>
 	
@@ -1134,7 +1137,6 @@ function checkCaseTimeErrors($uid, $month)
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> ist genehmigt!</b><br><br>
 			Bereits genehmigte Monatslisten können nicht mehr bearbeitet werden.<br>
-			Sollte dies notwendig sein, wenden Sie sich bitte an die Personalabteilung.
 		</div>
 		<?php elseif(!$isAllowed_confirmTimesheet): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
