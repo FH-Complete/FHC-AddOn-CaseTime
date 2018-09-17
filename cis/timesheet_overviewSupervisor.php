@@ -257,7 +257,7 @@ function sortEmployeesName($employee1, $employee2)
 				<td></td>
 				<td colspan="3" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
-				<td colspan="3" class="text-uppercase"><b>Insgesamt</b></td>
+				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
 			</tr>
 			<tr>
 				<th>Mitarbeiter</th>		
@@ -265,10 +265,18 @@ function sortEmployeesName($employee1, $employee2)
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
 				<!--<th>Nicht angelegt/abgeschickt<br>(insgesamt)</th>-->
-				<th data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis zum Vormonat. Das können Monatslisten sein, die vom Mitarbeiter nicht erstellt oder abgeschickt wurden, oder bereits abgeschickt aber von Ihnen noch nicht genehmigt wurden. ">Nicht genehmigt</th>
+				<th>Nicht genehmigt&nbsp;				
+					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
+						data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis inklusive <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?>.&#013;&#010;(auch solche, die nicht erstellt/abgeschickt und daher nicht genehmigt wurden)">							 
+					</i>
+				</th>
 				<th>Zeitsaldo</th>
-				<th>Überstunden</th>
-				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage</th>
+				<!--<th>Überstunden</th>-->
+				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
+					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
+						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">							 
+					</i>
+				</th>
 			</tr>			
 		</thead>
 		
@@ -336,7 +344,7 @@ function sortEmployeesName($employee1, $employee2)
 					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
 					
 					<!--overtime hours-->
-					<td class='text-center'>5,0 h</td>
+					<!--<td class='text-center'>5,0 h</td>-->
 					
 					<!--holidays cosumed-->
 					<td class='text-center'>
@@ -363,7 +371,7 @@ function sortEmployeesName($employee1, $employee2)
 					<!--balance of working hours on next account-->
 					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
 					<!--overtime hours-->
-					<td class='text-center'>-</td>	
+					<!--<td class='text-center'>-</td>-->	
 					<!--holidays cosumed-->
 					<td class='text-center'>
 						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>

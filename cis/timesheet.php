@@ -772,7 +772,7 @@ function checkCaseTimeErrors($uid, $month)
 			Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
 		</div>
 		<div class="col-xs-4"><br>
-			<a role="button" class="btn btn-default pull-right" data-toggle="tooltip" title="Wird ab 01. Oktober 2018 freigeschalten."
+			<a role="button" class="btn btn-default pull-right"
 			    href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
 				target="_blank">Monatsliste herunterladen
 			</a>
@@ -832,31 +832,31 @@ function checkCaseTimeErrors($uid, $month)
 	</div>
 	
 	<!--panel: OVERTIME-->
-	<div class="row custom-panel" style="border-top: none; <?php echo ($isFuture || !$isAllowed_createTimesheet) ? '"display: none;"' : '' ?>">
+<!--	<div class="row custom-panel" style="border-top: none; <?php echo ($isFuture || !$isAllowed_createTimesheet) ? '"display: none;"' : '' ?>">
 		<div class="col-xs-12">
 			<b>Überstunden</b><br><br>
-		<!--counter for displaying overtime text only once-->
+		counter for displaying overtime text only once
 			<?php $counter = 0; ?>
 
-			<!--loop through overtimes -->
+			loop through overtimes 
 			<?php foreach ($actual_absent_times_arr as $overtime): ?>
 
-				<!--set absence text-->
+				set absence text
 				<?php if ($counter == 0): ?>
 					Sie haben diesen Monat <b>10:30</b> Überstunden.<br><br>
 					<?php $counter++ ?>
 				<?php endif; ?>
 
-				<!--find absences and times only for the actual timesheet
+				find absences and times only for the actual timesheet
 				<ul>
 				<?php if ($overtime->timesheet_id == $timesheet_id): ?>
 					<li><?php echo $overtime->abwesenheitsgrund. ' von '. date_format(date_create($overtime->von), 'd.m.Y'). ' - '. date_format(date_create($overtime->bis), 'd.m.Y') ?></li>
 				</ul>
-				<?php endif; ?>-->
+				<?php endif; ?>
 
 			<?php endforeach; ?>
 
-			<!--if no overtimes in actual timesheet found, display other text-->
+			if no overtimes in actual timesheet found, display other text
 			<?php if($counter == 0): ?>
 				Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Überstunden.
 			<?php endif; ?>
@@ -867,7 +867,7 @@ function checkCaseTimeErrors($uid, $month)
 				<th>Arbeitszeit</th>
 				<th>Überstunden</th>
 				<?php if($isVorgesetzter): ?>
-					<!--<th style="border: solid 2px #31708f;" <?php echo (!$isApproved_overtime) ? 'class="text-danger"' : '' ?>>Genehmigen</th>-->
+					<th style="border: solid 2px #31708f;" <?php echo (!$isApproved_overtime) ? 'class="text-danger"' : '' ?>>Genehmigen</th>
 					<th style="border: solid 2px #31708f;">Genehmigen</th>
 				<?php endif; ?>
 				</thead>
@@ -877,11 +877,11 @@ function checkCaseTimeErrors($uid, $month)
 						<td>08:30 - 23:20</td>
 						<td>3:30</td>
 						<?php if($isVorgesetzter): ?>
-							<!--highlight cell if overtime was not confirmed-->				
+							highlight cell if overtime was not confirmed				
 							<td <?php echo (isset($checkbox_overtime_arr[0]) && $checkbox_overtime_arr[0] == 'false') ? 'class="danger"' : '' ?>>
-								<!--remember checked after reload-->
-								<!--disabled if timesheet has not been sent OR in the future OR former monthlists need to be confirmed-->
-								<!--checked AND disabled if overtime was already confirmed-->
+								remember checked after reload
+								disabled if timesheet has not been sent OR in the future OR former monthlists need to be confirmed
+								checked AND disabled if overtime was already confirmed
 								<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="0"				
 								<?php echo (isset($checkbox_overtime_arr[0]) && $checkbox_overtime_arr[0] == 'true') ? "checked" : "" ?>
 								<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
@@ -918,7 +918,7 @@ function checkCaseTimeErrors($uid, $month)
 				</tbody>
 			</table>
 		</div>
-	</div>
+	</div>-->
 	
 	<!--panel: SEND timesheet-->
 	<div class="row custom-panel" style="border-top: none; <?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
@@ -956,6 +956,15 @@ function checkCaseTimeErrors($uid, $month)
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
 			</div>
 		</form>
+		<div class="col-xs-12 well" role="alert" style="margin-top: 20px;">
+			<i class="fa fa-check-square-o fa-lg text-info" aria-hidden="true"></i>
+			<!--&nbsp;<b><span class="text-info text-uppercase">Hinweis: </span></b>-->
+			<?php if (!$isSent): ?>
+				&nbsp;Mit Genehmigung der Monatsliste geben Sie Ihr <b>Einverständnis für alle in diesem Monat eventuell angefallenen Überstunden.</b>
+			<?php else: ?>
+				&nbsp;Sie haben für diesen Monat <b>eventuell angefallene Überstunden genehmigt.</b>
+			<?php endif; ?>
+		</div>
 	</div>
 	<div class="row custom-panel text-center" style="border: solid 2px #31708f; border-top: none; padding-top: 20px; padding-bottom: 20px;<?php echo ($isVorgesetzter) ? '' : 'display: none;' ?>">
 		<div class="col-xs-12">
@@ -1146,13 +1155,13 @@ function checkCaseTimeErrors($uid, $month)
 			Die weitest zurückliegende Monatsliste, die noch nicht genehmigt wurde, ist vom <?php echo $monatsname[$sprache_index][$notConfirmed_timesheet['datum']->format('n') - 1]. ' '. $notConfirmed_timesheet['datum']->format('Y') ?>.<br><br>
 			<a role="button" href="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo $notConfirmed_timesheet['timesheet_id'] ?>" class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$notConfirmed_timesheet['datum']->format('n') - 1]. ' '. $notConfirmed_timesheet['datum']->format('Y') ?> jetzt genehmigen</b></a>
 		</div>
-		<?php elseif(!$isApproved_overtime): ?>
+<!--		<?php elseif(!$isApproved_overtime): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Bitte prüfen und genehmigen Sie erst alle Überstunden!</b><br><br>
 			Wenn Sie nicht mit allen Überstunden einverstanden sind, retournieren Sie die Monatliste.<br>
 			Informieren Sie Ihren Mitarbeiter, damit dieser seine Zeiterfassung überarbeitet.
-		</div>
+		</div>-->
 		<?php endif; ?>
 	<?php endif; ?>
 	<br><br>
