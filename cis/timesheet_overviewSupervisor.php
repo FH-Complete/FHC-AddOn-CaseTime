@@ -22,6 +22,9 @@ require_once('../config.inc.php');
 require_once('../include/timesheet.class.php');
 require_once('../../../include/basis_db.class.php');
 require_once('../../../include/benutzer.class.php');
+require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/benutzerfunktion.class.php');
+require_once('../../../include/organisationseinheit.class.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
@@ -29,10 +32,10 @@ require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
 
 $uid = get_uid();
-$uid = 'oesi';
+$uid = 'koenign';
 $db = new basis_db();
 $sprache_obj = new sprache();
-$sprache = getSprache();	// users language
+$sprache = getSprache();	
 $sprache_index = $sprache_obj->getIndexFromSprache($sprache);	// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
@@ -40,38 +43,86 @@ $date_last_month = new DateTime();
 $date_last_month->sub(new DateInterval('P1M'));
 $date_last_month->modify('last day of this month');	// date obj of last month
 
-// *********************************	CHECK if SUPERVISOR
+$isPersonal = false;	// true if uid has personnel departments permission 
+$isVorgesetzter = false;	// true if uid is supervisor
+$rechte = new benutzerberechtigung();
+$rechte->getBerechtigungen($uid);
+
+// Check if uid has personnel manager permission
+$all_employee_uid_arr = array();
+if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
+{
+	$isPersonal = true;
+	
+	// get ALL active and fix-employed employees
+	$mitarbeiter = new Mitarbeiter();
+	$mitarbeiter->getPersonal('true', false, false, 'true', false, null);
+
+	foreach ($mitarbeiter->result as $mitarbeiter)
+	{
+		if ($mitarbeiter->personalnummer > 0)	// filter out dummies
+		{
+			$all_employee_uid_arr []= $mitarbeiter->uid;
+		}	
+	}	
+}
+
+// Check if uid is a supervisor
 $mitarbeiter = new Mitarbeiter();
 $mitarbeiter->getUntergebene($uid);
+$untergebenen_arr = array();
 $untergebenen_arr = $mitarbeiter->untergebene;
 
-// check, if uid is a supervisor
-if (empty($untergebenen_arr))
-	die('Es sind Ihnen keine Mitarbeiter zugeteilt.');
+if (!empty($untergebenen_arr))
+{
+	$isVorgesetzter = true;
+}
 
-// vars supervisor 
+// Permission check
+if (!$isPersonal &&	// personnel department
+	!$isVorgesetzter &&	// supervisor
+	!$rechte->isBerechtigt('admin'))	// admin
+{
+	die('Sie haben keine Berechtigung für diese Seite');
+}
+		
+
+// vars supervisor / personnel manager
 $benutzer = new Benutzer($uid);
-$full_name = $benutzer->getFullName();	// string full name of supervisor
+$full_name = $benutzer->getFullName();	// string full name
 
+// :TODO: what if personnel manager is also supervisor -> how differ
+// set employees uid arr depending if uid is supervisor or personnel manager
+$employee_uid_arr = array();	// array with uid to be used
+if (!empty($untergebenen_arr))
+{
+	$employee_uid_arr = $untergebenen_arr;
+}
+elseif (!empty ($all_employee_uid_arr))
+{
+	$employee_uid_arr = $all_employee_uid_arr;
+}
+
+// *********************************  data for SUPERVISORS VIEW
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
-foreach($untergebenen_arr as $untergebener)
+foreach($employee_uid_arr as $employee_uid)
 {
 	// name of employee
-	$benutzer = new Benutzer($untergebener);
+	$benutzer = new Benutzer($employee_uid);
 	$empl_vorname = $benutzer->vorname;
 	$empl_nachname = $benutzer->nachname;
 
 	// all timesheets of employee
 	$timesheet = new Timesheet();
-	$timesheet_arr = $timesheet->loadAll($untergebener);
+	$timesheet_arr = $timesheet->loadAll($employee_uid);
 
 	// data of MOST RECENT timesheet BEFORE the actual month
 	if (!empty($timesheet_arr))
 	{
 		$index = 0;
 		$cnt_isNotSent = 0;	// counts all timesheets not sent by the employee
-		$cnt_isNotConfirmed = 0;	// counts all timesheets of the employee not confirmed by supervisor
+		$cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
 		$cnt_isNotCreated = 0;	// counts missing timesheets between last timesheet date and last months date
 		
 		// last timesheet date
@@ -117,16 +168,37 @@ foreach($untergebenen_arr as $untergebener)
 	}
 	
 	// balance of time
-	$time_balance = getCaseTimeZeitsaldo($untergebener);	// float time balance OR string error OR bool false
+	$time_balance = getCaseTimeZeitsaldo($employee_uid);	// float time balance OR string error OR bool false
 
 	// holiday information	
-	$holiday = getCastTimeUrlaubssaldo($untergebener);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
+	$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
 	
-	// collect all employees data to push to overall employees array
+	
+	// Extra data for personnel department
+	if ($isPersonal)
+	{
+		// get organisational unit of employee
+		$benutzer_fkt = new Benutzerfunktion();
+		$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
+		$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
+		
+		// get organisational unit hierarchy
+		$oe = new Organisationseinheit();
+		$employee_oe_parent_arr = $oe->getParents($employee_oe_kurzbz);	// array of string oes 
+		
+		foreach ($employee_oe_parent_arr as &$oe_parent)	// :NOTE: & is important to update element in foreach loop
+		{
+			$oe->load($oe_parent);
+			$oe_parent = $oe->bezeichnung;
+		}
+	}
+	
+	// Collect all employees data to push to overall employees array
 	$obj = new stdClass();
 	// * full data of employee who has timesheets
 	if (!empty($timesheet_arr))
 	{
+		$obj->oe_parent_arr = $employee_oe_parent_arr;
 		$obj->vorname = $empl_vorname;
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = $last_timesheet_id;
@@ -142,6 +214,7 @@ foreach($untergebenen_arr as $untergebener)
 	// * basic data of employee who has NO timesheets
 	else
 	{
+		$obj->oe_parent_arr = $employee_oe_parent_arr;
 		$obj->vorname = $empl_vorname;
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = null;
@@ -177,7 +250,7 @@ function sortEmployeesName($employee1, $employee2)
 	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
 	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
 	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">	
-	<link href="public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">	
+	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">	
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
@@ -186,9 +259,6 @@ function sortEmployeesName($employee1, $employee2)
 	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/extras/jquery.tablesorter.pager.min.js"></script>
 	<title>Timesheet Überblick</title>
 	<style>
-		.main {
-			width: 85%;
-		}
 		.row {
 			margin-left: 0px;
 			margin-right: 0px;
@@ -211,9 +281,6 @@ function sortEmployeesName($employee1, $employee2)
 			text-decoration: none;
 			color: grey;
 		}
-/*		.table tbody{
-			font-size: 11px;
-		}*/
 	</style>
 	<script>
 	$(document).ready(function() 
@@ -230,8 +297,25 @@ function sortEmployeesName($employee1, $employee2)
 						filter_searchFiltered: false
 					}			
 			}
-		);
+		);	
 	});
+	
+	// toggle organisational units (single or hiararchy)
+	function toggleParentOE()
+		{
+			if ($('.oe').is(':visible'))
+			{
+				$('.oe').css('display', 'none');
+				$('.oe_parents').css('display', 'inline');
+				$('#btn_toggle_oe').text('Direkte OE anzeigen');
+			}
+			else
+			{
+				$('.oe').css('display', 'inline');
+				$('.oe_parents').css('display', 'none');
+				$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
+			}
+		}
 	</script>
 </head>
 
@@ -254,12 +338,15 @@ function sortEmployeesName($employee1, $employee2)
 		<!--************************************	TABLE HEAD	 -->
 		<thead class="text-center">
 			<tr class="table tablesorter-ignoreRow">
+				<?php echo ($isPersonal) ? '<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>' : '' ?>
 				<td></td>
 				<td colspan="3" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
+				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
 			</tr>
 			<tr>
+				<?php echo ($isPersonal) ? '<th style="width: 10%">Organisationseinheit</th>' : '' ?>
 				<th>Mitarbeiter</th>		
 				<th>Status</th>
 				<th>Abgeschickt am</th>
@@ -277,6 +364,7 @@ function sortEmployeesName($employee1, $employee2)
 						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">							 
 					</i>
 				</th>
+				<?php echo ($isPersonal) ? '<th>Kontrolliert am</th>' : '' ?>
 			</tr>			
 		</thead>
 		
@@ -286,8 +374,17 @@ function sortEmployeesName($employee1, $employee2)
 				
 				<!--if employee has at least one timesheet-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
-				<tr role="row" class>
-					<!--employee name & link to most last timesheet-->
+				<tr>
+					<!--organisational unit (displayed ONLY for personal department)-->
+					<?php if ($isPersonal): ?>
+						<td>
+							<!--visible string of closest organisational unit-->
+							<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
+							<!--hidden string with org unit and parent org units to allow filtering of higher units-->
+							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
+						</td>
+					<?php endif; ?>
+					<!--employee name & link to latest timesheet-->
 					<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a></td>
 					
 					<!--status-->
@@ -327,7 +424,7 @@ function sortEmployeesName($employee1, $employee2)
 					<?php else: ?>	
 						<td class='text-center'>-</td>
 					<?php endif; ?>
-					
+						
 <!--					amount of all timesheets not created AND not sent
 					<?php $all_timesheets_notCreatedOrSent = $employee->all_timesheets_notCreated + $employee->all_timesheets_notSent; ?>
 					<td class='text-center'>
@@ -349,13 +446,28 @@ function sortEmployeesName($employee1, $employee2)
 					<!--holidays cosumed-->
 					<td class='text-center'>
 						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
-					</td>						
-				
+					</td>	
+					
+					<!--controlling date (displayed ONLY for personal department)-->
+					<?php if ($isPersonal): ?>
+						<td>
+							<?php echo 'testdatum'; ?>
+						</td>
+					<?php endif; ?>				
 				</tr>
 				
 				<!--if employee has NO timesheet yet-->
 				<?php else: ?>
 				<tr>
+					<!--organisational unit (displayed ONLY for personal department)-->
+					<?php if ($isPersonal): ?>
+						<td>					
+							<!--visible string of closest organisational unit-->
+							<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
+							<!--hidden string with org unit and parent org units to allow filtering of higher units-->
+							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
+						</td>
+					<?php endif; ?>
 					<!--employee name to most last timesheet-->
 					<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
 					<!--status-->
@@ -376,6 +488,10 @@ function sortEmployeesName($employee1, $employee2)
 					<td class='text-center'>
 						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
 					</td>
+					<!--controlling date (displayed ONLY for personal department)-->
+					<?php if ($isPersonal): ?>
+						<td class='text-center'>-</td>
+					<?php endif; ?>
 				</tr>
 				<?php endif; ?>
 			<?php endforeach; ?>
