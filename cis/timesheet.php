@@ -22,17 +22,21 @@ require_once('../config.inc.php');
 require_once('../include/timesheet.class.php');
 require_once('../../../include/basis_db.class.php');
 require_once('../../../include/benutzer.class.php');
+require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/mail.class.php');
+require_once('../include/functions.inc.php');
 
-// Input params
 $uid = get_uid();
-//$uid = 'oesi';
 $db = new basis_db();
+$sprache_obj = new sprache();
+$sprache = getSprache();												// users language
+$sprache_index = $sprache_obj->getIndexFromSprache($sprache);			// users language index (for globals.inc.php)
+$p = new phrasen($sprache);
 
 $date_actual = new DateTime();											// date obj of actual date
 $date_actual_month = $date_actual->format('m');							// string month of actual date
@@ -57,68 +61,104 @@ if (isset($_GET['month']) && isset($_GET['year']))
 	}
 }
 
-// *********************************	SPECIAL VIEWS for supervisors & personnel department
-$isVorgesetzter = false;
-$isPersonal = false;
+// *********************************	DATA for supervisors & personnel departments view
+$isVorgesetzter = false;	// true if uid has personnel departments permission 
+$isPersonal = false;		// true if uid is supervisor
 
 // If GET-REQUEST: check if uid is supervisor or from personnel department
 if (isset($_GET['timesheet_id']))
 {
 	if (!is_numeric($_GET['timesheet_id']))
+	{
 		die('Es muss eine numerische timesheet_id übergeben werden.');
+	}
 	else
+	{
 		$timesheet_id = $_GET['timesheet_id'];
+	}
 
 	// set month and year to timesheets month and year to enter correct timesheet
 	$timesheet = new Timesheet();
 	$timesheet->load_byID($timesheet_id);	
+	
 	// exit if no existing timesheet for this timesheet_id
 	if (is_null($timesheet->timesheet_id))
+	{
 		die($timesheet->errormsg);
+	}
 	
 	$timesheet_date = new DateTime($timesheet->datum);
 	$year = $timesheet_date->format('Y');
 	$month = $timesheet_date->format('m');
+	
+	// Check if uid has personnel manager permission
+	$rechte = new benutzerberechtigung();
+	$rechte->getBerechtigungen($uid);
+	if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
+	{
+		$personnel_manager_uid = $uid;					// keep personnel managers uid
+		$isPersonal = true;
+	}
 
-	// *********************************	CHECK if SUPERVISOR
+	// Check if uid is a supervisor
 	$mitarbeiter = new Mitarbeiter();
 	$mitarbeiter->getUntergebene($uid);
 	$untergebenen_arr = $mitarbeiter->untergebene;
 	$confirm_vorgesetzten_uid = $uid;					// keep supervisors uid
 
-	//get the uid of the timesheet_id
+	// get the uid of the timesheet_id
 	if ($timesheet->getUser($timesheet_id))
+	{
 		$uid = $timesheet->getUser($timesheet_id);		// from now on $uid is employees uid
+	}
 	else
+	{
 		die($this->errormsg);
+	}
 
-	//check, if uid is an employee of supervisor
-	if (empty($untergebenen_arr))
-		die('Es sind Ihnen keine Mitarbeiter zugeteilt.');
-	elseif (!in_array($uid, $untergebenen_arr))
-		die('Die Monatsliste ist nicht von einem Ihrem Mitarbeiter.');
-	else
-		// flag supervisor
+	// check, if uid is an employee of supervisor
+	if (!empty($untergebenen_arr) &&
+		in_array($uid, $untergebenen_arr))
+	{
 		$isVorgesetzter = true;
+	}
+	
+	// Permission check
+	// * limited permission for request param timesheet_id
+	if (!$isPersonal &&	
+		!$isVorgesetzter)	
+	{
+		die('Sie haben keine Berechtigung für diese Seite');
+	}
 }
 
+// vars user of monthlist
 $benutzer = new Benutzer($uid);
 $full_name = $benutzer->getFullName();									// string full name of user
 
-$sprache_obj = new sprache();
-$sprache = getSprache();												// users language
-$sprache_index = $sprache_obj->getIndexFromSprache($sprache);			// users language index (for globals.inc.php)
-$p = new phrasen($sprache);
-
 // vars supervisor of user
 $mitarbeiter = new Mitarbeiter($uid);
-$mitarbeiter->getVorgesetzte($uid);
-$vorgesetzten_uid = (!empty($mitarbeiter->vorgesetzte[0])) ? $mitarbeiter->vorgesetzte[0] : '';
-$benutzer = new Benutzer($vorgesetzten_uid);
-$vorgesetzter_full_name = $benutzer->getFullName();						// string full name of supervisor
-$vorgesetzter_vorname = $benutzer->vorname;								// string first name of supervisor
-$vorgesetzter_nachname = $benutzer->nachname;							// string family name of supervisor
-$vorgesetzter_anrede = $benutzer->anrede;								// string form of address of supervisor
+$vorgesetzte_uid_arr = array();	// array with uid of one or more supervisors
+$vorgesetzte_full_name_arr = array();	// array of supervisor(s) full name
+
+if ($mitarbeiter->getVorgesetzte($uid))
+{
+	$vorgesetzte_uid_arr = $mitarbeiter->vorgesetzte;
+
+	if (!empty($vorgesetzte_uid_arr))
+	{
+		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
+		{
+			$benutzer = new Benutzer($vorgesetzten_uid);
+			$vorgesetzte_full_name_arr []= $benutzer->getFullName();	// string full name of supervisor
+		}
+	}
+}
+else
+{
+	echo $mitarbeiter->errormsg;
+}
+
 
 $date_selected = DateTime::createFromFormat('!Y-m', $year. '-'. $month);	// date obj of month/year selected; used ! to set time to 0 (for comparing)
 $month_name = $date_selected->format('F');								// string month-name to be used in modify-method
@@ -234,9 +274,13 @@ foreach ($timesheet_arr as $ts)
 
 // Add dummy timesheets for eventually missing ones between last entry and actual date
 if (!empty($timesheet_arr))
+{
 	$last_timesheet_entry_date = new DateTime($timesheet_arr[0]->datum);
+}
 else
+{
 	$last_timesheet_entry_date = clone $date_selected;
+}
 $last_timesheet_entry_date->modify('first day of this month');
 $month_diff_to_actual = (($date_actual_year - $last_timesheet_entry_date->format('Y')) * 12) 
 	+ ($date_actual_month - $last_timesheet_entry_date->format('m'));
@@ -300,11 +344,21 @@ $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
 $timesheet->new = (is_null($timesheet_id) ? true : false);
 $timesheet_datum = $timesheet->datum;									// date string of timesheet
+$timesheet_cntrl_date = (!is_null($timesheet->kontrolliertamum)) ? new DateTime($timesheet->kontrolliertamum) : '';
+$timesheet_cntrl_uid = (!is_null($timesheet->kontrolliertvon)) ? $timesheet->kontrolliertvon : '';
+$timesheet_cntrl_remark = (!is_null($timesheet->kontroll_notizen)) ? $timesheet->kontroll_notizen : '';
+$controller_name = '';
+
 $isSent = (is_null($timesheet->abgeschicktamum) ? false : true);		// boolean if timesheet was already sent
 $isConfirmed = (is_null($timesheet->genehmigtamum) ? false : true);		// boolean if timesheet was already confirmed
+$isControlled = (is_null($timesheet->kontrolliertamum) ? false : true);	// boolean if timesheet was controlled by personnel department
 $isAllowed_sendTimesheet = true;										// boolean if timesheet is allowed to be sent; false if actual date < timesheets date
 
-
+if (!empty($timesheet_cntrl_uid))
+{
+	$benutzer = new Benutzer($timesheet_cntrl_uid);
+	$controller_name = $benutzer->vorname. ' '. $benutzer->nachname;
+}
 // Save timesheet, if timesheet is new and user is timely allowed to create first timesheet
 if ($timesheet->new && $isAllowed_createTimesheet)
 {
@@ -468,7 +522,7 @@ $isCaseTimeError = false;									// boolean to flag casetime server errors whic
 if (isset($_POST['submitTimesheet']))
 {
 	// Check if there are casetime server errors that are defined as blocking errors
-	$isCaseTimeError = checkCaseTimeErrors($uid, $month);
+	$isCaseTimeError = checkCaseTimeErrors($uid, $month, $year);
 	
 	// Check if documents according have been uploaded to absences
 	$missing_docs = "<ul>";
@@ -499,44 +553,51 @@ if (isset($_POST['submitTimesheet']))
 	// if document $ casetime server error check ok, prepare for email sending
 	if (!$isMissing_doc && !$isCaseTimeError)
 	{
-		$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
-		$from = 'noreply@'. DOMAIN;
-		$subject = 'Monatsliste '. $monatsname[$sprache_index][$date_selected_month - 1]. ' '.
-			$date_selected_year. ' von '. $full_name;
-		$text = "
-			Guten Tag ". $vorgesetzter_anrede. ' '. $vorgesetzter_nachname. "!<br><br>
-			Sie haben die Monatsliste für ". $monatsname[$sprache_index][$date_selected_month - 1]. " ".
-			$date_selected_year. " von ". $full_name. " erhalten.<br>
-			Um diese zu genehmigen, folgen Sie diesem Link:<br><br>
-			<a href=". APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=".
-			$timesheet_id. ">Monatsliste jetzt genehmigen</a><br><br>";
-
-		$text = wordwrap($text, 70); // wrap code, otherwise display errors in mail
-		$mail = new Mail($to, $from, $subject, $text);
-		$mail->setHTMLContent($text);
-
-		// Send email to supervisor
-		if ($mail->send())
+		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
-			$send_date = new DateTime();
-			$timesheet = new Timesheet();
-			$timesheet->timesheet_id = $timesheet_id;
-			$timesheet->abgeschicktamum = $send_date->format('Y-m-d H:i:s');
+			$benutzer = new Benutzer($vorgesetzten_uid);
+			$vorgesetzter_nachname = $benutzer->nachname;							// string family name of supervisor
+			$vorgesetzter_anrede = $benutzer->anrede;								// string form of address of supervisor
+			
+			$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
+			$from = 'noreply@'. DOMAIN;
+			$subject = 'Monatsliste '. $monatsname[$sprache_index][$date_selected_month - 1]. ' '.
+				$date_selected_year. ' von '. $full_name;
+			$text = "
+				Guten Tag ". $vorgesetzter_anrede. ' '. $vorgesetzter_nachname. "!<br><br>
+				Sie haben die Monatsliste für ". $monatsname[$sprache_index][$date_selected_month - 1]. " ".
+				$date_selected_year. " von ". $full_name. " erhalten.<br>
+				Um diese zu genehmigen, folgen Sie diesem Link:<br><br>
+				<a href=". APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=".
+				$timesheet_id. ">Monatsliste jetzt genehmigen</a><br><br>";
 
-			// save sending date
-			if ($timesheet->save(true))
+			$text = wordwrap($text, 70); // wrap code, otherwise display errors in mail
+			$mail = new Mail($to, $from, $subject, $text);
+			$mail->setHTMLContent($text);
+
+			// Send email to supervisor
+			if ($mail->send())
 			{
-				// reload page to refresh actual and all monthlist display vars
-				header('Location: '.$_SERVER['PHP_SELF']. '?year='. $date_selected_year. '&month='. $date_selected_month);
+				$send_date = new DateTime();
+				$timesheet = new Timesheet();
+				$timesheet->timesheet_id = $timesheet_id;
+				$timesheet->abgeschicktamum = $send_date->format('Y-m-d H:i:s');
+
+				// save sending date
+				if ($timesheet->save(true))
+				{
+					// reload page to refresh actual and all monthlist display vars
+					header('Location: '.$_SERVER['PHP_SELF']. '?year='. $date_selected_year. '&month='. $date_selected_month);
+				}
+				else
+				{
+					echo $timesheet->errormsg;
+				}
 			}
 			else
 			{
-				echo $timesheet->errormsg;
+				echo 'Mail konnte nicht versendet werden.';
 			}
-		}
-		else
-		{
-			echo 'Mail konnte nicht versendet werden.';
 		}
 	}
 }
@@ -566,8 +627,10 @@ if (isset($_POST['submitTimesheetConfirmation']))
 	$timesheet->genehmigtvon = $confirm_vorgesetzten_uid;
 
 	// check if all overtimes are checked
-	if($checked_cnt != 3) //:TODO: integer to be changed with real overtimes
-		$isApproved_overtime = false;
+//	if($checked_cnt != 3) //:TODO: integer to be changed with real overtimes
+//	{
+//		$isApproved_overtime = false;
+//	}
 	
 	// save confirmation
 	if ($isApproved_overtime)
@@ -603,9 +666,67 @@ if (isset($_POST['submitTimesheetSendBack']))
 	}
 }
 
+// *********************************	SAVE CONTROLLING DATA by personnel department
+if (isset($_POST['submitTimesheetControlled']))
+{
+	$controlling_remark = (isset($_POST['ta_controllingRemark'])) ? $_POST['ta_controllingRemark'] : '';
+	$controlling_date = new DateTime();
+	$timesheet = new Timesheet();
+	$timesheet->timesheet_id = $timesheet_id;
+	$timesheet->kontrolliertamum = $controlling_date->format('Y-m-d H:i:s');
+	$timesheet->kontrolliertvon = $personnel_manager_uid;
+	$timesheet->kontroll_notizen = $controlling_remark;
+
+	// save controlling data
+	if ($timesheet->save(false, false, true))
+	{
+		// reload page to refresh actual and all monthlist display vars
+		header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
+	}
+	else
+	{
+		echo $timesheet->errormsg;
+	}
+}
+
+// *********************************	CANCEL CONFIRMATIONS by personnel department
+if (isset($_POST['submitTimesheetCancelConfirmation']))
+{
+	// get timesheet_ids of selected month AND all months after
+	$cancel_timesheet_id_arr = array();
+	foreach ($timesheet_arr as $ts)
+	{
+		$ts_date = new DateTime($ts->datum);
+		if ($ts_date >= $date_selected)
+		{
+			$cancel_timesheet_id_arr []= $ts->timesheet_id;
+		}
+	}
+		
+	// cancel sent- and confirmation data 
+	foreach ($cancel_timesheet_id_arr as $ts_id)
+	{
+		$timesheet = new Timesheet();
+		$timesheet->timesheet_id = $ts_id;
+		$timesheet->abgeschicktamum = null;
+		$timesheet->genehmigtamum = null;
+		$timesheet->genehmigtvon = null;
+
+		// save cancellation data
+		if (!$timesheet->save(true, true))
+		{
+			// if not saved break foreach
+			echo $timesheet->errormsg;
+			break;
+		}
+	}
+	
+	// reload page to refresh actual and all monthlist display vars
+	header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
+}
 // *********************************	CASETIME SERVER ERROR HANDLING
 // checks if there are casetime server errors that are defined as blocking errors
-function checkCaseTimeErrors($uid, $month)
+function checkCaseTimeErrors($uid, $month, $year)
 {
 	$isCaseTimeError = false;
 	$casetime_error_arr = getCaseTimeErrors($uid);
@@ -615,9 +736,14 @@ function checkCaseTimeErrors($uid, $month)
 	{
 		$casetime_error_date = new DateTime($casetime_error[0]);
 		$casetime_error_month = $casetime_error_date->format('m');
+		$casetime_error_year = $casetime_error_date->format('Y');
 
-		// if casetime error date matches timesheet date
-		if ($casetime_error_month == $month)
+		// if casetime error date matches the selected timesheet date OR one month before
+		if ($casetime_error_year == $year &&
+			(
+			$casetime_error_month == $month ||
+			$casetime_error_month == ($month-1))
+			)
 		{
 			// check if casetime error is a blocking error
 			foreach($blocking_error_arr as $blocking_err)
@@ -643,16 +769,9 @@ function checkCaseTimeErrors($uid, $month)
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
 	<title>Timesheet</title>
 	<style>
-		.main {
-			width: 65%;
-		}
-		
 		.row {
 			margin-left: 0px;
 			margin-right: 0px;
-		}
-		.custom-panel {
-			border: solid 1px lightgrey; border-radius: 0.3em; padding: 1%;
 		}
 		.table>tbody>tr>td {
 			border-top: none;
@@ -662,14 +781,16 @@ function checkCaseTimeErrors($uid, $month)
 		}
 		.panel-body-alleMonatslisten {
 			padding: 0px;
+		}	
+		.panel-top-cstm{
+			border-top: solid 1px lightgrey;
 		}
 		.inactive {
 			pointer-events: none;
 			cursor: default;
 			text-decoration: none;
 			color: grey;
-		}
-		
+		}	
 		#table-overtime tbody td:nth-child(4) {
 			border-left: solid 2px #31708f;
 			border-right: solid 2px #31708f;
@@ -756,245 +877,326 @@ function checkCaseTimeErrors($uid, $month)
 	</script>
 </head>
 
-<body class="main" style="font-family: Arial, Helvetica, sans-serif; font-size: 13px;">
+<body style="font-family: Arial, Helvetica, sans-serif; font-size: 13px;">
+
+<!--************************************	row: HEADER-->
+<div class="row">
+	<div class="col-xs-8"> 
+		<!--link to monthlist overview-->
+		<?php if($isVorgesetzter || $isPersonal): ?>
+			<h5 class="pull-right">
+				<br><br>
+				<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_overview.php' ?>">
+					<i class="fa fa-angle-left fa-lg" aria-hidden="true"></i>&nbsp;&nbsp;Monatslisten-Übersicht
+				</a>
+			</h5>
+		<?php endif; ?>
+
+		<!--title-->
+		<h3>Zeitaufzeichnung - Monatslisten von <?php echo $full_name ?></h3>
+		<br>
+
+		<!--************************************	PANEL ACTUAL TIMESHEET	 -->
+
+		<h4>Aktuelle Monatsliste: <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?></h4><br>
+	</div><!--/.end col-xs-8-->
 	
-	<h3>Zeitaufzeichnung - Monatslisten von <?php echo $full_name ?></h3><br>
-
-	<!--************************************	PANEL ACTUAL TIMESHEET	 -->
-
-	<h4>Aktuelle Monatsliste: <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?></h4><br>
-
-	<!--panel: DOWNLOAD timesheet-->
-	<div class="row custom-panel" <?php echo ($isFuture || !$isAllowed_createTimesheet) ? 'style="display: none;"' : '' ?>>
-		<div class="col-xs-8">
-			<b>Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> herunterladen</b><br><br>
-			Diese Liste ist nur für Ihren Bedarf und Ihre Eigenkontrolle.<br>
-			Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
-		</div>
-		<div class="col-xs-4"><br>
-			<a role="button" class="btn btn-default pull-right"
-			    href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
-				target="_blank">Monatsliste herunterladen
-			</a>
-		</div>
-	</div>
+	<div class="col-xs-4">
+	</div><!--/.end col-xs-4-->
 	
-	<!--panel: UPLOAD documents-->
-	<div class="row custom-panel" style="border-top: none; <?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
-		<div class="col-xs-8">
-			<b>Upload von Dokumenten</b><br><br>
+</div><!--/.end row-->
 
-			<!--counter for displaying absence text only once-->
-			<?php $counter = 0; ?>
-
-			<!--loop through absent times-->
-			<?php foreach ($actual_absent_times_arr as $absence): ?>
-
-				<!--set absence text-->
-				<?php if ($counter == 0): ?>
-					Bitte laden Sie Bestätigungen für folgende Fehlzeiten hoch:<br><br>
-					<?php $counter++ ?>
-				<?php endif; ?>
-
-				<!--find absences and times only for the actual timesheet-->
-				<ul>
-				<?php if ($absence->timesheet_id == $timesheet_id): ?>
-					<li><?php echo $absence->abwesenheitsgrund. ' von '. date_format(date_create($absence->von), 'd.m.Y'). ' - '. date_format(date_create($absence->bis), 'd.m.Y') ?></li>
-				</ul>
-				<?php endif; ?>
-
-			<?php endforeach; ?>
-
-			<!--if no absent times in actual timesheet found, display other text-->
-			<?php if($counter == 0): ?>
-				Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Fehlzeiten.
-			<?php endif; ?>
-		</div>
-		<div class="col-xs-4"><br>
-			<a role="button" <?php echo ($isSent || $isVorgesetzter) ? 'disabled data-toggle="tooltip"' : '';
-				echo ($isSent && !$isVorgesetzter) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> 
-			   class="btn btn-default pull-right" id="uploadButton"
-			   href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsupload.php?timesheet_id='. $timesheet_id ?>"
-			   onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
-
-			<!--if there are existing bestaetigungen in actual month -> display table and all bestaetigungen-->
-			<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
-			<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
-				<tr>
-					<td><?php echo $bestaetigung->dokument_bezeichnung ?>: </td>
-					<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a></td>
-					<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id"
-						   onclick="deleteBestaetigung(<?php echo $bestaetigung->dms_id ?>)"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
-				</tr>
-			<?php endforeach; ?>
-			</table>
-		</div>
-	</div>
-	
-	<!--panel: OVERTIME-->
-<!--	<div class="row custom-panel" style="border-top: none; <?php echo ($isFuture || !$isAllowed_createTimesheet) ? '"display: none;"' : '' ?>">
-		<div class="col-xs-12">
-			<b>Überstunden</b><br><br>
-		counter for displaying overtime text only once
-			<?php $counter = 0; ?>
-
-			loop through overtimes 
-			<?php foreach ($actual_absent_times_arr as $overtime): ?>
-
-				set absence text
-				<?php if ($counter == 0): ?>
-					Sie haben diesen Monat <b>10:30</b> Überstunden.<br><br>
-					<?php $counter++ ?>
-				<?php endif; ?>
-
-				find absences and times only for the actual timesheet
-				<ul>
-				<?php if ($overtime->timesheet_id == $timesheet_id): ?>
-					<li><?php echo $overtime->abwesenheitsgrund. ' von '. date_format(date_create($overtime->von), 'd.m.Y'). ' - '. date_format(date_create($overtime->bis), 'd.m.Y') ?></li>
-				</ul>
-				<?php endif; ?>
-
-			<?php endforeach; ?>
-
-			if no overtimes in actual timesheet found, display other text
-			<?php if($counter == 0): ?>
-				Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Überstunden.
-			<?php endif; ?>
-			
-			<table id="table-overtime" class="table table-condensed table-bordered">
-				<thead>
-				<th>Tag</th>
-				<th>Arbeitszeit</th>
-				<th>Überstunden</th>
-				<?php if($isVorgesetzter): ?>
-					<th style="border: solid 2px #31708f;" <?php echo (!$isApproved_overtime) ? 'class="text-danger"' : '' ?>>Genehmigen</th>
-					<th style="border: solid 2px #31708f;">Genehmigen</th>
-				<?php endif; ?>
-				</thead>
-				<tbody>
-					<tr>
-						<td>03.09.2018</td>
-						<td>08:30 - 23:20</td>
-						<td>3:30</td>
-						<?php if($isVorgesetzter): ?>
-							highlight cell if overtime was not confirmed				
-							<td <?php echo (isset($checkbox_overtime_arr[0]) && $checkbox_overtime_arr[0] == 'false') ? 'class="danger"' : '' ?>>
-								remember checked after reload
-								disabled if timesheet has not been sent OR in the future OR former monthlists need to be confirmed
-								checked AND disabled if overtime was already confirmed
-								<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="0"				
-								<?php echo (isset($checkbox_overtime_arr[0]) && $checkbox_overtime_arr[0] == 'true') ? "checked" : "" ?>
-								<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
-								<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
-							</td>
-						<?php endif; ?>
-					</tr>
-					<tr>
-						<td>03.09.2018</td>
-						<td>08:30 - 23:20</td>
-						<td>3:30</td>
-						<?php if($isVorgesetzter): ?>
-							<td <?php echo (isset($checkbox_overtime_arr[1]) && $checkbox_overtime_arr[1] == 'false') ? 'class="danger"' : '' ?>>
-								<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="1"
-								<?php echo (isset($checkbox_overtime_arr[1]) && $checkbox_overtime_arr[1] == 'true') ? "checked" : "" ?>
-								<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
-								<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
-							</td>
-						<?php endif; ?>
-					</tr>
-					<tr>
-						<td>03.09.2018</td>
-						<td>08:30 - 23:20</td>
-						<td>3:30</td>
-						<?php if($isVorgesetzter): ?>
-							<td <?php echo (isset($checkbox_overtime_arr[2]) && $checkbox_overtime_arr[2] == 'false') ? 'class="danger"' : '' ?>>
-								<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="2"
-								<?php echo (isset($checkbox_overtime_arr[2]) && $checkbox_overtime_arr[2] == 'true') ? "checked" : "" ?>
-								<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
-								<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
-							</td>
-						<?php endif; ?>
-					</tr>
-				</tbody>
-			</table>
-		</div>
-	</div>-->
-	
-	<!--panel: SEND timesheet-->
-	<div class="row custom-panel" style="border-top: none; <?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
-		<div class="col-xs-8">
-			<b>Monatsliste abschließen</b><br><br>
-			Wenn  Sie alle erforderlichen Dokumente hochgeladen haben, verschicken Sie bis zum 05. des Folgemonats Ihre Monatsliste zur Freigabe an Ihre Vorgesetzte / Ihren Vorgesetzten.<br>
-			Nach dem Verschicken kann diese <b>nicht</b> mehr bearbeitet werden.
-		</div>
-		<form method="POST" action="">
-			<div class="col-xs-4"><br>
-				<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter) ? 'disabled data-toggle="tooltip"' : '';
-					echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet) && !$isVorgesetzter) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
-					name="submitTimesheet" class="btn btn-default pull-right"
-					onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\njetzt an <?php echo $vorgesetzter_full_name ?> verschicken?');">Monatsliste verschicken</button>
+<!--************************************	row: BODY-->
+<div class="row">
+<div class="col-xs-8"> 
+	<div class="panel panel-default" <?php echo ($isFuture || !$isAllowed_createTimesheet) ? 'style="display: none;"' : '' ?>>
+		
+		<!--panel: DOWNLOAD timesheet-->
+		<div class="row">
+			<div class="panel-body col-xs-8">
+				<b>Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> herunterladen</b><br><br>
+				Diese Liste ist nur für Ihren Bedarf und Ihre Eigenkontrolle.<br>
+				Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
 			</div>
-		</form>
-	</div>
+			<div class="panel-body col-xs-4"><br>
+				<a role="button" class="btn btn-default pull-right"
+					href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
+					target="_blank">Monatsliste herunterladen
+				</a>
+			</div>
+		</div>
+	
+		<!--panel: UPLOAD documents-->
+		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
+			<div class="panel-body col-xs-8">
+				<b>Upload von Dokumenten</b><br><br>
 
+				<!--counter for displaying absence text only once-->
+				<?php $counter = 0; ?>
 
+				<!--loop through absent times-->
+				<?php foreach ($actual_absent_times_arr as $absence): ?>
+
+					<!--set absence text-->
+					<?php if ($counter == 0): ?>
+						Bitte laden Sie Bestätigungen für folgende Fehlzeiten hoch:<br><br>
+						<?php $counter++ ?>
+					<?php endif; ?>
+
+					<!--find absences and times only for the actual timesheet-->
+					<ul>
+					<?php if ($absence->timesheet_id == $timesheet_id): ?>
+						<li><?php echo $absence->abwesenheitsgrund. ' von '. date_format(date_create($absence->von), 'd.m.Y'). ' - '. date_format(date_create($absence->bis), 'd.m.Y') ?></li>
+					</ul>
+					<?php endif; ?>
+
+				<?php endforeach; ?>
+
+				<!--if no absent times in actual timesheet found, display other text-->
+				<?php if($counter == 0): ?>
+					Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Fehlzeiten.
+				<?php endif; ?>
+			</div>
+			<div class="panel-body col-xs-4"><br>
+				<a role="button" <?php echo ($isSent || $isVorgesetzter || $isPersonal) ? 'disabled data-toggle="tooltip"' : '';
+					echo ($isSent && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> 
+				   class="btn btn-default pull-right" id="uploadButton"
+				   href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsupload.php?timesheet_id='. $timesheet_id ?>"
+				   onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
+
+				<!--if there are existing bestaetigungen in actual month -> display table and all bestaetigungen-->
+				<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
+				<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
+					<tr>
+						<td><?php echo $bestaetigung->dokument_bezeichnung ?>: </td>
+						<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a></td>
+						<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id"
+							   onclick="deleteBestaetigung(<?php echo $bestaetigung->dms_id ?>)"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
+					</tr>
+				<?php endforeach; ?>
+				</table>
+			</div>
+		</div>
+	
+		<!--panel: OVERTIME-->
+		<!--	<div class="row panel-top-cstm" style="<?php echo ($isFuture || !$isAllowed_createTimesheet) ? '"display: none;"' : '' ?>">
+				<div class="panel-body col-xs-12">
+					<b>Überstunden</b><br><br>
+				counter for displaying overtime text only once
+					<?php $counter = 0; ?>
+
+					loop through overtimes 
+					<?php foreach ($actual_absent_times_arr as $overtime): ?>
+
+						set absence text
+						<?php if ($counter == 0): ?>
+							Sie haben diesen Monat <b>10:30</b> Überstunden.<br><br>
+							<?php $counter++ ?>
+						<?php endif; ?>
+
+						find absences and times only for the actual timesheet
+						<ul>
+						<?php if ($overtime->timesheet_id == $timesheet_id): ?>
+							<li><?php echo $overtime->abwesenheitsgrund. ' von '. date_format(date_create($overtime->von), 'd.m.Y'). ' - '. date_format(date_create($overtime->bis), 'd.m.Y') ?></li>
+						</ul>
+						<?php endif; ?>
+
+					<?php endforeach; ?>
+
+					if no overtimes in actual timesheet found, display other text
+					<?php if($counter == 0): ?>
+						Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Überstunden.
+					<?php endif; ?>
+
+					<table id="table-overtime" class="table table-condensed table-bordered">
+						<thead>
+						<th>Tag</th>
+						<th>Arbeitszeit</th>
+						<th>Überstunden</th>
+						<?php if($isVorgesetzter): ?>
+							<th style="border: solid 2px #31708f;" <?php echo (!$isApproved_overtime) ? 'class="text-danger"' : '' ?>>Genehmigen</th>
+							<th style="border: solid 2px #31708f;">Genehmigen</th>
+						<?php endif; ?>
+						</thead>
+						<tbody>
+							<tr>
+								<td>03.09.2018</td>
+								<td>08:30 - 23:20</td>
+								<td>3:30</td>
+								<?php if($isVorgesetzter): ?>
+									highlight cell if overtime was not confirmed				
+									<td <?php echo (isset($checkbox_overtime_arr[0]) && $checkbox_overtime_arr[0] == 'false') ? 'class="danger"' : '' ?>>
+										remember checked after reload
+										disabled if timesheet has not been sent OR in the future OR former monthlists need to be confirmed
+										checked AND disabled if overtime was already confirmed
+										<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="0"				
+										<?php echo (isset($checkbox_overtime_arr[0]) && $checkbox_overtime_arr[0] == 'true') ? "checked" : "" ?>
+										<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
+										<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
+									</td>
+								<?php endif; ?>
+							</tr>
+							<tr>
+								<td>03.09.2018</td>
+								<td>08:30 - 23:20</td>
+								<td>3:30</td>
+								<?php if($isVorgesetzter): ?>
+									<td <?php echo (isset($checkbox_overtime_arr[1]) && $checkbox_overtime_arr[1] == 'false') ? 'class="danger"' : '' ?>>
+										<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="1"
+										<?php echo (isset($checkbox_overtime_arr[1]) && $checkbox_overtime_arr[1] == 'true') ? "checked" : "" ?>
+										<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
+										<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
+									</td>
+								<?php endif; ?>
+							</tr>
+							<tr>
+								<td>03.09.2018</td>
+								<td>08:30 - 23:20</td>
+								<td>3:30</td>
+								<?php if($isVorgesetzter): ?>
+									<td <?php echo (isset($checkbox_overtime_arr[2]) && $checkbox_overtime_arr[2] == 'false') ? 'class="danger"' : '' ?>>
+										<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="2"
+										<?php echo (isset($checkbox_overtime_arr[2]) && $checkbox_overtime_arr[2] == 'true') ? "checked" : "" ?>
+										<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
+										<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
+									</td>
+								<?php endif; ?>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>-->
+	
+		<!--panel: SEND timesheet-->
+		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
+			<div class="panel-body col-xs-8">
+				<b>Monatsliste abschließen</b><br><br>
+				Wenn  Sie alle erforderlichen Dokumente hochgeladen haben, verschicken Sie bis zum 05. des Folgemonats Ihre Monatsliste zur Freigabe an Ihre Vorgesetzte / Ihren Vorgesetzten.<br>
+				Nach dem Verschicken kann diese <b>nicht</b> mehr bearbeitet werden.
+			</div>
+			<form method="POST" action="">
+				<div class="panel-body col-xs-4"><br>
+					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal) ? 'disabled data-toggle="tooltip"' : '';
+						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet) && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+						name="submitTimesheet" class="btn btn-default pull-right"
+						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
+				</div>
+			</form>
+		</div>
+	</div><!--/.panel-->
+	<br><br>
+	
 	<!--************************************		VIEW for supervisors-->
 
-	<!--CONFIRM timesheet-->
-	<div class="row custom-panel" style="border: solid 2px #31708f; padding-top: 20px; padding-bottom: 20px;<?php echo ($isVorgesetzter) ? '' : 'display: none;' ?>">
-		<div class="col-xs-8">
-			<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
-			Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
-			Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
-			Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.
+	<?php if ($isVorgesetzter || $isPersonal): ?>
+	<div class="panel panel-default" style="padding-bottom: 20px;">
+		<div class="panel-heading">
+			<h2 class="panel-title">Vorgesetztensicht</h2>
 		</div>
-		<form id="formTimesheetConfirmation" method="POST" action="">
-			<input type="hidden" name="checkbox_overtime_arr" value="" />
-			<div class="col-xs-4"><br>
-				<button type="submit" <?php echo (!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
-						name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
-						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
-			</div>
-		</form>
-		<div class="col-xs-12 well" role="alert" style="margin-top: 20px;">
-			<i class="fa fa-check-square-o fa-lg text-info" aria-hidden="true"></i>
-			<!--&nbsp;<b><span class="text-info text-uppercase">Hinweis: </span></b>-->
-			<?php if (!$isSent): ?>
-				&nbsp;Mit Genehmigung der Monatsliste geben Sie Ihr <b>Einverständnis für alle in diesem Monat eventuell angefallenen Überstunden.</b>
-			<?php else: ?>
-				&nbsp;Sie haben für diesen Monat <b>eventuell angefallene Überstunden genehmigt.</b>
-			<?php endif; ?>
-		</div>
-	</div>
-	<div class="row custom-panel text-center" style="border: solid 2px #31708f; border-top: none; padding-top: 20px; padding-bottom: 20px;<?php echo ($isVorgesetzter) ? '' : 'display: none;' ?>">
-		<div class="col-xs-12">
-			<span class="text-uppercase text-info"><b>oder</b></span>
-		</div>
-	</div>
 
-	<!--SEND BACK timesheet-->
-	<div class="row custom-panel" style="border: solid 2px #31708f; border-top: none; padding-top: 20px; padding-bottom: 20px;<?php echo ($isVorgesetzter) ? '' : 'display: none;' ?>">
-		<div class="col-xs-8">
-			<span class="text-info"><b>Monatsliste zur Überarbeitung retournieren</b></span><br><br>
-			Retournieren Sie die Monatsliste, falls diese nochmals überarbeitet werden muss.<br>
-			Ihr Mitarbeiter kann diese dann wieder bearbeiten und erneut an Sie versenden.<br>
-			Die Monatsliste wird hierbei <b>nicht</b> genehmigt.
-		</div>
-		<form method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
-			<div class="col-xs-4"><br>
-				<button type="submit" <?php echo (!$isSent || $isConfirmed) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
-						name="submitTimesheetSendBack" class="btn btn-default pull-right" style="border-color: #31708f; color: #31708f;"
-						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher retournieren?');">Monatsliste retournieren</button>
+		<!--panel: CONFIRM timesheet-->
+		<div class="row">
+			<div class="panel-body col-xs-8">
+				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
+				Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
+				Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
+				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.
 			</div>
-		</form>
-	</div>
+			<form id="formTimesheetConfirmation" method="POST" action="">
+				<input type="hidden" name="checkbox_overtime_arr" value="" />
+				<div class="panel-body col-xs-4"><br>
+					<button type="submit" <?php echo (!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+							name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
+							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
+				</div>
+			</form>
+			<div class="panel-body col-xs-8 well" role="alert" style="margin-top: 20px; margin-left: 15px;">
+				<i class="fa fa-check-square-o fa-lg text-info" aria-hidden="true"></i>
+				<!--&nbsp;<b><span class="text-info text-uppercase">Hinweis: </span></b>-->
+				<?php if (!$isSent || !$isConfirmed): ?>
+					&nbsp;Mit Genehmigung der Monatsliste geben Sie Ihr <b>Einverständnis für alle in diesem Monat eventuell angefallenen Überstunden.</b>
+				<?php else: ?>
+					&nbsp;Sie haben für diesen Monat <b>eventuell angefallene Überstunden genehmigt.</b>
+				<?php endif; ?>
+			</div>
+		</div>
+
+		<!--panel: SEND BACK timesheet-->
+		<div class="row panel-top-cstm">
+			<div class="panel-body col-xs-8">
+				<span class="text-info text-uppercase"><b>Monatsliste retournieren</b></span><br><br>
+				Retournieren Sie die Monatsliste, falls diese nochmals überarbeitet werden muss.<br>
+				Ihr Mitarbeiter kann diese dann wieder bearbeiten und erneut an Sie versenden.<br>
+				Die Monatsliste wird hierbei <b>nicht</b> genehmigt.
+			</div>
+			<form method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
+				<div class="panel-body col-xs-4"><br>
+					<button type="submit" <?php echo (!$isSent || $isConfirmed) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+							name="submitTimesheetSendBack" class="btn btn-default pull-right" style="border-color: #31708f; color: #31708f;"
+							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher retournieren?');">Monatsliste retournieren</button>
+				</div>
+			</form>
+		</div>
+	</div><!--/.panel-->
 	<br><br>
+	<?php endif; ?>
 
 
+	<!--************************************		VIEW for personnel department-->
+
+	<?php if ($isPersonal): ?>
+	<div class="panel panel-default" style="padding-bottom: 20px;">
+		<div class="panel-heading">
+			<h2 class="panel-title">Personalverwaltung</h2>
+		</div>
+		
+		<!--panel: CANCEL CONFIRMATION-->
+		<div class="row">
+			<div class="panel-body col-xs-8">
+				<span class="text-info text-uppercase"><b>Genehmigung aufheben</b></span><br><br>
+				<p>
+					Genehmigungen, die von Vorgesetzten erteilt wurden, können hier aufgehoben werden.<br>
+					Dabei wird auch das "Abgeschickt am"-Datum wieder zurückgesetzt, damit die Monatsliste wieder bearbeitet und an Vorgesetzte versendet werden kann.<br>
+					Um mögliche Zeitabhängigkeiten zu berücksichtigen, werden auch alle Genehmigungen der zeitlich darauffolgenden Monatslisten wieder aufgehoben.
+					
+				</p>
+			</div>
+			<div class="panel-body col-xs-4"><br>
+				<form class="form" method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
+				<button type="submit" <?php echo (!$isSent || !$isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>
+					name="submitTimesheetCancelConfirmation" class="btn btn-primary pull-right"
+					onclick="return confirm('Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\n für <?php echo $full_name ?> sicher aufheben?\nDabei werden zur Überarbeitung auch\ndie Genehmigungen ALLER MONATE DANACH wieder aufgehoben!');">Genehmigung aufheben</button>
+				</form>
+			</div>
+		</div>
+
+		<!--panel: ADD CONTROLLING REMARK-->
+		<div class="row panel-top-cstm">	
+			<form class="form" method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
+				<div class="panel-body col-xs-8">
+					<span class="text-info text-uppercase"><b>Kontrollnotizen</b></span><br><br>
+					<div class="form-group"> 
+						<textarea class="form-control" rows="7" name="ta_controllingRemark"><?php echo $timesheet_cntrl_remark ?></textarea>
+					</div>
+				</div>
+				<div class="panel-body col-xs-4"><br><br>
+					<div class="well pull-right text-center" style="width: 185px;">				
+						<b>Zuletzt kontrolliert am: <?php echo (!empty($timesheet_cntrl_date)) ? $timesheet_cntrl_date->format('d.m.Y') : '-' ?></b>
+						<?php echo (!empty($controller_name)) ? '<br>von: '. $controller_name : '' ?>
+					</div>
+					<button type="submit" name="submitTimesheetControlled" class="btn btn-primary pull-right">Kontrolldaten speichern</button>
+				</div>
+			</form>				
+		</div>
+	</div><!--/.panel-->	
+	<br><br>
+	<?php endif; ?>
+
+	
 	<!--************************************	ALERTS	 -->
 	
 	<!-- IF uid is EMPLOYEE -->
-	<?php if (!$isVorgesetzter): ?>
+	<?php if (!$isVorgesetzter && !$isPersonal): ?>
 		<!-- Info WHEN new timesheet was created-->
 		<div id="timesheetSaveSuccess" class="alert alert-success alert-dismissible text-center" role="alert" style="display: none;">
 			<b>Die Monatsliste <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> wurde erfolgreich erstellt.</b>
@@ -1044,7 +1246,7 @@ function checkCaseTimeErrors($uid, $month)
 		<?php if ($isSent && !$isConfirmed): ?>
 		<div class="alert alert-success alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> ist erfolgreich an <?php echo $vorgesetzter_full_name ?> versendet worden!</b><br><br>
+			<b>Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> ist erfolgreich an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> versendet worden!</b><br><br>
 			Nach dem Versenden können keine Änderungen mehr vorgenommen werden.<br>
 			Sollte dies dennoch nötig sein, wenden Sie sich an Ihren Vorgesetzten für eine erneute Freigabe.<br><br>
 			Sobald Ihre Monatsliste genehmigt wurde, wird sie in der unteren Tabelle "Alle Monatslisten" mit einer grünen Ampel versehen.
@@ -1078,8 +1280,8 @@ function checkCaseTimeErrors($uid, $month)
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> konnte nicht versendet werden!</b><br><br>
-			Die Zeiterfassung ist nicht vollständig oder inkorrekt.<br>
-			Bitte überprüfen und überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
+			Die Zeiterfassung für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> oder den Monat davor ist nicht vollständig oder inkorrekt.<br>
+			Bitte überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
 		</div>
 		<?php endif; ?>
@@ -1130,23 +1332,30 @@ function checkCaseTimeErrors($uid, $month)
 			</div><!-- /.modal -->
 		</div><!-- /.alert -->
 		<?php endif; ?>
-	<?php endif; ?><!-- /.end overall conditions (not supervisor) -->
+		
+	<?php endif; ?><!-- /.end overall conditions -->
 
-	<!--************************************		ALERTS FOR SUPERVISOR-->
-	<!-- IF uid is SUPERVISOR -->
-	<?php if ($isVorgesetzter): ?>
+	<!--************************************		ALERTS FOR SUPERVISOR or PERSONNEL DEPARTMENT-->
+	<!-- IF uid is SUPERVISOR (should also be seen by personnel manager)-->
+	<?php if ($isVorgesetzter || $isPersonal): ?>
+	
+		<!--IF timesheet was not yet sent by the employee-->
 		<?php if(!$isSent): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> muss von Ihrem Mitarbeiter noch versendet werden!</b><br><br>
 			Ihr Mitarbeiter muss die Monatsliste erst bzw. erneut versenden, bevor Sie diese genehmigen oder retournieren können.
 		</div>
+		
+		<!--WHEN timesheet was confirmed-->
 		<?php elseif($isSent && $isConfirmed): ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> ist genehmigt!</b><br><br>
 			Bereits genehmigte Monatslisten können nicht mehr bearbeitet werden.<br>
 		</div>
+		
+		<!--IF former timesheets are not yet confirmed-->
 		<?php elseif(!$isAllowed_confirmTimesheet): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -1155,28 +1364,29 @@ function checkCaseTimeErrors($uid, $month)
 			Die weitest zurückliegende Monatsliste, die noch nicht genehmigt wurde, ist vom <?php echo $monatsname[$sprache_index][$notConfirmed_timesheet['datum']->format('n') - 1]. ' '. $notConfirmed_timesheet['datum']->format('Y') ?>.<br><br>
 			<a role="button" href="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo $notConfirmed_timesheet['timesheet_id'] ?>" class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$notConfirmed_timesheet['datum']->format('n') - 1]. ' '. $notConfirmed_timesheet['datum']->format('Y') ?> jetzt genehmigen</b></a>
 		</div>
-<!--		<?php elseif(!$isApproved_overtime): ?>
-		<div class="alert alert-danger alert-dismissible text-center" role="alert">
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Bitte prüfen und genehmigen Sie erst alle Überstunden!</b><br><br>
-			Wenn Sie nicht mit allen Überstunden einverstanden sind, retournieren Sie die Monatliste.<br>
-			Informieren Sie Ihren Mitarbeiter, damit dieser seine Zeiterfassung überarbeitet.
-		</div>-->
+		
+		<!--IF overtime was not approved-->
+		<!--		<?php elseif(!$isApproved_overtime): ?>
+				<div class="alert alert-danger alert-dismissible text-center" role="alert">
+					<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+					<b>Bitte prüfen und genehmigen Sie erst alle Überstunden!</b><br><br>
+					Wenn Sie nicht mit allen Überstunden einverstanden sind, retournieren Sie die Monatliste.<br>
+					Informieren Sie Ihren Mitarbeiter, damit dieser seine Zeiterfassung überarbeitet.
+				</div> 
+		-->
 		<?php endif; ?>
+		
 	<?php endif; ?>
 	<br><br>
-
-
-
 
 
 	<!--************************************	ALL TIMESHEETS - TABLE -->
 
 	<h4>Alle Monatslisten</h4><br>
 
-	<!--if there are present timesheets, show panel with all timesheets-->
+	<!--if timesheets are present, show panel with all timesheets-->
 	<?php if (!empty($timesheet_arr) || !empty($missing_timesheet_arr)): ?>
-
+	
 		<div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
 
 		<!--year counter: timesheets of the first (=actual) year will be fully displayed; other years are collapsed-->
@@ -1216,29 +1426,51 @@ function checkCaseTimeErrors($uid, $month)
 							<?php if ($ts_date->format('Y') == $year): ?>
 							<tr>
 								<!--Monatsliste: link to monthlist-->
-								<!--URL for supervisors-->
-								<?php if ($isVorgesetzter && (!is_null($ts->timesheet_id))): ?>
-									<td><a href="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo !is_null($ts->timesheet_id) ? $ts->timesheet_id : '' ?>">
-										<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?></a></td>
+								<!--URL for supervisors and personnel department-->
+								<?php if (($isVorgesetzter || $isPersonal) && (!is_null($ts->timesheet_id))): ?>
+									<td>
+										<a href="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo !is_null($ts->timesheet_id) ? $ts->timesheet_id : '' ?>">
+											<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
+										</a>
+										<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
+											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
+										<?php endif; ?>
+									</td>
 								<!--URL for missing timesheets-->
 								<?php elseif(is_null($ts->timesheet_id)): ?>
-									<!--URL to create timesheet only for first missing timesheet-->
-									<?php if($cnt_missing_timesheet == $month_diff_to_actual-1 && !$isVorgesetzter): ?>
-									<td><a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
+									<!--URL to create timesheet only for first missing timesheet ONLY for employees-->
+									<?php if($cnt_missing_timesheet == $month_diff_to_actual-1 && !$isVorgesetzter && !$isPersonal): ?>
+									<td>
+										<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;">fehlt</span>
+										<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
 										<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
-											<span class="label label-warning pull-right text-uppercase">erstellen</span></a>
-										</td>
+											&nbsp;<i class="fa fa-plus-square-o" aria-hidden="true"></i>
+<!--											<span class="label label-primary pull-right text-uppercase">erstellen</span>-->
+										</a>
+										<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
+											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
+										<?php endif; ?>
+										
+									</td>
 									<!--only text with no link for all other missing timesheets-->
 									<?php else: ?>
 										<?php $cnt_missing_timesheet++ ?>
 										<td><?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
 											<span class="label pull-right text-uppercase" style="background-color: lightgrey;">fehlt</span>
+											<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
+												<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
+											<?php endif; ?>
 										</td>
 									<?php endif; ?>
-								<!--URL for others-->
+								<!--URL for employees-->
 								<?php else: ?>
-									<td><a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
-										<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?></a>
+									<td>
+										<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
+											<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
+										</a>
+										<?php if (($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
+											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
+										<?php endif; ?>
 									</td>
 								<?php endif; ?>
 
@@ -1291,7 +1523,7 @@ function checkCaseTimeErrors($uid, $month)
 		</div>
 		</div>
 
-	<!--if no timesheets existing yet show panel with info, that soon timesheets will be pinned up-->
+	<!--if no timesheets existing yet, show panel with info, that soon timesheets will be pinned up-->
 	<?php else: ?>
 		<div class="panel panel-default">
 			<div class="panel-body text-center"><br>
@@ -1299,7 +1531,26 @@ function checkCaseTimeErrors($uid, $month)
 			</div>
 		</div>
 	<?php endif; ?>
-	
+</div><!--/.col-xs-8-->
+
+<!--************************************	RIGHT CONTAINER -->
+<div class="col-xs-4">
+		<?php if (!$isPersonal && !empty($timesheet_cntrl_remark)): ?>	
+	<div class="panel panel-warning">
+		<div class="panel-heading">Kontrollnotiz der Personalabteilung
+			<span class="pull-right">Kontrolldatum: <?php echo $timesheet_cntrl_date->format('d.m.Y') ?></span>
+		</div>
+		
+		<!--panel: DISPLAY controlling remark-->
+		<div class="panel-body">
+			<p><?php echo $timesheet_cntrl_remark ?></p>
+		</div>
+	</div>
+	<br><br>
+	<?php endif; ?>	
+</div><!--/.col-xs-4-->
+</div><!--/.row-->
+
 </body>
 </html>
 
