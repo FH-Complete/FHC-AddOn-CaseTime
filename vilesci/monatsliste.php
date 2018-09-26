@@ -29,6 +29,7 @@ require_once('../include/functions.inc.php');  // casetime functions.inc
 
 $uid = get_uid();
 
+// generate timesheet and mail
 if(!isset($_GET['download']))
 	{
 	if(isset($_GET['uid']))
@@ -70,7 +71,7 @@ if(!isset($_GET['download']))
 	echo json_encode($retval);
 }
 
-// request by timesheet.php
+// generate timesheet and download in browser
 if(isset($_GET['download']))
 {	
 	if (isset($_GET['uid']) && !empty($_GET['uid']) &&
