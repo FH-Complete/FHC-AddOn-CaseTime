@@ -38,7 +38,8 @@ $sprache = getSprache();
 $sprache_index = $sprache_obj->getIndexFromSprache($sprache);	// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
-$date_last_month = new DateTime();	
+$date_last_month = new DateTime();
+$date_last_month->setTime(0,0,0);
 $date_last_month->sub(new DateInterval('P1M'));
 $date_last_month->modify('last day of this month');	// date obj of last month
 
@@ -74,30 +75,31 @@ $untergebenen_arr = $mitarbeiter->untergebene;
 
 if (!empty($untergebenen_arr))
 {
-	$isVorgesetzter = true;
+	if (!$isPersonal)	// if personnel manager is also supervisor: provide isPersonal-features (view, alerts etc)
+	{
+		$isVorgesetzter = true;
+	}	
 }
 
 // Permission check
-if (!$isPersonal &&	// personnel department
-	!$isVorgesetzter &&	// supervisor
-	!$rechte->isBerechtigt('admin'))	// admin
+if (!$isPersonal &&
+	!$isVorgesetzter)	
 {
 	die('Sie haben keine Berechtigung für diese Seite');
 }
 		
-
 // vars supervisor / personnel manager
 $benutzer = new Benutzer($uid);
 $full_name = $benutzer->getFullName();	// string full name
 
-// :TODO: what if personnel manager is also supervisor -> how differ
 // set employees uid arr depending if uid is supervisor or personnel manager
-$employee_uid_arr = array();	// array with uid to be used
-if (!empty($untergebenen_arr))
+$employee_uid_arr = array();	// array with employees uid
+if (!empty($untergebenen_arr))	
 {
 	$employee_uid_arr = $untergebenen_arr;
 }
-elseif (!empty ($all_employee_uid_arr))
+// * if supervisor is also personnel manager, untergebenen_arr is overwritten
+if (!empty ($all_employee_uid_arr))	
 {
 	$employee_uid_arr = $all_employee_uid_arr;
 }
@@ -125,8 +127,8 @@ foreach($employee_uid_arr as $employee_uid)
 		$cnt_isNotCreated = 0;	// counts missing timesheets between last timesheet date and last months date
 		
 		// last timesheet date
-		$last_timesheet_date = DateTime::createFromFormat('Y-m-d', $timesheet_arr[0]->datum);
-		
+		$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[0]->datum); //set time to zero
+	
 		// count missing timesheets (until last month)
 		if ($last_timesheet_date < $date_last_month)
 		{
@@ -144,7 +146,7 @@ foreach($employee_uid_arr as $employee_uid)
 			if (count($timesheet_arr) > 1)
 			{
 				$index = 1;
-				$last_timesheet_date = DateTime::createFromFormat('Y-m-d', $timesheet_arr[$index]->datum);	
+				$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[$index]->datum);	
 			}
 		}
 		$last_timesheet_id = $timesheet_arr[$index]->timesheet_id;
@@ -166,14 +168,26 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 	}
 	
-	// balance of time
-	$time_balance = getCaseTimeZeitsaldo($employee_uid);	// float time balance OR string error OR bool false
+	// :WORKAROUND: disable for personnel department until requests to casetime server are speeded up
+	$time_balance = false;
+	$holiday = false;
+	if (!$isPersonal)
+	{
+		// balance of time
+		$time_balance = getCaseTimeZeitsaldo($employee_uid);	// float time balance OR string error OR bool false
 
-	// holiday information	
-	$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
+		// holiday information	
+		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
+	}
 	
 	
 	// Extra data for personnel department
+	$employee_oe_parent_arr = array();	// array of string oes 
+	$last_cntrl_timesheet_id = '';	// timesheet_id of last controlled timesheet
+	$last_cntrl_date = '';	// date of last controlled timesheet
+	$last_cntrl_uid = '';	// controller uid of last controlled timesheet
+	$last_cntrl_remark = '';	// remark of last controlled timesheet
+
 	if ($isPersonal)
 	{
 		// get organisational unit of employee
@@ -183,13 +197,26 @@ foreach($employee_uid_arr as $employee_uid)
 		
 		// get organisational unit hierarchy
 		$oe = new Organisationseinheit();
-		$employee_oe_parent_arr = $oe->getParents($employee_oe_kurzbz);	// array of string oes 
+		$employee_oe_parent_arr = $oe->getParents($employee_oe_kurzbz);	
 		
 		foreach ($employee_oe_parent_arr as &$oe_parent)	// :NOTE: & is important to update element in foreach loop
 		{
 			$oe->load($oe_parent);
 			$oe_parent = $oe->bezeichnung;
 		}
+		
+		// get latest controlling data
+		$timesheet = new Timesheet();
+		$wasControlled = $timesheet->getLatestControllingData($employee_uid); 
+		
+		if ($wasControlled)
+		{
+			$last_cntrl_timesheet_id = $timesheet->timesheet_id;
+			$last_cntrl_date = new DateTime($timesheet->kontrolliertamum);
+			$last_cntrl_uid = $timesheet->kontrolliertvon;
+			$last_cntrl_remark = (!is_null($timesheet->kontroll_notizen)) ? $timesheet->kontroll_notizen : '';
+		}
+
 	}
 	
 	// Collect all employees data to push to overall employees array
@@ -209,6 +236,10 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->all_timesheets_notConfirmed = $cnt_isNotConfirmed;
 		$obj->time_balance = $time_balance;
 		$obj->holiday = $holiday;
+		$obj->last_cntrl_timesheet_id = $last_cntrl_timesheet_id;
+		$obj->last_cntrl_date = $last_cntrl_date;
+		$obj->last_cntrl_uid = $last_cntrl_uid;
+		$obj->last_cntrl_remark = $last_cntrl_remark;
 	}
 	// * basic data of employee who has NO timesheets
 	else
@@ -225,6 +256,10 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->all_timesheets_notConfirmed = 0;
 		$obj->time_balance = $time_balance;
 		$obj->holiday = $holiday;
+		$obj->last_cntrl_timesheet_id = $last_cntrl_timesheet_id; //empty
+		$obj->last_cntrl_date = $last_cntrl_date;	//empty
+		$obj->last_cntrl_uid = $last_cntrl_uid;	//empty
+		$obj->last_cntrl_remark = $last_cntrl_remark;	//empty
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
@@ -262,17 +297,11 @@ function sortEmployeesName($employee1, $employee2)
 			margin-left: 0px;
 			margin-right: 0px;
 		}
-		.custom-panel {
-			border: solid 1px lightgrey; border-radius: 0.3em; padding: 1%;
-		}
 		.table>tbody>tr>td {
 			border-top: none;
 		}
 		.btn {
 			width: 185px;
-		}
-		.panel-body-alleMonatslisten {
-			padding: 0px;
 		}
 		.inactive {
 			pointer-events: none;
@@ -321,14 +350,25 @@ function sortEmployeesName($employee1, $employee2)
 <body class="main" style="font-family: Arial, Helvetica, sans-serif; font-size: 13px;">
 	
 	<h3>Verwaltung Zeitaufzeichnung - Monatslisten</h3>
-	<h4>Team von <?php echo $full_name ?></h4><br>
+	<br><br>
+<!--	<?php if($isVorgesetzter): ?>
+		<h4>Team von <?php echo $full_name ?></h4><br>
+	<?php endif; ?>
+	-->
+	<h4>Übersicht Monatslisten</h4>
 	
 	<!--************************************	TEXTUAL INFORMATION	 -->
-
-	<h4>Übersicht Monatslisten</h4>
-	Überblick über die Zeiterfassung Ihrer MitarbeiterInnen des letzten Monats.<br>
-	Klicken Sie auf einen Namen, um die Monatslisten der entsprechenden Person einzusehen und zu verwalten.
-	<br><br><br>
+	
+	<?php if($isVorgesetzter): ?>
+		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen, sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
+		Wenn Sie noch Monatslisten genehmigen müssen, wird dies in der Spalte "Nicht genehmigt" rot angezeigt.<br>
+		Klicken Sie auf einen Namen, um die Monatslisten der entsprechenden Person einzusehen und zu verwalten.
+	<?php elseif ($isPersonal): ?>
+		Überblick über die Zeiterfassung des letzten Monats aller fix angestellten und aktiven MitarbeiterInnen.<br>
+		In der Spalte "Letzte Kontrolle" sehen Sie, wann Sie zuletzt eine Monatsliste als "kontrolliert" gespeichert haben.<br>
+		Klicken Sie auf einen Namen, um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
+	<?php endif; ?>
+	<br><br>
 	
 	<!--************************************	TABLE with EMPLOYEES MONTHLIST INFORMATION	 -->
 				
@@ -341,7 +381,7 @@ function sortEmployeesName($employee1, $employee2)
 				<td></td>
 				<td colspan="3" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
-				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
+				<?php echo (!$isPersonal) ? '<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>' : '' ?>
 				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
 			</tr>
 			<tr>
@@ -356,13 +396,14 @@ function sortEmployeesName($employee1, $employee2)
 						data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis inklusive <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?>.&#013;&#010;(auch solche, die nicht erstellt/abgeschickt und daher nicht genehmigt wurden)">							 
 					</i>
 				</th>
-				<th>Zeitsaldo</th>
+				<?php echo (!$isPersonal) ? '<th>Zeitsaldo</th>' : '' ?>
 				<!--<th>Überstunden</th>-->
-				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
+				<?php echo (!$isPersonal) ?
+				'<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
 						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">							 
 					</i>
-				</th>
+				</th>' : '' ?>
 				<?php echo ($isPersonal) ? '<th>Kontrolliert am</th>' : '' ?>
 			</tr>			
 		</thead>
@@ -371,9 +412,10 @@ function sortEmployeesName($employee1, $employee2)
 		<tbody> 
 			<?php foreach ($employees_data_arr as $employee): ?>
 				
-				<!--if employee has at least one timesheet-->
+				<!--IF employee has AT LEAST ONE TIMESHEET-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
 				<tr>
+					
 					<!--organisational unit (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
 						<td>
@@ -383,22 +425,29 @@ function sortEmployeesName($employee1, $employee2)
 							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
 						</td>
 					<?php endif; ?>
+						
 					<!--employee name & link to latest timesheet-->
-					<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a></td>
+					<td>
+						<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
+					</td>
 					
 					<!--status-->
 					<!-- * only consider if timesheet date is date of last month -->
-					<?php if ($date_last_month == $employee->last_timesheet_date): ?>	
+					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
+					
 						<!-- * status text if confirmed-->
 						<?php if (!is_null($employee->last_timesheet_confirmed)): ?>
 							<td class='text-center'>genehmigt</td>
+							
 						<!-- * status text if sent-->
 						<?php elseif (!is_null($employee->last_timesheet_sent)): ?>
 							<td class='text-center'>abgeschickt</td>
+							
 						<!-- * status text if created-->
 						<?php else: ?>	
 							<td class='text-center'>angelegt</td>
 						<?php endif; ?>
+							
 					<!-- * status text if NO created timesheet for the last month-->
 					<?php else: ?>	
 						<td class='text-center'>nicht angelegt</td>
@@ -423,41 +472,37 @@ function sortEmployeesName($employee1, $employee2)
 					<?php else: ?>	
 						<td class='text-center'>-</td>
 					<?php endif; ?>
-						
-<!--					amount of all timesheets not created AND not sent
-					<?php $all_timesheets_notCreatedOrSent = $employee->all_timesheets_notCreated + $employee->all_timesheets_notSent; ?>
-					<td class='text-center'>
-						<?php echo (!empty($all_timesheets_notCreatedOrSent)) ? $all_timesheets_notCreatedOrSent : '-' ?>
-					</td>	-->
-					
-					<!--amount of all timesheets not confirmed-->
+											
+					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
 					<?php $all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed; ?>
 					<td class='text-center <?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? 'danger' : '' ?>'>
 						<?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? $all_timesheets_notCreatedOrConfirmed : '-' ?>
 					</td>
 					
-					<!--balance of working hours on next account-->
-					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
-					
-					<!--overtime hours-->
-					<!--<td class='text-center'>5,0 h</td>-->
-					
-					<!--holidays cosumed-->
-					<td class='text-center'>
-						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
-					</td>	
-					
+					<?php if (!$isPersonal): ?>
+						<!--balance of working hours on next account-->
+						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
+
+						<!--overtime hours-->
+						<!--<td class='text-center'>5,0 h</td>-->
+
+						<!--holidays cosumed-->
+						<td class='text-center'>
+							<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
+						</td>	
+					<?php endif; ?>
+						
 					<!--controlling date (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
-						<td>
-							<?php echo 'testdatum'; ?>
+						<td class='text-center'>
+							<?php echo (!empty($employee->last_cntrl_date)) ? $employee->last_cntrl_date->format('d.m.Y') : '-' ?>
 						</td>
 					<?php endif; ?>				
 				</tr>
-				
-				<!--if employee has NO timesheet yet-->
+								
+				<!--IF employee has NO TIMESHEET yet-->
 				<?php else: ?>
-				<tr>
+				<tr>					
 					<!--organisational unit (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
 						<td>					
@@ -467,32 +512,42 @@ function sortEmployeesName($employee1, $employee2)
 							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
 						</td>
 					<?php endif; ?>
+						
 					<!--employee name to most last timesheet-->
 					<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+					
 					<!--status-->
 					<td class='text-center'>nicht angelegt</td>
+					
 					<!--sending date-->
 					<td class='text-center'>-</td>
+					
 					<!--confirmation date-->
 					<td class='text-center'>-</td>
+					
 					<!--amount of all timesheets not sent-->
 					<!--<td class='text-center'>-</td>-->	
+					
 					<!--amount of all timesheets not confirmed-->
 					<td class='text-center'>-</td>
-					<!--balance of working hours on next account-->
-					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
-					<!--overtime hours-->
-					<!--<td class='text-center'>-</td>-->	
-					<!--holidays cosumed-->
-					<td class='text-center'>
-						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
-					</td>
+					<?php if (!$isPersonal): ?>
+						<!--balance of working hours on next account-->
+						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
+						<!--overtime hours-->
+						<!--<td class='text-center'>-</td>-->	
+						<!--holidays cosumed-->
+						<td class='text-center'>
+							<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
+						</td>
+					<?php endif; ?>
+						
 					<!--controlling date (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
 						<td class='text-center'>-</td>
 					<?php endif; ?>
 				</tr>
 				<?php endif; ?>
+				
 			<?php endforeach; ?>
 		</tbody>
 	</table>
