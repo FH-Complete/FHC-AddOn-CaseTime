@@ -456,6 +456,21 @@ if ($result = @$db->db_query("SELECT 1 FROM public.tbl_dokument WHERE dokument_k
 	}
 }
 
+//add columns kontrolliertamum, kontrolliertvon, kontroll_notizen to tbl_casetime_timesheet
+if(!$result = @$db->db_query("SELECT kontrolliertamum FROM addon.tbl_casetime_timesheet LIMIT 1"))
+{
+	$qry = "ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontrolliertamum timestamp;
+			ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontrolliertvon varchar(32);
+			ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontroll_notizen text;
+			
+			ALTER TABLE addon.tbl_casetime_timesheet ADD CONSTRAINT fk_benutzer_casetime_timesheet_kontrolliertvon FOREIGN KEY (kontrolliertvon) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_timesheet: '.$db->db_last_error().'</strong><br>';
+	else
+		echo '<br>addon.tbl_casetime_timesheet: Spalten kontrolliertamum, kontrolliertvon, kontroll_notizen hinzugefuegt';
+}
+
 echo '<br>Aktualisierung abgeschlossen<br><br>';
 echo '<h2>Gegenprüfung</h2>';
 
@@ -465,7 +480,7 @@ $tabellen=array(
 	"addon.tbl_casetime_gruppen"  => array("casetime_gruppen_id","oe_kurzbz","uid","sync"),
 	"addon.tbl_casetime_zeitsperre"  => array("casetime_zeitsperre_id","uid","datum","typ"),
 	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id", "datum_bis"),
-	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon"),
+	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon", "kontrolliertamum", "kontrolliertvon", "kontroll_notizen"),
 	"addon.tbl_casetime_timesheet_dms"  => array("timesheet_dms_id","timesheet_id","dms_id","insertamum", "insertvon"),
 );
 
