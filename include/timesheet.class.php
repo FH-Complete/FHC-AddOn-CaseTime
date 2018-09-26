@@ -28,6 +28,9 @@ class Timesheet extends basis_db
 	public $abgeschicktamum;	// timestamp
 	public $genehmigtamum;		// timestamp
 	public $genehmigtvon;		// varchar(32)
+	public $kontrolliertamum;	// timestamp
+	public $kontrolliertvon;	// varchar(32)
+	public $kontroll_notizen;	// text
 	
 	// Constructor
 	public function __construct($uid = null, $month = null, $year = null)
@@ -52,7 +55,10 @@ class Timesheet extends basis_db
 					insertvon,
 					abgeschicktamum,
 					genehmigtamum,
-					genehmigtvon
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -74,6 +80,9 @@ class Timesheet extends basis_db
 					$this->abgeschicktamum = $row->abgeschicktamum;
 					$this->genehmigtamum = $row->genehmigtamum;
 					$this->genehmigtvon = $row->genehmigtvon;
+					$this->kontrolliertamum = $row->kontrolliertamum;
+					$this->kontrolliertvon = $row->kontrolliertvon;
+					$this->kontroll_notizen = $row->kontroll_notizen;
 					
 					$this->new = false;
 					return true;
@@ -111,7 +120,10 @@ class Timesheet extends basis_db
 					insertvon,
 					abgeschicktamum,
 					genehmigtamum,
-					genehmigtvon
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -129,6 +141,9 @@ class Timesheet extends basis_db
 					$this->abgeschicktamum = $row->abgeschicktamum;
 					$this->genehmigtamum = $row->genehmigtamum;
 					$this->genehmigtvon = $row->genehmigtvon;
+					$this->kontrolliertamum = $row->kontrolliertamum;
+					$this->kontrolliertvon = $row->kontrolliertvon;
+					$this->kontroll_notizen = $row->kontroll_notizen;
 					
 					return true;
 				}
@@ -165,7 +180,10 @@ class Timesheet extends basis_db
 					insertvon,
 					abgeschicktamum,
 					genehmigtamum,
-					genehmigtvon
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -187,6 +205,9 @@ class Timesheet extends basis_db
 					$obj->abgeschicktamum = $row->abgeschicktamum;
 					$obj->genehmigtamum = $row->genehmigtamum;
 					$obj->genehmigtvon = $row->genehmigtvon;
+					$obj->kontrolliertamum = $row->kontrolliertamum;
+					$obj->kontrolliertvon = $row->kontrolliertvon;
+					$obj->kontroll_notizen = $row->kontroll_notizen;
 					
 					$this->result[] = $obj;					
 				}
@@ -207,7 +228,7 @@ class Timesheet extends basis_db
 	}
 	
 	// Save single timesheet for one person
-	public function save($sent = false, $genehmigt = false)
+	public function save($sent = false, $confirmed = false, $controlled = false)
 	{	
 		// Insert new timesheet
 		if ($this->new)
@@ -228,7 +249,7 @@ class Timesheet extends basis_db
 					timesheet_id
 			';
 		}
-		elseif ($sent || $genehmigt)
+		elseif ($sent || $confirmed || $controlled)
 		{
 			$qry = '
 				UPDATE
@@ -239,22 +260,37 @@ class Timesheet extends basis_db
 			if ($sent)
 			{
 				$qry.= 	
-					'abgeschicktamum = '. $this->db_add_param($this->abgeschicktamum). ' ';
+					'abgeschicktamum = '. $this->db_add_param($this->abgeschicktamum). ',';
 			}
 			
 			// Update when timesheet is confirmed
-			if ($genehmigt)
+			if ($confirmed)
 			{
 				$qry.= 
 					'genehmigtamum='. $this->db_add_param($this->genehmigtamum). ','.
-					'genehmigtvon='. $this->db_add_param($this->genehmigtvon). ' ';
+					'genehmigtvon='. $this->db_add_param($this->genehmigtvon). ',';
 			}
 			
+			// Update when timesheet is controlled
+			if ($controlled)
+			{
+				$qry.= 
+					'kontrolliertamum='. $this->db_add_param($this->kontrolliertamum). ','.
+					'kontrolliertvon='. $this->db_add_param($this->kontrolliertvon). ',';
+				
+				if (isset($this->kontroll_notizen))
+				{
+					$qry.= 
+					'kontroll_notizen='. $this->db_add_param($this->kontroll_notizen). ',';
+				}
+			}
+			
+			$qry = rtrim($qry, ',');	// trim last comma
 			$qry.= '
 				WHERE 
-					timesheet_id='. $this->db_add_param($this->timesheet_id);
+					timesheet_id='. $this->db_add_param($this->timesheet_id). ';';
 		}
-		
+
 		if ($this->new)
 		{
 			if($result = $this->db_query($qry))
@@ -641,5 +677,53 @@ class Timesheet extends basis_db
 			return false;
 		}
 			
+	}
+	
+	// Get the most recent timesheet controlling data
+	public function getLatestControllingData($uid)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			$qry = '
+				SELECT 
+					* 
+				FROM 
+					addon.tbl_casetime_timesheet 
+				WHERE 
+					uid=' . $this->db_add_param($uid, FHC_STRING) . '
+				AND 
+					kontrolliertamum IS NOT NULL 
+				ORDER BY 
+					kontrolliertamum DESC LIMIT 1';
+			
+			if ($this->db_query($qry))
+			{
+		
+				if ($row = $this->db_fetch_object())
+				{
+					$this->timesheet_id = $row->timesheet_id;
+					$this->kontrolliertamum = $row->kontrolliertamum;
+					$this->kontrolliertvon = $row->kontrolliertvon;
+					$this->kontroll_notizen = $row->kontroll_notizen;
+
+					return true;
+				}
+				else
+				{
+					// timesheet has NOT yet been controlled 
+					return false;
+				}
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage zu den letzten Timesheet-Kontrolldaten.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "UID muss vorhanden und nicht leer sein";
+			return false;
+		}
 	}
 }
