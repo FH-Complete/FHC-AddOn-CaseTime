@@ -17,8 +17,8 @@
  *
  * Authors:		Cristina Hainberger <cristina.hainberger@technikum-wien.at>
  */
-require_once('../../../include/basis_db.class.php');
 require_once('../../../config/cis.config.inc.php');
+require_once('../../../include/basis_db.class.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/person.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
