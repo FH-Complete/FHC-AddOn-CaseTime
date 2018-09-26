@@ -71,11 +71,24 @@ if(!isset($_GET['download']))
 
 if(isset($_GET['download']))
 {
-	// get casetime server filepath with filename
-	$sysFile = generateCaseTimeTimesheet($uid, $monat, $jahr, $ftype);
+	if (isset($_GET['uid']) && !empty($_GET['uid']) &&
+		isset($_GET['monat']) && !empty($_GET['monat']) &&
+		isset($_GET['jahr']) && !empty($_GET['jahr']))
+	{
+		$uid = $_GET['uid'];
+		$month = $_GET['monat'];
+		$year = $_GET['jahr'];
+		// get casetime server filepath with filename
+		$sysFile = generateCaseTimeTimesheet($uid, $month, $year, $ftype);
+
+		// connect to casetime server, get timesheet pdf and display in browser
+		renderCaseTimeTimesheet($uid, $sysFile);
+	}
+	else
+	{
+		echo 'UID, Monat oder Jahr nicht vorhanden oder inkorrekt.';
+	}
 	
-	// connect to casetime server, get timesheet pdf and display in browser
-	renderCaseTimeTimesheet($uid, $sysFile);
 }
 
 ?>
