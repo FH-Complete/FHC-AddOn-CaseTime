@@ -1100,7 +1100,13 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
 				Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
 				Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
-				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.
+				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.<br><br>
+				<i class="fa fa-check-square-o fa-lg text-info" aria-hidden="true"></i>
+				<?php if (!$isSent || !$isConfirmed): ?>
+					&nbsp;Mit Genehmigung der Monatsliste geben Sie Ihr Einverständnis für alle in diesem Monat eventuell angefallenen Überstunden.
+				<?php else: ?>
+					&nbsp;Sie haben für diesen Monat <b>eventuell angefallene Überstunden genehmigt.</b>
+				<?php endif; ?>
 			</div>
 			<form id="formTimesheetConfirmation" method="POST" action="">
 				<input type="hidden" name="checkbox_overtime_arr" value="" />
@@ -1110,15 +1116,6 @@ function checkCaseTimeErrors($uid, $month, $year)
 							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
 				</div>
 			</form>
-			<div class="panel-body col-xs-8 well" role="alert" style="margin-top: 20px; margin-left: 15px;">
-				<i class="fa fa-check-square-o fa-lg text-info" aria-hidden="true"></i>
-				<!--&nbsp;<b><span class="text-info text-uppercase">Hinweis: </span></b>-->
-				<?php if (!$isSent || !$isConfirmed): ?>
-					&nbsp;Mit Genehmigung der Monatsliste geben Sie Ihr <b>Einverständnis für alle in diesem Monat eventuell angefallenen Überstunden.</b>
-				<?php else: ?>
-					&nbsp;Sie haben für diesen Monat <b>eventuell angefallene Überstunden genehmigt.</b>
-				<?php endif; ?>
-			</div>
 		</div>
 
 		<!--panel: SEND BACK timesheet-->
