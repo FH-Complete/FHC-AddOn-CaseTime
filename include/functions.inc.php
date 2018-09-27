@@ -528,9 +528,16 @@ function renderCaseTimeTimesheet($uid, $sysFile)
 	$filename = $uid. '_'. basename($sysFile);
 	
 	// connect to CaseTimeServer and get timesheet pdf via sysFile-path
-	$conn = ssh2_connect(CASETIME_SERVER_IP, CASETIME_SERVER_PORT);
-	ssh2_auth_password($conn, CASETIME_ZOPE_SYSUSER, CASETIME_ZOPE_SYSPASS);
-	ssh2_scp_recv($conn, $sysFile, $tmp_file);
+
+	require_once("../../../vendor/autoload.php");
+
+	$sftp = new \phpseclib\Net\SFTP(CASETIME_SERVER_IP);
+	if (!$sftp->login(CASETIME_ZOPE_SYSUSER, CASETIME_ZOPE_SYSPASS))
+	{
+		exit('Login Failed');
+	}
+
+	$sftp->get($sysFile, $tmp_file);
 	
 	// close connection
 	$conn = null;
