@@ -360,13 +360,13 @@ function sortEmployeesName($employee1, $employee2)
 	<!--************************************	TEXTUAL INFORMATION	 -->
 	
 	<?php if($isVorgesetzter): ?>
-		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen, sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
+		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
 		Wenn Sie noch Monatslisten genehmigen müssen, wird dies in der Spalte "Nicht genehmigt" rot angezeigt.<br>
-		Klicken Sie auf einen Namen, um die Monatslisten der entsprechenden Person einzusehen und zu verwalten.
+		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen und zu verwalten.
 	<?php elseif ($isPersonal): ?>
 		Überblick über die Zeiterfassung des letzten Monats aller fix angestellten und aktiven MitarbeiterInnen.<br>
-		In der Spalte "Letzte Kontrolle" sehen Sie, wann Sie zuletzt eine Monatsliste als "kontrolliert" gespeichert haben.<br>
-		Klicken Sie auf einen Namen, um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
+		In der Spalte "Letzte Kontrolle" sehen Sie wann Sie zuletzt eine Monatsliste als "kontrolliert" gespeichert haben.<br>
+		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
 	<?php endif; ?>
 	<br><br>
 	
