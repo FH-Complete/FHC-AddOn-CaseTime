@@ -940,7 +940,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 					<!--set absence text-->
 					<?php if ($counter == 0): ?>
-						Bitte laden Sie Bestätigungen für folgende Fehlzeiten hoch:<br><br>
+						Bitte laden Sie Bestätigungen für folgende Fehlzeiten (außer Dienstreisen) hoch:<br><br>
 						<?php $counter++ ?>
 					<?php endif; ?>
 

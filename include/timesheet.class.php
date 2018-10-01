@@ -325,7 +325,7 @@ class Timesheet extends basis_db
 	{
 		// get absence for:
 		// DIENSTVERHINDERUNG, KRANK and PFLEGEURLAUB (from tbl_zeitsperre) 
-		// ARZTBESUCH and BEHÖRDE (from tbl_zeitaufzeichnung)
+		// ARZTBESUCH, BEHÖRDE, DIENSTREISE and DIENSTREISEMT (from tbl_zeitaufzeichnung)
 		if (isset($uid) && !empty($uid))
 		{
 			$qry = '
@@ -372,7 +372,7 @@ class Timesheet extends basis_db
 				WHERE
 					uid = '. $this->db_add_param($uid). '
 				AND 
-					aktivitaet_kurzbz IN (\'Arztbesuch\', \'Behoerde\')
+					aktivitaet_kurzbz IN (\'Arztbesuch\', \'Behoerde\', \'Dienstreise\', \'DienstreiseMT\')
 				AND 
 					ende BETWEEN date_trunc(\'month\', datum::date) AND datum::date
 				ORDER BY
