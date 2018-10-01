@@ -38,16 +38,15 @@ $sprache = getSprache();												// users language
 $sprache_index = $sprache_obj->getIndexFromSprache($sprache);			// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
-$date_actual = new DateTime();											// date obj of actual date
-$date_actual_month = $date_actual->format('m');							// string month of actual date
-$date_actual_year = $date_actual->format('Y');							// string year of actual date
-$monthyear_actual = $date_actual->format('Y-m');						// string month/year of actual date
+// :NOTE: given to operations with DateTime - months, date objects should always be set to first of month
+$date_actual = new DateTime('first day of this month midnight');	// date obj of actual date
+$date_timesheet_golive = new DateTime(CASETIME_TIMESHEET_GOLIVE);	// first possible date to create monthlists (timesheet go live)
 
-// month & year of actual timesheet
-$month = $date_actual_month;											// string month of actual timesheet
-$year = $date_actual_year;												// string year of actual timesheet
+// month & year of actual date
+$month = $date_actual->format('m');	// string month of actual timesheet
+$year = $date_actual->format('Y');	// string year of actual timesheet
 
-// month & year of actual timesheet: overwrite if get request
+// month & year is overwritten by navigating through monthlist
 if (isset($_GET['month']) && isset($_GET['year']))
 {
 	if (is_numeric($_GET['month']) && is_numeric($_GET['year']))
@@ -134,7 +133,7 @@ if (isset($_GET['timesheet_id']))
 
 // vars user of monthlist
 $benutzer = new Benutzer($uid);
-$full_name = $benutzer->getFullName();									// string full name of user
+$full_name = $benutzer->getFullName();	// string full name of user
 
 // vars supervisor of user
 $mitarbeiter = new Mitarbeiter($uid);
@@ -159,19 +158,11 @@ else
 	echo $mitarbeiter->errormsg;
 }
 
+// :NOTE: init $date_selected MUST be after request
+$date_selected = new DateTime($year. '-'. $month);	// date obj of date selected; day and time is automatically set to first and zero
 
-$date_selected = DateTime::createFromFormat('!Y-m', $year. '-'. $month);	// date obj of month/year selected; used ! to set time to 0 (for comparing)
-$month_name = $date_selected->format('F');								// string month-name to be used in modify-method
-$date_selected->modify('last day of '. $month_name. ' '. $year);		// date obj of month/year selected with last day of month (to operate with diff method)
-$date_selected_year = $date_selected->format('Y');						// string year selected
-$date_selected_month = $date_selected->format('m');						// string month selected
-$monthyear_selected = $date_selected->format('Y-m');					// string month/year selected
-
-$date_timesheet_golive = DateTime::createFromFormat('Y-m-d|', CASETIME_TIMESHEET_GOLIVE);  // first possible date to create monthlists (timesheet go live)
-$date_timesheet_golive->modify('last day of this month');
-
-$isFuture = false;														// bool if chosen monthyear is in the future (after actual monthyear)
-$isMissing_doc = false;													// bool if upload documents are missing after check against absences
+$isFuture = false;	// bool if date selected is in the future
+$isMissing_doc = false;	// bool if upload documents are missing after check against absences
 
 // *********************************	ALL TIMESHEETS
 // Get all timesheets
@@ -186,17 +177,15 @@ if ($date_selected < $date_timesheet_golive)
 	$isAllowed_createTimesheet = false;
 	$isBeforeGolive = true;
 }
-			
+
 // If timesheet is created the first time: 
 // flag to only allow for actual month or one month before acutal month AND not before golive 
 if (empty($timesheet_arr))
 {
-	$monthyear_actual_minus_one = $date_actual;
-	$monthyear_actual_minus_one->modify('last day of last month');
-	$monthyear_actual_minus_one = $monthyear_actual_minus_one->format('Y-m');
-
+	$date_last_month = new DateTime('first day of last month midnight');
+	
 	// flag if chosen monthyear is before one month before actual monthyear OR after actual monthyear
-	if ($monthyear_selected < $monthyear_actual_minus_one || $monthyear_selected > $monthyear_actual)
+	if ($date_selected < $date_last_month || $date_selected > $date_actual)
 	{
 		$isAllowed_createTimesheet = false;
 	}
@@ -205,35 +194,32 @@ if (empty($timesheet_arr))
 $timesheet_years = array();												// list of unique timesheet years to set title in "Alle Monatslisten" - panel
 $isDisabled_by_formerUnsentTimesheet = false;							// bool if there are existing former unsent timesheets (up to the chosen date)
 $isDisabled_by_missingTimesheet = false;								// bool if there are missing timesheets (up to the date selected)
-$last_Timesheet_date = null;											// last timesheet date of all existing timesheets
-$first_Timesheet_date = null;											// first timesheet date of all existing timesheets; used in the loop to find out the very first monthlist date
+$date_last_timesheet = null;											// last timesheet date of all existing timesheets
+$date_first_timesheet = null;											// first timesheet date of all existing timesheets; used in the loop to find out the very first monthlist date
 $notConfirmed_arr = array();											// date string array of all timesheets not confirmed
 $isAllowed_confirmTimesheet = true;										// bool if timesheet can be confirmed by supervisor (false when former timesheets are not confirmed)
-$month_diff_to_selected = 0;											// months between last timesheets date and selected date
 $cnt = 0;																// counter to find out a possible gap between last timesheets date and selected date
 
 if (!empty($timesheet_arr))
 {
-	$last_Timesheet_date = new Datetime($timesheet_arr[0]->datum);	
-	$first_Timesheet_date = $timesheet_arr[0]->datum;	
+	$date_last_timesheet = new DateTime('first day of '. $timesheet_arr[0]->datum);	
+	$date_first_timesheet = new DateTime('first day of '. $timesheet_arr[0]->datum);	// will ev. be overwritten later
 }
 
 foreach ($timesheet_arr as $ts)
 {
-	$ts_date = new DateTime($ts->datum);
+	$ts_date = new DateTime('first day of '. $ts->datum);
 	$ts_year = $ts_date->format('Y');
-	$ts_month = $ts_date->format('m');
-	$ts_monthyear = $ts_date->format('Y-m');
 	$ts_isSent = (is_null($ts->abgeschicktamum)) ? false : true;
 
 	// get years (unique), where timesheet exist
 	if ($ts_year != end($timesheet_years))
 		$timesheet_years[] = $ts_year;
 
-	// flag if at least one timesheet is NOT sent AND BEFORE the selected monthyear
+	// flag if at least one timesheet is NOT sent AND BEFORE the selected date
 	if (!$ts_isSent)
 	{
-		if ($ts_monthyear < $monthyear_selected)
+		if ($ts_date < $date_selected)
 		{
 			$isDisabled_by_formerUnsentTimesheet = true;
 		}
@@ -243,7 +229,11 @@ foreach ($timesheet_arr as $ts)
 	if ($cnt == 0)
 	{
 		// get month amount between last timesheet and date selected
-		$month_diff_to_selected = (($date_selected_year - $ts_year) * 12) + ($date_selected_month - $ts_month);
+		$month_diff_to_selected = $date_selected->diff($ts_date)->m; // get diff months of DateInterval-obj
+		if ($date_selected->diff($ts_date)->d > 0)
+		{
+			$month_diff_to_selected++;	// add 1 month if DateInterval-obj has also days
+		}
 		// diff of 1 month is okay, as first missing timesheet should be able to be created
 		if ($month_diff_to_selected > 1)
 		{
@@ -253,8 +243,10 @@ foreach ($timesheet_arr as $ts)
 	$cnt++;
 
 	// date of first timesheet
-	if ($first_Timesheet_date > $ts->datum)
-		$first_Timesheet_date = $ts->datum;
+	if ($date_first_timesheet > $ts_date)
+	{
+		$date_first_timesheet = clone $ts_date;
+	}
 
 	// collect all dates of timesheets that are not confirmed
 	if (is_null($ts->genehmigtamum))
@@ -273,28 +265,38 @@ foreach ($timesheet_arr as $ts)
 }
 
 // Add dummy timesheets for eventually missing ones between last entry and actual date
+// * first set last date of monthlist by last exisiting timesheet date or by FAS mandatory first timesheet date  
 if (!empty($timesheet_arr))
 {
-	$last_timesheet_entry_date = new DateTime($timesheet_arr[0]->datum);
+	$last_monthlist_date = clone $date_last_timesheet;
 }
+// :TODO: define $date_FAS_timesheet_mandatory and uncomment this
+// if no timesheet existing yet AND user is zeitaufzeichnungspflichtig: use FAS starting date
+//elseif (empty($timesheet_arr) && !empty($date_FAS_timesheet_mandatory))
+//{
+//	$last_monthlist_date = new DateTime($date_FAS_timesheet_mandatory);
+//}
 else
 {
-	$last_timesheet_entry_date = clone $date_selected;
+	$last_monthlist_date = clone $date_selected;
 }
-$last_timesheet_entry_date->modify('first day of this month');
-$month_diff_to_actual = (($date_actual_year - $last_timesheet_entry_date->format('Y')) * 12) 
-	+ ($date_actual_month - $last_timesheet_entry_date->format('m'));
+
+$month_diff_to_actual = $last_monthlist_date->diff($date_actual)->m;
+if ($last_monthlist_date->diff($date_actual)->d > 0)
+{
+	$month_diff_to_actual++;
+}
 
 // set the dummy timesheet array
 $missing_timesheet_arr = array();
 for ($i = $month_diff_to_actual; $i > 0; $i--)
 {
-	$last_timesheet_entry_date->add(new DateInterval('P1M'));
+	$last_monthlist_date->add(new DateInterval('P1M'));
 
 	$obj = new stdClass();
 	$obj->timesheet_id = null;
 	$obj->uid = $uid;
-	$obj->datum = $last_timesheet_entry_date->format('Y-m');
+	$obj->datum = $last_monthlist_date->format('Y-m-d');
 	$obj->abgeschicktamum = null;
 	$obj->genehmigtamum = null;
 	$obj->genehmigtvon = null;
@@ -323,20 +325,19 @@ if (!empty($notConfirmed_arr))
 
 // Get some dates to use in the alert boxes
 // * get last date of existing timesheets PLUS one month
-$last_Timesheet_date_nextMonth = null;
-if (!is_null($last_Timesheet_date))
+$date_last_timesheet_nextMonth = null;
+if (!is_null($date_last_timesheet))
 {
-	$last_Timesheet_date_nextMonth = clone $last_Timesheet_date;
-	$last_Timesheet_date_nextMonth->modify('first day of this month');
-	$last_Timesheet_date_nextMonth->add(new DateInterval('P1M'));
+	$date_last_timesheet_nextMonth = clone $date_last_timesheet;
+	$date_last_timesheet_nextMonth->add(new DateInterval('P1M'));
 }
 
-// * get last date of created timesheets PLUS one month
-$last_timesheet_entry_date_plus_1month = null;
-if (!is_null($last_timesheet_entry_date))
+// * get last date of monthlist dates (incl. dummy dates) PLUS one month
+$last_monthlist_date_nextMonth = null;
+if (!is_null($last_monthlist_date))
 {
-	$last_timesheet_entry_date_plus_1month = clone $last_timesheet_entry_date;
-	$last_timesheet_entry_date_plus_1month->add(new DateInterval('P1M'));
+	$last_monthlist_date_nextMonth = clone $last_monthlist_date;
+	$last_monthlist_date_nextMonth->add(new DateInterval('P1M'));
 }
 
 // *********************************	ACTUAL TIMESHEET (of month/year selected)
@@ -363,18 +364,18 @@ if (!empty($timesheet_cntrl_uid))
 if ($timesheet->new && $isAllowed_createTimesheet)
 {
 	// only if the chosen monthyear <= actual monthyear
-	if ($monthyear_selected <= $monthyear_actual)
+	if ($date_selected <= $date_actual)
 	{
 		if (!$isDisabled_by_missingTimesheet)
 		{
 			$timesheet->uid = $uid;
-			$timesheet->datum = $date_selected->format('Y-m-t'); 	//saved with last day of month
+			$timesheet->datum = $date_selected->format('Y-m-t'); 	//saved with last day (=t)of month
 			$timesheet->insertvon = $uid;
 
 			// if saving succeeded, last inserted timesheet_id is returned
 			if ($timesheet_id = $timesheet->save())
 			{
-				header('Location: '.$_SERVER['PHP_SELF']. '?year='. $date_selected_year. '&month='. $date_selected_month. '&saved=true');
+				header('Location: '.$_SERVER['PHP_SELF']. '?year='. $year. '&month='. $month. '&saved=true');
 			}
 			else
 			{
@@ -383,14 +384,14 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 		}
 	}
 	// do not save timesheet and set flag if chosen monthyear is in the future
-	elseif (($monthyear_selected > $monthyear_actual))
+	elseif (($date_selected > $date_actual))
 	{
 		$isFuture = true;
 	}
 }
 
 // flag if month of the timesheet actually is not over
-if ($date_actual < $date_selected)
+if ($date_actual <= $date_selected)
 {
 	$isAllowed_sendTimesheet = false;
 }
@@ -459,9 +460,9 @@ $all_actualMonth_bestaetigungen = array();
 foreach ($all_user_bestaetigungen as $bestaetigung)
 {
 	$date_bestaetigung = new DateTime($bestaetigung->datum);
-	$monthyear_bestaetigung = $date_bestaetigung->format('Y-m');
+	$date_bestaetigung->modify('first day of this month midnight');
 
-	if($monthyear_selected == $monthyear_bestaetigung)
+	if($date_selected == $date_bestaetigung)
 		$all_actualMonth_bestaetigungen[] = $bestaetigung;
 }
 
@@ -561,12 +562,12 @@ if (isset($_POST['submitTimesheet']))
 			
 			$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
 			$from = 'noreply@'. DOMAIN;
-			$subject = 'Monatsliste '. $monatsname[$sprache_index][$date_selected_month - 1]. ' '.
-				$date_selected_year. ' von '. $full_name;
+			$subject = 'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
+				$year. ' von '. $full_name;
 			$text = "
 				Guten Tag ". $vorgesetzter_anrede. ' '. $vorgesetzter_nachname. "!<br><br>
-				Sie haben die Monatsliste für ". $monatsname[$sprache_index][$date_selected_month - 1]. " ".
-				$date_selected_year. " von ". $full_name. " erhalten.<br>
+				Sie haben die Monatsliste für ". $monatsname[$sprache_index][$month - 1]. " ".
+				$year. " von ". $full_name. " erhalten.<br>
 				Um diese zu genehmigen, folgen Sie diesem Link:<br><br>
 				<a href=". APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=".
 				$timesheet_id. ">Monatsliste jetzt genehmigen</a><br><br>";
@@ -587,7 +588,7 @@ if (isset($_POST['submitTimesheet']))
 				if ($timesheet->save(true))
 				{
 					// reload page to refresh actual and all monthlist display vars
-					header('Location: '.$_SERVER['PHP_SELF']. '?year='. $date_selected_year. '&month='. $date_selected_month);
+					header('Location: '.$_SERVER['PHP_SELF']. '?year='. $year. '&month='. $month);
 				}
 				else
 				{
@@ -898,7 +899,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 		<!--************************************	PANEL ACTUAL TIMESHEET	 -->
 
-		<h4>Aktuelle Monatsliste: <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?></h4><br>
+		<h4>Aktuelle Monatsliste: <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?></h4><br>
 	</div><!--/.end col-xs-8-->
 	
 	<div class="col-xs-4">
@@ -914,7 +915,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<!--panel: DOWNLOAD timesheet-->
 		<div class="row">
 			<div class="panel-body col-xs-8">
-				<b>Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> herunterladen</b><br><br>
+				<b>Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> herunterladen</b><br><br>
 				Diese Liste ist nur für Ihren Bedarf und Ihre Eigenkontrolle.<br>
 				Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
 			</div>
@@ -954,7 +955,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 				<!--if no absent times in actual timesheet found, display other text-->
 				<?php if($counter == 0): ?>
-					Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Fehlzeiten.
+					Sie haben im <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> keine Fehlzeiten.
 				<?php endif; ?>
 			</div>
 			<div class="panel-body col-xs-4"><br>
@@ -1005,7 +1006,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 					if no overtimes in actual timesheet found, display other text
 					<?php if($counter == 0): ?>
-						Sie haben im <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> keine Überstunden.
+						Sie haben im <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> keine Überstunden.
 					<?php endif; ?>
 
 					<table id="table-overtime" class="table table-condensed table-bordered">
@@ -1079,7 +1080,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal) ? 'disabled data-toggle="tooltip"' : '';
 						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet) && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" class="btn btn-default pull-right"
-						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
+						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
 				</div>
 			</form>
 		</div>
@@ -1113,7 +1114,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit" <?php echo (!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 							name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
-							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
+							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
 				</div>
 			</form>
 		</div>
@@ -1130,7 +1131,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit" <?php echo (!$isSent || $isConfirmed) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 							name="submitTimesheetSendBack" class="btn btn-default pull-right" style="border-color: #31708f; color: #31708f;"
-							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\nfür <?php echo $full_name ?> sicher retournieren?');">Monatsliste retournieren</button>
+							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <?php echo $full_name ?> sicher retournieren?');">Monatsliste retournieren</button>
 				</div>
 			</form>
 		</div>
@@ -1162,7 +1163,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<form class="form" method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
 				<button type="submit" <?php echo (!$isSent || !$isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>
 					name="submitTimesheetCancelConfirmation" class="btn btn-primary pull-right"
-					onclick="return confirm('Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?>\n für <?php echo $full_name ?> sicher aufheben?\nDabei werden zur Überarbeitung auch\ndie Genehmigungen ALLER MONATE DANACH wieder aufgehoben!');">Genehmigung aufheben</button>
+					onclick="return confirm('Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\n für <?php echo $full_name ?> sicher aufheben?\nDabei werden zur Überarbeitung auch\ndie Genehmigungen ALLER MONATE DANACH wieder aufgehoben!');">Genehmigung aufheben</button>
 				</form>
 			</div>
 		</div>
@@ -1194,16 +1195,18 @@ function checkCaseTimeErrors($uid, $month, $year)
 	
 	<!-- IF uid is EMPLOYEE -->
 	<?php if (!$isVorgesetzter && !$isPersonal): ?>
-		<!-- Info WHEN new timesheet was created-->
+		<!-- Info WHEN new timesheet was created and is NOT disabled by missing timesheets -->
+		<?php if (!$isDisabled_by_missingTimesheet): ?>
 		<div id="timesheetSaveSuccess" class="alert alert-success alert-dismissible text-center" role="alert" style="display: none;">
-			<b>Die Monatsliste <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> wurde erfolgreich erstellt.</b>
+			<b>Die Monatsliste <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> wurde erfolgreich erstellt.</b>
 		</div>
+		<?php endif; ?>
 
 		<!-- IF chosen date is in the future -->
 		<?php if ($isFuture): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
+			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
 			Es können nur Monatslisten für den aktuellen oder vergangene Monate erstellt werden.
 		</div>
 		<?php endif; ?>
@@ -1212,7 +1215,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php if (!$isAllowed_sendTimesheet && !$isDisabled_by_missingTimesheet && $isAllowed_createTimesheet && !$isFuture): ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			Ab dem <?php echo $last_timesheet_entry_date_plus_1month->format('d.m.Y') ?> können Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> an Ihren Vorgesetzten schicken.<br>
+			Ab dem <?php echo $last_monthlist_date_nextMonth->format('d.m.Y') ?> können Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> an Ihren Vorgesetzten schicken.<br>
 			Sie können jedoch laufend Ihre Bestätigungen zu Ihren Abwesenheitszeiten hochladen.
 		</div>
 		<?php endif; ?>
@@ -1221,11 +1224,11 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php if ($isDisabled_by_missingTimesheet && !$isConfirmed && $isAllowed_createTimesheet && !$isFuture): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
+			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
 			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
-			Ihre letzte Monatsliste haben sie für <?php echo $monatsname[$sprache_index][($last_Timesheet_date->format('n')) - 1]. ' '. $last_Timesheet_date->format('Y'); ?> erstellt.<br><br>
-			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $last_Timesheet_date_nextMonth->format('Y') ?>&month=<?php echo $last_Timesheet_date_nextMonth->format('m')?>" 
-			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$last_Timesheet_date_nextMonth->format('n') - 1]. ' '. $last_Timesheet_date_nextMonth->format('Y') ?> jetzt erstellen</b></a>
+			Ihre letzte Monatsliste haben sie für <?php echo $monatsname[$sprache_index][($date_last_timesheet->format('n')) - 1]. ' '. $date_last_timesheet->format('Y'); ?> erstellt.<br><br>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_last_timesheet_nextMonth->format('Y') ?>&month=<?php echo $date_last_timesheet_nextMonth->format('m')?>" 
+			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_last_timesheet_nextMonth->format('n') - 1]. ' '. $date_last_timesheet_nextMonth->format('Y') ?> jetzt erstellen</b></a>
 		</div>
 		<?php endif; ?>
 
@@ -1243,7 +1246,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php if ($isSent && !$isConfirmed): ?>
 		<div class="alert alert-success alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> ist erfolgreich an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> versendet worden!</b><br><br>
+			<b>Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> ist erfolgreich an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> versendet worden!</b><br><br>
 			Nach dem Versenden können keine Änderungen mehr vorgenommen werden.<br>
 			Sollte dies dennoch nötig sein, wenden Sie sich an Ihren Vorgesetzten für eine erneute Freigabe.<br><br>
 			Sobald Ihre Monatsliste genehmigt wurde, wird sie in der unteren Tabelle "Alle Monatslisten" mit einer grünen Ampel versehen.
@@ -1254,7 +1257,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php if ($isSent && $isConfirmed): ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> ist bereits genehmigt worden.</b><br><br>
+			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> ist bereits genehmigt worden.</b><br><br>
 			Sie können diese weiterhin für Ihren persönlichen Bedarf als Excel Datei herunterladen.
 		</div>
 		<?php endif; ?>
@@ -1266,7 +1269,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 			<?php if ($isBeforeGolive): ?>
 			<b>Monatslisten dürfen NICHT vor dem <?php echo $monatsname[$sprache_index][$date_timesheet_golive->format('n') - 1]. ' '. $date_timesheet_golive->format('Y') ?> liegen!</b>
 			<?php else: ?>
-			<b>Für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> kann keine Monatsliste angelegt werden!</b><br><br>
+			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann keine Monatsliste angelegt werden!</b><br><br>
 			Die erste Monatsliste kann nur für den aktuellen oder den vergangenen Monat erstellt werden.
 			<?php endif; ?>
 		</div>
@@ -1276,8 +1279,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php if ($isCaseTimeError && !$isDisabled_by_formerUnsentTimesheet): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> konnte nicht versendet werden!</b><br><br>
-			Die Zeiterfassung für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year ?> oder den Monat davor ist nicht vollständig oder inkorrekt.<br>
+			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>
+			Die Zeiterfassung für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> oder den Monat davor ist nicht vollständig oder inkorrekt.<br>
 			Bitte überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
 		</div>
@@ -1340,7 +1343,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php if(!$isSent): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> muss von Ihrem Mitarbeiter noch versendet werden!</b><br><br>
+			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> muss von Ihrem Mitarbeiter noch versendet werden!</b><br><br>
 			Ihr Mitarbeiter muss die Monatsliste erst bzw. erneut versenden, bevor Sie diese genehmigen oder retournieren können.
 		</div>
 		
@@ -1348,7 +1351,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php elseif($isSent && $isConfirmed): ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$date_selected_month - 1]. ' '. $date_selected_year?> ist genehmigt!</b><br><br>
+			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> ist genehmigt!</b><br><br>
 			Bereits genehmigte Monatslisten können nicht mehr bearbeitet werden.<br>
 		</div>
 		
@@ -1418,7 +1421,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 						<!--loop through all timesheets-->
 						<?php foreach ($timesheet_arr as $ts): ?>
 							<?php $ts_date = new DateTime($ts->datum); ?>
-
+						
 							<!--if timesheet is in the looped year, then show timesheet information in this table-->
 							<?php if ($ts_date->format('Y') == $year): ?>
 							<tr>
