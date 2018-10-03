@@ -1102,12 +1102,14 @@ function checkCaseTimeErrors($uid, $month, $year)
 				Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
 				Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
 				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.<br><br>
+<!--				
 				<i class="fa fa-check-square-o fa-lg text-info" aria-hidden="true"></i>
 				<?php if (!$isSent || !$isConfirmed): ?>
 					&nbsp;Mit Genehmigung der Monatsliste geben Sie Ihr Einverständnis für alle in diesem Monat eventuell angefallenen Überstunden.
 				<?php else: ?>
 					&nbsp;Sie haben für diesen Monat <b>eventuell angefallene Überstunden genehmigt.</b>
 				<?php endif; ?>
+					-->
 			</div>
 			<form id="formTimesheetConfirmation" method="POST" action="">
 				<input type="hidden" name="checkbox_overtime_arr" value="" />
