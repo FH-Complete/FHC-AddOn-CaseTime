@@ -28,19 +28,20 @@ require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
+require_once('../../../include/bisverwendung.class.php');
 require_once('../../../include/mail.class.php');
 require_once('../include/functions.inc.php');
 
 $uid = get_uid();
 $db = new basis_db();
 $sprache_obj = new sprache();
-$sprache = getSprache();												// users language
-$sprache_index = $sprache_obj->getIndexFromSprache($sprache);			// users language index (for globals.inc.php)
+$sprache = getSprache();	// users language
+$sprache_index = $sprache_obj->getIndexFromSprache($sprache);	// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
-// :NOTE: given to operations with DateTime - months, date objects should always be set to first of month
+// :NOTE: for correct month-operations with DateTime(), set them to first of month 
 $date_actual = new DateTime('first day of this month midnight');	// date obj of actual date
-$date_timesheet_golive = new DateTime(CASETIME_TIMESHEET_GOLIVE);	// first possible date to create monthlists (timesheet go live)
+$date_golive = new DateTime(CASETIME_TIMESHEET_GOLIVE);	// first possible date to create monthlists (timesheet go live)
 
 // month & year of actual date
 $month = $date_actual->format('m');	// string month of actual timesheet
@@ -62,7 +63,7 @@ if (isset($_GET['month']) && isset($_GET['year']))
 
 // *********************************	DATA for supervisors & personnel departments view
 $isVorgesetzter = false;	// true if uid has personnel departments permission 
-$isPersonal = false;		// true if uid is supervisor
+$isPersonal = false;	// true if uid is supervisor
 
 // If GET-REQUEST: check if uid is supervisor or from personnel department
 if (isset($_GET['timesheet_id']))
@@ -164,57 +165,105 @@ $date_selected = new DateTime($year. '-'. $month);	// date obj of date selected;
 $isFuture = false;	// bool if date selected is in the future
 $isMissing_doc = false;	// bool if upload documents are missing after check against absences
 
+// Check if user has obligation to record times
+$date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
+$isZeitaufzeichnungspflichtig = false;
+
+// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
+$bisverwendung = new bisverwendung();
+$now = new DateTime('today');
+$bisverwendung->getVerwendungDatum($uid, $now->format('Y-m-d'));
+$verwendung_arr = $bisverwendung->result;
+$date_first_begin_verwendung = null;
+
+
+foreach($verwendung_arr as $verwendung)
+{
+	if($verwendung->zeitaufzeichnungspflichtig)
+	{
+		$isZeitaufzeichnungspflichtig = true;
+
+		// * if employee contract has begin date
+		if (!is_null($verwendung->beginn))
+		{
+			$date_begin_verwendung = new DateTime('first day of '. $verwendung->beginn. ' midnight');
+			
+			if (is_null($date_first_begin_verwendung))
+			{
+				$date_first_begin_verwendung = clone $date_begin_verwendung;
+			}
+			
+			// * if contract's begin date is after begin of zeitaufzeichnungspflicht (at least after timesheet golive)
+			if ($date_first_begin_verwendung > $date_begin_verwendung)
+			{
+				$date_first_begin_verwendung = $date_begin_verwendung;
+			}	
+			
+			if ($date_begin_zeitaufzeichnungspflicht < $date_first_begin_verwendung)
+			{
+				$date_begin_zeitaufzeichnungspflicht = $date_first_begin_verwendung;
+			}
+		}
+		// * if only on contract has no begin date, reset begin zeitaufzeichnungspflicht
+		else
+		{
+			$date_begin_zeitaufzeichnungspflicht = clone $date_golive;
+			break;
+		}
+	}
+}
+
 // *********************************	ALL TIMESHEETS
 // Get all timesheets
 $timesheet_arr = new Timesheet();
 $timesheet_arr = $timesheet_arr->loadAll($uid);
-$isAllowed_createTimesheet = true;										// bool if user is allowed to create a timesheet
-$isBeforeGolive = false;												// bool if date is before casetime timesheet golive
 
-// flag if date selected is before casetime timesheet golive
-if ($date_selected < $date_timesheet_golive)
-{
-	$isAllowed_createTimesheet = false;
-	$isBeforeGolive = true;
-}
+$isAllowed_createTimesheet = true;	// false if not allowed to create new timesheet
+$isBeforeGolive = false;	// true if date is before golive date
+$isDisabled_by_missingTimesheet = false;	// true if there are missing timesheets (up to the date selected)
+$isDisabled_by_formerUnsentTimesheet = false;	// true if there are former unsent timesheets (up to the date selected)
+$notConfirmed_arr = array();	// date string array of all timesheets not confirmed
+$isAllowed_confirmTimesheet = true;	// false if former timesheets are not confirmed by the supervisor
+$isFirstEntry = false;	// true if user enters first time monthlist site
+$date_last_timesheet = null;	// date of last existing timesheet
+$date_first_dummy_ts = null;	// date of first missing timesheet
 
-// If timesheet is created the first time: 
-// flag to only allow for actual month or one month before acutal month AND not before golive 
+// If no timesheets existing (very first entry)
 if (empty($timesheet_arr))
 {
-	$date_last_month = new DateTime('first day of last month midnight');
+	$isFirstEntry = true;
 	
-	// flag if chosen monthyear is before one month before actual monthyear OR after actual monthyear
-	if ($date_selected < $date_last_month || $date_selected > $date_actual)
+	// start date of time recording for user obligated to record times
+	if ($isZeitaufzeichnungspflichtig)
 	{
-		$isAllowed_createTimesheet = false;
+		$date_first_dummy_ts = clone $date_begin_zeitaufzeichnungspflicht;
+	}
+	// start date of time recording for user recording times voluntary
+	else
+	{
+		$date_first_dummy_ts = clone $date_actual;
+		$date_first_dummy_ts->sub(new DateInterval('P1M'));	//allow create first timesheet for last month
+	}	
+}
+// If timesheets existing
+else
+{
+	$date_last_timesheet = new DateTime('first day of '. $timesheet_arr[0]->datum);	
+	if ($date_last_timesheet < $date_actual)
+	{
+		$date_first_dummy_ts = clone $date_last_timesheet;
+		if ($date_last_timesheet < $date_actual)
+		{
+			$date_first_dummy_ts->add(new DateInterval('P1M')); // +1 as last timesheet already exists
+		}
 	}
 }
 
-$timesheet_years = array();												// list of unique timesheet years to set title in "Alle Monatslisten" - panel
-$isDisabled_by_formerUnsentTimesheet = false;							// bool if there are existing former unsent timesheets (up to the chosen date)
-$isDisabled_by_missingTimesheet = false;								// bool if there are missing timesheets (up to the date selected)
-$date_last_timesheet = null;											// last timesheet date of all existing timesheets
-$date_first_timesheet = null;											// first timesheet date of all existing timesheets; used in the loop to find out the very first monthlist date
-$notConfirmed_arr = array();											// date string array of all timesheets not confirmed
-$isAllowed_confirmTimesheet = true;										// bool if timesheet can be confirmed by supervisor (false when former timesheets are not confirmed)
-$cnt = 0;																// counter to find out a possible gap between last timesheets date and selected date
-
-if (!empty($timesheet_arr))
-{
-	$date_last_timesheet = new DateTime('first day of '. $timesheet_arr[0]->datum);	
-	$date_first_timesheet = new DateTime('first day of '. $timesheet_arr[0]->datum);	// will ev. be overwritten later
-}
-
+// Get data of existing timesheets
 foreach ($timesheet_arr as $ts)
 {
 	$ts_date = new DateTime('first day of '. $ts->datum);
-	$ts_year = $ts_date->format('Y');
 	$ts_isSent = (is_null($ts->abgeschicktamum)) ? false : true;
-
-	// get years (unique), where timesheet exist
-	if ($ts_year != end($timesheet_years))
-		$timesheet_years[] = $ts_year;
 
 	// flag if at least one timesheet is NOT sent AND BEFORE the selected date
 	if (!$ts_isSent)
@@ -223,29 +272,6 @@ foreach ($timesheet_arr as $ts)
 		{
 			$isDisabled_by_formerUnsentTimesheet = true;
 		}
-	}
-
-	// flag if timesheets are missing
-	if ($cnt == 0)
-	{
-		// get month amount between last timesheet and date selected
-		$month_diff_to_selected = $date_selected->diff($ts_date)->m; // get diff months of DateInterval-obj
-		if ($date_selected->diff($ts_date)->d > 0)
-		{
-			$month_diff_to_selected++;	// add 1 month if DateInterval-obj has also days
-		}
-		// diff of 1 month is okay, as first missing timesheet should be able to be created
-		if ($month_diff_to_selected > 1)
-		{
-			$isDisabled_by_missingTimesheet = true;
-		}
-	}
-	$cnt++;
-
-	// date of first timesheet
-	if ($date_first_timesheet > $ts_date)
-	{
-		$date_first_timesheet = clone $ts_date;
 	}
 
 	// collect all dates of timesheets that are not confirmed
@@ -264,53 +290,7 @@ foreach ($timesheet_arr as $ts)
 	}
 }
 
-// Add dummy timesheets for eventually missing ones between last entry and actual date
-// * first set last date of monthlist by last exisiting timesheet date or by FAS mandatory first timesheet date  
-if (!empty($timesheet_arr))
-{
-	$last_monthlist_date = clone $date_last_timesheet;
-}
-// :TODO: define $date_FAS_timesheet_mandatory and uncomment this
-// if no timesheet existing yet AND user is zeitaufzeichnungspflichtig: use FAS starting date
-//elseif (empty($timesheet_arr) && !empty($date_FAS_timesheet_mandatory))
-//{
-//	$last_monthlist_date = new DateTime($date_FAS_timesheet_mandatory);
-//}
-else
-{
-	$last_monthlist_date = clone $date_selected;
-}
-
-$month_diff_to_actual = $last_monthlist_date->diff($date_actual)->m;
-if ($last_monthlist_date->diff($date_actual)->d > 0)
-{
-	$month_diff_to_actual++;
-}
-
-// set the dummy timesheet array
-$missing_timesheet_arr = array();
-for ($i = $month_diff_to_actual; $i > 0; $i--)
-{
-	$last_monthlist_date->add(new DateInterval('P1M'));
-
-	$obj = new stdClass();
-	$obj->timesheet_id = null;
-	$obj->uid = $uid;
-	$obj->datum = $last_monthlist_date->format('Y-m-d');
-	$obj->abgeschicktamum = null;
-	$obj->genehmigtamum = null;
-	$obj->genehmigtvon = null;
-
-	$missing_timesheet_arr[] = $obj;
-}
-
-// reverse missing dummy timesheets to merge after in correct order
-$missing_timesheet_arr = array_reverse($missing_timesheet_arr);
-
-// Merge missing dummy timesheets with timesheet array
-$timesheet_arr = array_merge($missing_timesheet_arr, $timesheet_arr);
-
-// Find the first (earliest) timesheet not confirmed
+// Find the first timesheet not confirmed
 if (!empty($notConfirmed_arr))
 {
 	foreach ($notConfirmed_arr as $key => $val)
@@ -323,47 +303,106 @@ if (!empty($notConfirmed_arr))
 	$notConfirmed_timesheet = $notConfirmed_arr[$first_notConfirmed_key];
 }
 
-// Get some dates to use in the alert boxes
-// * get last date of existing timesheets PLUS one month
-$date_last_timesheet_nextMonth = null;
-if (!is_null($date_last_timesheet))
+// Create dummy timesheets if timesheets are missing 
+$missing_timesheet_arr = array();
+if(!is_null($date_first_dummy_ts))
 {
-	$date_last_timesheet_nextMonth = clone $date_last_timesheet;
-	$date_last_timesheet_nextMonth->add(new DateInterval('P1M'));
+	$date_first_dummy_ts_cln = clone $date_first_dummy_ts;
+
+	while ($date_first_dummy_ts_cln <= $date_actual)
+	{
+		$obj = new stdClass();
+		$obj->timesheet_id = null;
+		$obj->uid = $uid;
+		$obj->datum = $date_first_dummy_ts_cln->format('Y-m-d');
+		$obj->abgeschicktamum = null;
+		$obj->genehmigtamum = null;
+		$obj->genehmigtvon = null;
+
+		$missing_timesheet_arr[] = $obj;
+
+		$date_first_dummy_ts_cln->add(new DateInterval('P1M'));
+	}
 }
 
-// * get last date of monthlist dates (incl. dummy dates) PLUS one month
-$last_monthlist_date_nextMonth = null;
-if (!is_null($last_monthlist_date))
+// Reverse missing dummy timesheets to merge after in correct order
+$missing_timesheet_arr = array_reverse($missing_timesheet_arr);
+
+// Merge missing dummy timesheets with timesheet array
+$merged_timesheet_arr = array_merge($missing_timesheet_arr, $timesheet_arr);
+
+// Get data of merged timesheet array (missing and existing timesheets)
+$timesheet_year_arr = array();	// unique timesheet years to set title in "Alle Monatslisten" - panel
+$date_allow_new_ts = clone $date_actual;	// date of timesheet to be created
+foreach ($merged_timesheet_arr as $ts)
 {
-	$last_monthlist_date_nextMonth = clone $last_monthlist_date;
-	$last_monthlist_date_nextMonth->add(new DateInterval('P1M'));
+	$ts_date = new DateTime($ts->datum);
+	$ts_year = $ts_date->format('Y');
+	
+	// get years (unique) for existing AND/OR missing timesheets
+	if ($ts_year != end($timesheet_year_arr))
+	{
+		$timesheet_year_arr[] = $ts_year;
+	}	
+	
+	// find first of dummy timesheets; this is the one to create the next timesheet
+	if (is_null($ts->timesheet_id))
+	{
+		$date_allow_new_ts = clone $ts_date;
+	}
 }
 
+
+// Flag if timesheet may not be created
+if ($date_allow_new_ts < $date_selected ||
+	$date_selected > $date_actual||
+	$date_selected < $date_golive)	
+{
+	$isAllowed_createTimesheet = false;
+}
+
+// Flag if timesheets are missing up to selected date
+if ($date_allow_new_ts < $date_selected)
+{
+	$isDisabled_by_missingTimesheet = true;
+}
+
+// Flag if selected date is in the future
+if (($date_selected > $date_actual))
+{
+	$isFuture = true;
+}
+
+// Flag if date selected is before golive
+if ($date_selected < $date_golive)
+{
+	$isBeforeGolive = true;
+}
+	
 // *********************************	ACTUAL TIMESHEET (of month/year selected)
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
 $timesheet->new = (is_null($timesheet_id) ? true : false);
-$timesheet_datum = $timesheet->datum;									// date string of timesheet
 $timesheet_cntrl_date = (!is_null($timesheet->kontrolliertamum)) ? new DateTime($timesheet->kontrolliertamum) : '';
 $timesheet_cntrl_uid = (!is_null($timesheet->kontrolliertvon)) ? $timesheet->kontrolliertvon : '';
 $timesheet_cntrl_remark = (!is_null($timesheet->kontroll_notizen)) ? $timesheet->kontroll_notizen : '';
 $controller_name = '';
 
-$isSent = (is_null($timesheet->abgeschicktamum) ? false : true);		// boolean if timesheet was already sent
-$isConfirmed = (is_null($timesheet->genehmigtamum) ? false : true);		// boolean if timesheet was already confirmed
-$isControlled = (is_null($timesheet->kontrolliertamum) ? false : true);	// boolean if timesheet was controlled by personnel department
-$isAllowed_sendTimesheet = true;										// boolean if timesheet is allowed to be sent; false if actual date < timesheets date
+$isSent = (is_null($timesheet->abgeschicktamum) ? false : true);	// true if timesheet was already sent
+$isConfirmed = (is_null($timesheet->genehmigtamum) ? false : true);	// true if timesheet was already confirmed
+$isControlled = (is_null($timesheet->kontrolliertamum) ? false : true);	// true if timesheet was already controlled by personnel department
+$isAllowed_sendTimesheet = true;	// boolean if timesheet is allowed to be sent
 
 if (!empty($timesheet_cntrl_uid))
 {
 	$benutzer = new Benutzer($timesheet_cntrl_uid);
 	$controller_name = $benutzer->vorname. ' '. $benutzer->nachname;
 }
+
 // Save timesheet, if timesheet is new and user is timely allowed to create first timesheet
 if ($timesheet->new && $isAllowed_createTimesheet)
 {
-	// only if the chosen monthyear <= actual monthyear
+	// only if the selected date <= actual date
 	if ($date_selected <= $date_actual)
 	{
 		if (!$isDisabled_by_missingTimesheet)
@@ -383,14 +422,9 @@ if ($timesheet->new && $isAllowed_createTimesheet)
 			}
 		}
 	}
-	// do not save timesheet and set flag if chosen monthyear is in the future
-	elseif (($date_selected > $date_actual))
-	{
-		$isFuture = true;
-	}
 }
 
-// flag if month of the timesheet actually is not over
+// Flag if sending timesheet is allowed
 if ($date_actual <= $date_selected)
 {
 	$isAllowed_sendTimesheet = false;
@@ -413,10 +447,10 @@ foreach ($absent_times_arr as $absence)
 }
 
 // Get absences that need to be checked against document upload
-$cnt_ab = 0;		// counter arztbesuch
-$cnt_beh = 0;		// counter behöre
-$cnt_kst = 0;		// counter krankenstand
-$cnt_pfl = 0;		// counter pflegeurlaub
+$cnt_ab = 0;	// counter arztbesuch
+$cnt_beh = 0;	// counter behöre
+$cnt_kst = 0;	// counter krankenstand
+$cnt_pfl = 0;	// counter pflegeurlaub
 foreach ($actual_absent_times_arr as $actual_absence)
 {
 	switch ($actual_absence->abwesenheit_kurzbz)
@@ -448,7 +482,6 @@ foreach ($actual_absent_times_arr as $actual_absence)
 	}
 }
 
-
 // *********************************	ALL DOCUMENTS
 // Load all Bestätigungen of user
 $timesheet = new Timesheet();
@@ -467,10 +500,10 @@ foreach ($all_user_bestaetigungen as $bestaetigung)
 }
 
 // Get document amount that need to be checked against absences
-$cnt_ab_doc = 0;		// counter arztbesuch bestätigungen
-$cnt_beh_doc = 0;		// counter behörde bestätigungen
-$cnt_kst_doc = 0;		// counter krankenstand bestätigungen
-$cnt_pfl_doc = 0;		// counter pflegeurlaub bestätigungen
+$cnt_ab_doc = 0;	// counter arztbesuch bestätigungen
+$cnt_beh_doc = 0;	// counter behörde bestätigungen
+$cnt_kst_doc = 0;	// counter krankenstand bestätigungen
+$cnt_pfl_doc = 0;	// counter pflegeurlaub bestätigungen
 foreach ($all_actualMonth_bestaetigungen as $actual_bestaetigung)
 {
 	switch ($actual_bestaetigung->dokument_kurzbz)
@@ -519,7 +552,7 @@ if (isset($_POST['action']) && isset($_POST['method']))
 }
 
 // *********************************	EMAIL SENDING (and document check)
-$isCaseTimeError = false;									// boolean to flag casetime server errors which should be eliminated before timesheet sending
+$isCaseTimeError = false;	// boolean to flag casetime server errors which should be eliminated before timesheet sending
 if (isset($_POST['submitTimesheet']))
 {
 	// Check if there are casetime server errors that are defined as blocking errors
@@ -604,8 +637,8 @@ if (isset($_POST['submitTimesheet']))
 }
 
 // *********************************	CONFIRMATION by supervisor
-$isApproved_overtime = true;								// boolean to flag as approved when ALL overtimes were checked
-$checkbox_overtime_arr = array();							// string array of checkbox checked-status 
+$isApproved_overtime = true;	// boolean to flag as approved when ALL overtimes were checked
+$checkbox_overtime_arr = array();	// string array of checkbox checked-status 
 if (isset($_POST['submitTimesheetConfirmation']))
 {
 	$checkbox_overtime_str_arr = (isset($_POST['checkbox_overtime_arr'])) ? $_POST['checkbox_overtime_arr'] : die('Überstunden konnten nicht geprüft werden');
@@ -695,7 +728,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 {
 	// get timesheet_ids of selected month AND all months after
 	$cancel_timesheet_id_arr = array();
-	foreach ($timesheet_arr as $ts)
+	foreach ($merged_timesheet_arr as $ts)
 	{
 		$ts_date = new DateTime($ts->datum);
 		if ($ts_date >= $date_selected)
@@ -910,7 +943,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 <!--************************************	row: BODY-->
 <div class="row">
 <div class="col-xs-8"> 
-	<div class="panel panel-default" <?php echo ($isFuture || !$isAllowed_createTimesheet) ? 'style="display: none;"' : '' ?>>
+	<!--************************************		ACTUAL MONTHLIST for employees-->
+	<div class="panel panel-default" <?php echo ($isFuture) ? 'style="display: none;"' : '' ?>>
 		
 		<!--panel: DOWNLOAD timesheet-->
 		<div class="row">
@@ -1214,23 +1248,35 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php endif; ?>
 
 		<!-- IF month of the timesheet is not over, timesheet should not be sent -->
-		<?php if (!$isAllowed_sendTimesheet && !$isDisabled_by_missingTimesheet && $isAllowed_createTimesheet && !$isFuture): ?>
+		<?php if (!$isAllowed_sendTimesheet && !$isDisabled_by_missingTimesheet && $isAllowed_createTimesheet && !$isFuture && $date_last_timesheet == $date_actual): ?>
+		<?php $date_next_month = new DateTime('first day of next month'); ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			Ab dem <?php echo $last_monthlist_date_nextMonth->format('d.m.Y') ?> können Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> an Ihren Vorgesetzten schicken.<br>
+			Ab dem <?php echo $date_next_month->format('d.m.Y') ?> können Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> an Ihren Vorgesetzten schicken.<br>
 			Sie können jedoch laufend Ihre Bestätigungen zu Ihren Abwesenheitszeiten hochladen.
 		</div>
 		<?php endif; ?>
 
-		<!-- IF timesheets are missing before actual monthyear -->
-		<?php if ($isDisabled_by_missingTimesheet && !$isConfirmed && $isAllowed_createTimesheet && !$isFuture): ?>
+		<!-- IF timesheets are missing before selected date -->
+		<?php if ($isDisabled_by_missingTimesheet && !$isConfirmed && !$isFuture && !is_null($date_last_timesheet)): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
 			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
 			Ihre letzte Monatsliste haben sie für <?php echo $monatsname[$sprache_index][($date_last_timesheet->format('n')) - 1]. ' '. $date_last_timesheet->format('Y'); ?> erstellt.<br><br>
-			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_last_timesheet_nextMonth->format('Y') ?>&month=<?php echo $date_last_timesheet_nextMonth->format('m')?>" 
-			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_last_timesheet_nextMonth->format('n') - 1]. ' '. $date_last_timesheet_nextMonth->format('Y') ?> jetzt erstellen</b></a>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_last_timesheet->format('Y') ?>&month=<?php echo ($date_last_timesheet->format('m') + 1)?>" 
+			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_last_timesheet->format('n')]. ' '. ($date_last_timesheet->format('Y')) ?> jetzt erstellen</b></a>
+		</div>
+		<?php endif; ?>
+		
+		<!-- IF first entry AND obliged to record times AND timesheets are missing before actual date -->
+		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig): ?>
+		<div class="alert alert-danger alert-dismissible text-center" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<b>Sie sind ab <?php echo $monatsname[$sprache_index][($date_begin_zeitaufzeichnungspflicht->format('n')) - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
+			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_begin_zeitaufzeichnungspflicht->format('Y') ?>&month=<?php echo $date_begin_zeitaufzeichnungspflicht->format('m')?>" 
+			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
 		</div>
 		<?php endif; ?>
 
@@ -1265,14 +1311,16 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php endif; ?>
 
 		<!-- IF not allowed to create timesheet (only checked when trying to create FIRST timesheet 2 or more months before actual monthyear) -->
-		<?php if (!$isAllowed_createTimesheet): ?>
-		<div class="alert alert-danger alert-dismissible text-center" role="alert">
+		<?php if (!$isAllowed_createTimesheet && !$isZeitaufzeichnungspflichtig): ?>
+		<div class="alert alert-warning alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<?php if ($isBeforeGolive): ?>
-			<b>Monatslisten dürfen NICHT vor dem <?php echo $monatsname[$sprache_index][$date_timesheet_golive->format('n') - 1]. ' '. $date_timesheet_golive->format('Y') ?> liegen!</b>
+			<b>Monatslisten dürfen NICHT vor dem <?php echo $monatsname[$sprache_index][$date_golive->format('n') - 1]. ' '. $date_golive->format('Y') ?> liegen!</b>
 			<?php else: ?>
-			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann keine Monatsliste angelegt werden!</b><br><br>
-			Die erste Monatsliste kann nur für den aktuellen oder den vergangenen Monat erstellt werden.
+			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
+			Monatslisten können nur für abgeschlossene Monate an den Vorgesetzten gesendet werden.<br>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $year ?>&month=<?php echo ($month - 1)?>" 
+			   class="text-warning"><b>Erste Monatsliste für <?php echo $monatsname[$sprache_index][$month - 2]. ' '. $year ?> jetzt erstellen</b></a>
 			<?php endif; ?>
 		</div>
 		<?php endif; ?>
@@ -1335,12 +1383,12 @@ function checkCaseTimeErrors($uid, $month, $year)
 		</div><!-- /.alert -->
 		<?php endif; ?>
 		
-	<?php endif; ?><!-- /.end overall conditions -->
+	<?php endif; ?><!-- /.end overall alert conditions -->
 
 	<!--************************************		ALERTS FOR SUPERVISOR or PERSONNEL DEPARTMENT-->
-	<!-- IF uid is SUPERVISOR (should also be seen by personnel manager)-->
+	<!-- IF uid is SUPERVISOR or PERSONNEL MANAGER-->
 	<?php if ($isVorgesetzter || $isPersonal): ?>
-	
+
 		<!--IF timesheet was not yet sent by the employee-->
 		<?php if(!$isSent): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
@@ -1348,17 +1396,19 @@ function checkCaseTimeErrors($uid, $month, $year)
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> muss von Ihrem Mitarbeiter noch versendet werden!</b><br><br>
 			Ihr Mitarbeiter muss die Monatsliste erst bzw. erneut versenden, bevor Sie diese genehmigen oder retournieren können.
 		</div>
+		<?php endif; ?>
 		
 		<!--WHEN timesheet was confirmed-->
-		<?php elseif($isSent && $isConfirmed): ?>
+		<?php if($isSent && $isConfirmed): ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> ist genehmigt!</b><br><br>
 			Bereits genehmigte Monatslisten können nicht mehr bearbeitet werden.<br>
 		</div>
-		
+		<?php endif; ?>
+
 		<!--IF former timesheets are not yet confirmed-->
-		<?php elseif(!$isAllowed_confirmTimesheet): ?>
+		<?php if(!$isAllowed_confirmTimesheet): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Sie müssen noch frühere Monatslisten genehmigen!</b><br><br>
@@ -1366,9 +1416,9 @@ function checkCaseTimeErrors($uid, $month, $year)
 			Die weitest zurückliegende Monatsliste, die noch nicht genehmigt wurde, ist vom <?php echo $monatsname[$sprache_index][$notConfirmed_timesheet['datum']->format('n') - 1]. ' '. $notConfirmed_timesheet['datum']->format('Y') ?>.<br><br>
 			<a role="button" href="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo $notConfirmed_timesheet['timesheet_id'] ?>" class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$notConfirmed_timesheet['datum']->format('n') - 1]. ' '. $notConfirmed_timesheet['datum']->format('Y') ?> jetzt genehmigen</b></a>
 		</div>
-		
+		<?php endif; ?>
 		<!--IF overtime was not approved-->
-		<!--		<?php elseif(!$isApproved_overtime): ?>
+		<!--		<?php if(!$isApproved_overtime): ?>
 				<div class="alert alert-danger alert-dismissible text-center" role="alert">
 					<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 					<b>Bitte prüfen und genehmigen Sie erst alle Überstunden!</b><br><br>
@@ -1378,7 +1428,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		-->
 		<?php endif; ?>
 		
-	<?php endif; ?>
+	<?php endif; ?><!-- /.end alert conditions for supervisors & hr-->
 	<br><br>
 
 
@@ -1387,16 +1437,15 @@ function checkCaseTimeErrors($uid, $month, $year)
 	<h4>Alle Monatslisten</h4><br>
 
 	<!--if timesheets are present, show panel with all timesheets-->
-	<?php if (!empty($timesheet_arr) || !empty($missing_timesheet_arr)): ?>
-	
+	<?php if (!empty($merged_timesheet_arr) || !empty($missing_timesheet_arr)): ?>	
 		<div class="panel-group" id="accordion" role="tablist" aria-multiselectable="true">
 
 		<!--year counter: timesheets of the first (=actual) year will be fully displayed; other years are collapsed-->
 		<?php $year_cnt = 1; ?>
 
 		<!--loop through years-->
-		<div id="panel_all_user_bestaetigungen">  <!-- class="panel" -->
-		<?php foreach ($timesheet_years as $year): ?>
+		<div id="panel_all_user_bestaetigungen">
+		<?php foreach ($timesheet_year_arr as $year): ?>
 			<div class="text-center" role="tab" id="heading<?php echo $year_cnt ?>">
 				<h4 class="panel-title">
 					<a role="button" data-toggle="collapse" data-parent="#accordion" href="#collapse<?php echo $year_cnt ?>" aria-expanded="true" aria-controls="collapse<?php echo $year_cnt ?>">
@@ -1416,61 +1465,59 @@ function checkCaseTimeErrors($uid, $month, $year)
 							<th>Abgeschickt am</th>
 							<th>Genehmigt</th>
 						</tr>
-
-						<!--counter to flag first missing timesheet-->
-						<?php $cnt_missing_timesheet = 0; ?>
-
+						
 						<!--loop through all timesheets-->
-						<?php foreach ($timesheet_arr as $ts): ?>
-							<?php $ts_date = new DateTime($ts->datum); ?>
+						<?php foreach ($merged_timesheet_arr as $ts): ?>
+							<?php $ts_date = new DateTime('first day of '. $ts->datum); ?>
 						
 							<!--if timesheet is in the looped year, then show timesheet information in this table-->
 							<?php if ($ts_date->format('Y') == $year): ?>
 							<tr>
-								<!--Monatsliste: link to monthlist-->
-								<!--URL for supervisors and personnel department-->
-								<?php if (($isVorgesetzter || $isPersonal) && (!is_null($ts->timesheet_id))): ?>
+								<!--Monatsliste: link to monthlist-->			
+								<!--URL to existing timesheets-->
+								<?php if ($ts_date < $date_allow_new_ts || $ts_date == $date_last_timesheet): ?>
 									<td>
-										<a href="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo !is_null($ts->timesheet_id) ? $ts->timesheet_id : '' ?>">
+										<!--for supervisors & personnel department-->
+										<?php if ($isVorgesetzter || $isPersonal): ?>							
+											<a href="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo !is_null($ts->timesheet_id) ? $ts->timesheet_id : '' ?>">
+												<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
+											</a>
+										<!--for employees-->
+										<?php else: ?>
+											<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
+												<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
+											</a>
+										<?php endif; ?>
+										<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
+											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
+										<?php endif; ?>								
+									</td>
+									
+								<!--URL for missing timesheet to be created-->								
+								<?php elseif($ts_date == $date_allow_new_ts && is_null($ts->timesheet_id)): ?>
+									<td>
+										<!--supervisors & personnel department: text only-->
+										<?php if ($isVorgesetzter || $isPersonal): ?>
 											<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
-										</a>
-										<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
-											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
-										<?php endif; ?>
-									</td>
-								<!--URL for missing timesheets-->
-								<?php elseif(is_null($ts->timesheet_id)): ?>
-									<!--URL to create timesheet only for first missing timesheet ONLY for employees-->
-									<?php if($cnt_missing_timesheet == $month_diff_to_actual-1 && !$isVorgesetzter && !$isPersonal): ?>
-									<td>
-										<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;">fehlt</span>
-										<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
-										<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
-											&nbsp;<i class="fa fa-plus-square-o" aria-hidden="true"></i>
-<!--											<span class="label label-primary pull-right text-uppercase">erstellen</span>-->
-										</a>
-										<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
-											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
-										<?php endif; ?>
-										
-									</td>
-									<!--only text with no link for all other missing timesheets-->
-									<?php else: ?>
-										<?php $cnt_missing_timesheet++ ?>
-										<td><?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
 											<span class="label pull-right text-uppercase" style="background-color: lightgrey;">fehlt</span>
-											<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
-												<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
-											<?php endif; ?>
-										</td>
-									<?php endif; ?>
-								<!--URL for employees-->
-								<?php else: ?>
-									<td>
-										<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
+										<!--for employees-->
+										<?php else: ?>
+											<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;">fehlt</span>
+											<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $ts_date->format('Y') ?>&month=<?php echo $ts_date->format('m')?>">
 											<?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
-										</a>
-										<?php if (($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
+												&nbsp;<i class="fa fa-plus-square-o" aria-hidden="true"></i>
+											</a>
+										<?php endif; ?>
+										<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
+											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
+										<?php endif; ?>						
+									</td>	
+									
+								<!--No URL, only text for all other missing timesheets-->
+								<?php elseif ($ts_date > $date_allow_new_ts): ?>
+									<td><?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
+										<span class="label pull-right text-uppercase" style="background-color: lightgrey;">fehlt</span>
+										<?php if (isset($ts->kontroll_notizen) && !is_null($ts->kontroll_notizen)): ?>
 											<span class="label label-warning pull-right text-uppercase" style="margin-left: 5px;">Notiz</span>
 										<?php endif; ?>
 									</td>
