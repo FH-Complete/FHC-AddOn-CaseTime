@@ -140,11 +140,12 @@ $full_name = $benutzer->getFullName();	// string full name of user
 $mitarbeiter = new Mitarbeiter($uid);
 $vorgesetzte_uid_arr = array();	// array with uid of one or more supervisors
 $vorgesetzte_full_name_arr = array();	// array of supervisor(s) full name
+$hasVorgesetzten = true;
 
 if ($mitarbeiter->getVorgesetzte($uid))
 {
 	$vorgesetzte_uid_arr = $mitarbeiter->vorgesetzte;
-
+	
 	if (!empty($vorgesetzte_uid_arr))
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
@@ -152,6 +153,10 @@ if ($mitarbeiter->getVorgesetzte($uid))
 			$benutzer = new Benutzer($vorgesetzten_uid);
 			$vorgesetzte_full_name_arr []= $benutzer->getFullName();	// string full name of supervisor
 		}
+	}
+	else
+	{
+		$hasVorgesetzten = false;
 	}
 }
 else
@@ -162,8 +167,8 @@ else
 // :NOTE: init $date_selected MUST be after request
 $date_selected = new DateTime($year. '-'. $month);	// date obj of date selected; day and time is automatically set to first and zero
 
-$isFuture = false;	// bool if date selected is in the future
-$isMissing_doc = false;	// bool if upload documents are missing after check against absences
+$isFuture = false;	// true if date selected is in the future
+$isMissing_doc = false;	// true if upload documents are missing after check against absences
 
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
@@ -176,7 +181,6 @@ $bisverwendung->getVerwendungDatum($uid, $now->format('Y-m-d'));
 $verwendung_arr = $bisverwendung->result;
 $date_first_begin_verwendung = null;
 
-
 foreach($verwendung_arr as $verwendung)
 {
 	if($verwendung->zeitaufzeichnungspflichtig)
@@ -188,23 +192,25 @@ foreach($verwendung_arr as $verwendung)
 		{
 			$date_begin_verwendung = new DateTime('first day of '. $verwendung->beginn. ' midnight');
 			
+			// * init var for comparison
 			if (is_null($date_first_begin_verwendung))
 			{
 				$date_first_begin_verwendung = clone $date_begin_verwendung;
 			}
 			
-			// * if contract's begin date is after begin of zeitaufzeichnungspflicht (at least after timesheet golive)
+			// * compare each contract for the earliest begin date
 			if ($date_first_begin_verwendung > $date_begin_verwendung)
 			{
 				$date_first_begin_verwendung = $date_begin_verwendung;
 			}	
 			
+			// * reset begin date of time recording if earlier begin date found (but never before golive)
 			if ($date_begin_zeitaufzeichnungspflicht < $date_first_begin_verwendung)
 			{
 				$date_begin_zeitaufzeichnungspflicht = $date_first_begin_verwendung;
 			}
 		}
-		// * if only on contract has no begin date, reset begin zeitaufzeichnungspflicht
+		// * if only one contract has no begin date, reset begin zeitaufzeichnungspflicht
 		else
 		{
 			$date_begin_zeitaufzeichnungspflicht = clone $date_golive;
@@ -248,7 +254,7 @@ if (empty($timesheet_arr))
 // If timesheets existing
 else
 {
-	$date_last_timesheet = new DateTime('first day of '. $timesheet_arr[0]->datum);	
+	$date_last_timesheet = new DateTime('first day of '. $timesheet_arr[0]->datum. ' midnight');	
 	if ($date_last_timesheet < $date_actual)
 	{
 		$date_first_dummy_ts = clone $date_last_timesheet;
@@ -262,7 +268,7 @@ else
 // Get data of existing timesheets
 foreach ($timesheet_arr as $ts)
 {
-	$ts_date = new DateTime('first day of '. $ts->datum);
+	$ts_date = new DateTime('first day of '. $ts->datum. ' midnight');
 	$ts_isSent = (is_null($ts->abgeschicktamum)) ? false : true;
 
 	// flag if at least one timesheet is NOT sent AND BEFORE the selected date
@@ -1111,7 +1117,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal) ? 'disabled data-toggle="tooltip"' : '';
+					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten) ? 'disabled data-toggle="tooltip"' : '';
 						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet) && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
@@ -1249,7 +1255,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 		<!-- IF month of the timesheet is not over, timesheet should not be sent -->
 		<?php if (!$isAllowed_sendTimesheet && !$isDisabled_by_missingTimesheet && $isAllowed_createTimesheet && !$isFuture && $date_last_timesheet == $date_actual): ?>
-		<?php $date_next_month = new DateTime('first day of next month'); ?>
+		<?php $date_next_month = new DateTime('first day of next month midnight'); ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			Ab dem <?php echo $date_next_month->format('d.m.Y') ?> können Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> an Ihren Vorgesetzten schicken.<br>
@@ -1306,7 +1312,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> ist bereits genehmigt worden.</b><br><br>
-			Sie können diese weiterhin für Ihren persönlichen Bedarf als Excel Datei herunterladen.
+			Sie können diese weiterhin für Ihren persönlichen Bedarf herunterladen.
 		</div>
 		<?php endif; ?>
 
@@ -1381,6 +1387,16 @@ function checkCaseTimeErrors($uid, $month, $year)
 				</div><!-- /.modal-dialog -->
 			</div><!-- /.modal -->
 		</div><!-- /.alert -->
+		<?php endif; ?>
+		
+		<!-- IF no supervisor existing -->
+		<?php if (!$hasVorgesetzten): ?>
+		<div class="alert alert-danger alert-dismissible text-center" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<b>Sie sind im System keiner/m Vorgesetzten unterstellt.</b><br><br>
+			Monatslisten werden an Ihre/n Vorgesetzte/n versendet.<br>
+			Bitte wenden Sie sich für die Verwaltung Ihrer Monatslisten an die Personalabteilung.
+		</div>
 		<?php endif; ?>
 		
 	<?php endif; ?><!-- /.end overall alert conditions -->
@@ -1468,7 +1484,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 						
 						<!--loop through all timesheets-->
 						<?php foreach ($merged_timesheet_arr as $ts): ?>
-							<?php $ts_date = new DateTime('first day of '. $ts->datum); ?>
+							<?php $ts_date = new DateTime('first day of '. $ts->datum. ' midnight'); ?>
 						
 							<!--if timesheet is in the looped year, then show timesheet information in this table-->
 							<?php if ($ts_date->format('Y') == $year): ?>
