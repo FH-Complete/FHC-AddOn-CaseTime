@@ -190,7 +190,7 @@ class Timesheet extends basis_db
 					uid ='. $this->db_add_param($uid). '
 				ORDER BY
 					datum DESC';
-				
+
 			if ($this->db_query($qry))
 			{
 				while ($row = $this->db_fetch_object())
@@ -401,6 +401,93 @@ class Timesheet extends basis_db
 			else
 			{
 				$this->errormsg = "Fehler in der Abfrage zum Einholen aller Fehlzeiten eines users.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "UID muss vorhanden und nicht leer sein";
+			return false;
+		}	
+	}
+	
+	/** Check if user made any inserts/updates today concerning the month period of given date
+	 * 
+	 * @param string $uid	
+	 * @param DateTime $date_monthlist	Casetime entries will be checked from first to last of the dates' month.
+	 * @return boolean	True if at least one Casetime insert/update found.
+	 * **/
+	public function hasAbsentTimes($uid, $date_monthlist)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			if (isset($date_monthlist) && $date_monthlist instanceof DateTime)
+			{
+				$first_day_monthlist = $date_monthlist->modify('first day of this month');
+				$first_day_monthlist = $first_day_monthlist->format('Y-m-d');
+				
+				$last_day_monthlist = $date_monthlist->modify('last day of this month');
+				$last_day_monthlist = $last_day_monthlist->format('Y-m-d');
+			
+				$qry = "
+					SELECT EXISTS(
+						SELECT
+							uid,
+							aktivitaet_kurzbz as casetime_eintrag,
+							start,
+							ende,
+							insertamum,
+							updateamum
+						FROM
+							campus.tbl_zeitaufzeichnung
+						WHERE
+							uid = ". $this->db_add_param($uid). "
+						AND
+						(
+							insertamum::date = NOW()::date
+						OR
+							updateamum::date = NOW()::date
+						)
+						AND
+							start >= '". $first_day_monthlist. "'
+						AND
+							ende <= '". $last_day_monthlist. "'
+						UNION
+						SELECT
+							mitarbeiter_uid,
+							zeitsperretyp_kurzbz,
+							vondatum,
+							bisdatum,
+							insertamum,
+							updateamum
+						FROM
+							campus.tbl_zeitsperre
+						WHERE
+							mitarbeiter_uid =  ". $this->db_add_param($uid). "
+						AND
+						(
+							insertamum::date = NOW()::date
+						OR
+							updateamum::date = NOW()::date
+						)
+						AND
+							vondatum >= '". $first_day_monthlist. "'
+						AND
+							bisdatum <= '". $last_day_monthlist. "');";
+
+				if ($result = $this->db_query($qry))
+				{
+					return $this->db_parse_bool($this->db_result($result, 0, 0));
+				}
+				else
+				{
+					$this->errormsg = "Fehler in der Abfrage zum Einholen von CaseTime eines users.";
+					return false;
+				}
+			}
+			else
+			{
+				$this->errormsg = "Datum muss vorhanden und nicht leer sein";
 				return false;
 			}	
 		}

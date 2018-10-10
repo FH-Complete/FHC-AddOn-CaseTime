@@ -358,7 +358,6 @@ foreach ($merged_timesheet_arr as $ts)
 	}
 }
 
-
 // Flag if timesheet may not be created
 if ($date_allow_new_ts < $date_selected ||
 	$date_selected > $date_actual||
@@ -527,6 +526,17 @@ foreach ($all_actualMonth_bestaetigungen as $actual_bestaetigung)
 			$cnt_kst_doc++;
 			continue;
 	}
+}
+
+// *********************************	CASETIME CHECK
+// Check if user made any changes in Zeitaufzeichnung today concerning the month period of selected date
+$hasCaseTimeChanges_today = false;	// true if has inserted/updated Zeitaufzeichnung today
+
+// * no check if selected month is actual month as sending monthsheet is not allowed anyway
+if ($date_selected != $date_actual)
+{
+	$timesheet = new Timesheet();
+	$hasCaseTimeChanges_today = $timesheet->hasAbsentTimes($uid, $date_selected);	
 }
 
 // *********************************	AJAX REQUESTS
@@ -764,6 +774,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	// reload page to refresh actual and all monthlist display vars
 	header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
 }
+
 // *********************************	CASETIME SERVER ERROR HANDLING
 // checks if there are casetime server errors that are defined as blocking errors
 function checkCaseTimeErrors($uid, $month, $year)
@@ -1117,7 +1128,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten) ? 'disabled data-toggle="tooltip"' : '';
+					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today) ? 'disabled data-toggle="tooltip"' : '';
 						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet) && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
@@ -1237,6 +1248,17 @@ function checkCaseTimeErrors($uid, $month, $year)
 	
 	<!-- IF uid is EMPLOYEE -->
 	<?php if (!$isVorgesetzter && !$isPersonal): ?>
+		<!-- IF first entry AND obliged to record times AND timesheets are missing before actual date -->
+		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig): ?>
+		<div class="alert alert-danger alert-dismissible text-center" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<b>Sie sind ab <?php echo $monatsname[$sprache_index][($date_begin_zeitaufzeichnungspflicht->format('n')) - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
+			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_begin_zeitaufzeichnungspflicht->format('Y') ?>&month=<?php echo $date_begin_zeitaufzeichnungspflicht->format('m')?>" 
+			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
+		</div>
+		<?php endif; ?>
+					
 		<!-- Info WHEN new timesheet was created and is NOT disabled by missing timesheets -->
 		<?php if (!$isDisabled_by_missingTimesheet): ?>
 		<div id="timesheetSaveSuccess" class="alert alert-success alert-dismissible text-center" role="alert" style="display: none;">
@@ -1263,6 +1285,17 @@ function checkCaseTimeErrors($uid, $month, $year)
 		</div>
 		<?php endif; ?>
 
+		<!-- IF today inserted/updated times concerning the selected month -->
+		<?php if ($hasCaseTimeChanges_today): ?>
+		<div class="alert alert-warning alert-dismissible text-center" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<b>Ab dem morgigen Tag können Sie Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> versenden!</b><br><br>
+			Sie haben heute in Ihrer Zeiterfassung neue Einträge bzw. Änderungen für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> vorgenommen.<br>
+			Das System berechnet täglich über Nacht die Monatslisten neu.<br>
+			Ab morgen steht Ihnen die korrekte Monatsliste wieder zur Verfügung.
+		</div>
+		<?php endif; ?>
+
 		<!-- IF timesheets are missing before selected date -->
 		<?php if ($isDisabled_by_missingTimesheet && !$isConfirmed && !$isFuture && !is_null($date_last_timesheet)): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
@@ -1275,17 +1308,6 @@ function checkCaseTimeErrors($uid, $month, $year)
 		</div>
 		<?php endif; ?>
 		
-		<!-- IF first entry AND obliged to record times AND timesheets are missing before actual date -->
-		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig): ?>
-		<div class="alert alert-danger alert-dismissible text-center" role="alert">
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Sie sind ab <?php echo $monatsname[$sprache_index][($date_begin_zeitaufzeichnungspflicht->format('n')) - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
-			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
-			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_begin_zeitaufzeichnungspflicht->format('Y') ?>&month=<?php echo $date_begin_zeitaufzeichnungspflicht->format('m')?>" 
-			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
-		</div>
-		<?php endif; ?>
-
 		<!-- IF former timesheets were not sent -->
 		<?php if ($isDisabled_by_formerUnsentTimesheet): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
@@ -1398,7 +1420,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 			Bitte wenden Sie sich für die Verwaltung Ihrer Monatslisten an die Personalabteilung.
 		</div>
 		<?php endif; ?>
-		
+				
 	<?php endif; ?><!-- /.end overall alert conditions -->
 
 	<!--************************************		ALERTS FOR SUPERVISOR or PERSONNEL DEPARTMENT-->
