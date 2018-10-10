@@ -32,7 +32,12 @@ class Timesheet extends basis_db
 	public $kontrolliertvon;	// varchar(32)
 	public $kontroll_notizen;	// text
 	
-	// Constructor
+	/** Constructor
+	 * 
+	 * @param string $uid
+	 * @param string $month	Number as string, like '03' for march.
+	 * @param string $year	Number as string, like '2018'.
+	 */
 	public function __construct($uid = null, $month = null, $year = null)
 	{
 		parent::__construct();
@@ -41,7 +46,13 @@ class Timesheet extends basis_db
 			$this->load($uid, $month, $year);
 	}
 	
-	// Load single timesheet for one person
+	/** Load single timesheet for one person
+	 * 
+	 * @param string $uid
+	 * @param string $month	Number as string, like '03' for march.
+	 * @param string $year	Number as string, like '2018'.
+	 * @return boolean	True on success. If true, sets timesheets information on instance of Timesheet.
+	 */
 	public function load($uid, $month, $year)
 	{
 		if (isset($uid) && !empty($uid))
@@ -106,7 +117,11 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	// Load single timesheet by timesheet_id
+	/** Load single timesheet by timesheet_id
+	 * 
+	 * @param integer $timesheet_id
+	 * @return boolean True on success. If true, sets timesheet information on instance of Timesheet.
+	 */
 	public function load_byID($timesheet_id)
 	{
 		if (isset($timesheet_id) && is_numeric($timesheet_id))
@@ -166,7 +181,11 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	// Load all timesheets for one person
+	/** Load all timesheets for one person
+	 * 
+	 * @param string $uid
+	 * @return boolean	True on success. If true, returns object-array with all users timesheets.
+	 */
 	public function loadAll($uid)
 	{
 		if (isset($uid) && !empty($uid))
@@ -227,7 +246,13 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	// Save single timesheet for one person
+	/** Save single timesheet for one person
+	 * 
+	 * @param boolean $sent	If true, update on sent-columns.
+	 * @param boolean $confirmed	If true, update on confirmation-columns.
+	 * @param boolean $controlled	If true, update on controlling-columns.
+	 * @return boolean True on success. If true and timesheet is new, returns new timesheet_id.
+	 */
 	public function save($sent = false, $confirmed = false, $controlled = false)
 	{	
 		// Insert new timesheet
@@ -320,7 +345,11 @@ class Timesheet extends basis_db
 		
 	}	
 	
-	// Get all times and reasons of absence which need to be reported. (of all users timesheets) 
+	/** Get all times and reasons of absence which need to be reported. (of all users timesheets)
+	 * 
+	 * @param string $uid
+	 * @return boolean	True on success. If true, returns object-array with absences.
+	 */
 	public function getAllAbsentTimes($uid)
 	{
 		// get absence for:
@@ -498,7 +527,13 @@ class Timesheet extends basis_db
 		}	
 	}
 	
-	// Save Bestätigung realted to a certain timesheet
+	/** Save Bestätigung related to a certain timesheet
+	 * 
+	 * @param integer $timesheet_id
+	 * @param integer $dms_id
+	 * @param string $uid
+	 * @return boolean	True on success.
+	 */
 	public function saveBestaetigung($timesheet_id, $dms_id, $uid)
 	{
 		if (isset($timesheet_id) && !empty($timesheet_id) &&
@@ -535,7 +570,11 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	// Load all Bestätigungen of a certain timesheet
+	/** Load all Bestätigungen of a certain timesheet
+	 * 
+	 * @param integer $timesheet_id
+	 * @return boolean True on success. If true, returns object-array with all attests related to this timesheet.
+	 */
 	public function loadAllBestaetigungen_byTimesheet($timesheet_id)
 	{
 		if (isset($timesheet_id) && !empty($timesheet_id))
@@ -586,7 +625,11 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	// Load all Bestätigungen of a certain timesheet
+	/** Load all Bestätigungen of a certain timesheet
+	 * 
+	 * @param string $uid
+	 * @return boolean True on success. If true, returns object-array with all attests of this user.
+	 */
 	public function loadAllBestaetigungen_byUser($uid)
 	{
 		if (isset($uid) && !empty($uid))
@@ -651,7 +694,11 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	// Delete Bestätigung
+	/** Delete Bestätigung
+	 * 
+	 * @param integer $dms_id
+	 * @return boolean True if attest was deleted successfully.
+	 */
 	public function deleteBestaetigung($dms_id)
 	{
 		if (isset($dms_id) && is_numeric($dms_id))
@@ -690,7 +737,11 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	// Get user of timesheet
+	/** Get user of timesheet
+	 * 
+	 * @param integer $timesheet_id
+	 * @return boolean True on success. If true, returns uid of this timesheet.
+	 */
 	public function getUser($timesheet_id)
 	{
 		if (isset($timesheet_id) && is_numeric($timesheet_id))
@@ -724,7 +775,11 @@ class Timesheet extends basis_db
 			
 	}
 	
-	// Get user by dms id
+	/** Get user by dms id
+	 * 
+	 * @param integer $dms_id
+	 * @return boolean True on success. If true, returns uid of this document.
+	 */
 	public function getUserByDMSId($dms_id)
 	{
 		if (isset($dms_id) && is_numeric($dms_id))
@@ -766,7 +821,11 @@ class Timesheet extends basis_db
 			
 	}
 	
-	// Get the most recent timesheet controlling data
+	/** Get the most recent timesheet controlling data
+	 * 
+	 * @param type $uid
+	 * @return boolean True on success. If true, sets controlling data on instance of Timesheet.
+	 */
 	public function getLatestControllingData($uid)
 	{
 		if (isset($uid) && !empty($uid))
