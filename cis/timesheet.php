@@ -1021,7 +1021,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
 					<tr>
 						<td><?php echo $bestaetigung->dokument_bezeichnung ?>: </td>
-						<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a></td>
+						<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>" target="_blank"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a></td>
 						<td><a role="button" <?php echo ($isSent) ? 'class="inactive"' : '' ?> value="<?php echo $bestaetigung->dms_id?>" name="trash_dms_id" id="trash_dms_id"
 							   onclick="deleteBestaetigung(<?php echo $bestaetigung->dms_id ?>)"><i class="fa fa-trash-o" aria-hidden="true"></i></a></td>
 					</tr>
@@ -1575,7 +1575,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 								<?php foreach ($all_user_bestaetigungen as $bestaetigung): ?>
 									<?php $date_bestaetigung = new DateTime($bestaetigung->datum); ?>
 									<?php if($ts_date->format('m-Y') == $date_bestaetigung->format('m-Y')): ?>
-										<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a><br>
+										<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"
+										   target="_blank"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a><br>
 									<?php endif; ?>
 								<?php endforeach; ?>
 								</td>
