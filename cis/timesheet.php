@@ -41,7 +41,7 @@ $p = new phrasen($sprache);
 
 // :NOTE: for correct month-operations with DateTime(), set them to first of month 
 $date_actual = new DateTime('first day of this month midnight');	// date obj of actual date
-$date_golive = new DateTime(CASETIME_TIMESHEET_GOLIVE);	// first possible date to create monthlists (timesheet go live)
+$date_golive = new DateTime('first day of '. CASETIME_TIMESHEET_GOLIVE);	// first possible date to create monthlists (timesheet go live)
 
 // month & year of actual date
 $month = $date_actual->format('m');	// string month of actual timesheet
