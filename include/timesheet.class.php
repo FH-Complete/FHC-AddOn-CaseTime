@@ -872,4 +872,146 @@ class Timesheet extends basis_db
 			return false;
 		}
 	}
+	
+	/** Load all nursing confirmations within a certain period
+	 * 
+	 * @param string $from
+	 * @param string $to
+	 * @return boolean	True on success. If true, returns object-array with all nursing confirmations of the given period.
+	 */
+	public function loadKrankenstaende_inPeriod($from, $to)
+	{
+		if (isset($from) && !empty($from) &&
+			isset($to) && !empty($to))
+		{
+			$from = new DateTime($from);
+			$from = $from->format('Y-m-d');
+			$to = new DateTime($to);
+			$to = $to->format('Y-m-d');
+			
+			$qry = '
+				SELECT
+					dms_id,
+					filename,
+					mimetype,
+					name,
+					tbl_dms_version.insertamum,
+					tbl_dms_version.insertvon
+				FROM
+					campus.tbl_dms_version
+				JOIN 
+					addon.tbl_casetime_timesheet_dms
+					USING(dms_id)
+				JOIN
+					campus.tbl_dms
+					USING (dms_id)
+				WHERE
+				(
+					tbl_dms_version.insertamum >= ' . $this->db_add_param($from, FHC_STRING) . '
+				AND
+					tbl_dms_version.insertamum <= ' . $this->db_add_param($to, FHC_STRING) . ')
+				AND
+					dokument_kurzbz LIKE \'bst_krnk\'
+				
+				ORDER BY
+					insertamum DESC';
+			
+			if ($this->db_query($qry))
+			{
+				while ($row = $this->db_fetch_object())
+				{
+					$obj = new stdClass();
+					
+					$obj->dms_id = $row->dms_id;
+					$obj->filename = $row->filename;
+					$obj->mimetype = $row->mimetype;
+					$obj->insertamum = $row->insertamum;
+					$obj->insertvon = $row->insertvon;
+					
+					$this->result[] = $obj;					
+				}
+				
+				return $this->result;
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage zum Laden aller Krankenbestätigungen einer Periode.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "Von- und Endedatum muss vorhanden und nicht leer sein";
+			return false;
+		}
+	}
+	
+	/** Load sick leave times for one user within a certain period
+	 * 
+	 * @param string $from
+	 * @param string $to
+	 * @return boolean	True on success. If true, returns object-array with all nursing confirmations of the given period.
+	 */
+	public function getKrankenstaende_byUser_inPeriod($uid, $from, $to)
+	{
+		if (isset($uid) && !empty($uid) &&
+			isset($from) && !empty($from) &&
+			isset($to) && !empty($to))
+		{
+			$from = new DateTime($from);
+			$from = $from->format('Y-m-d');
+			$to = new DateTime($to);
+			$to = $to->format('Y-m-d');
+			
+			$qry = '
+				SELECT
+					zeitsperre_id,
+					zeitsperretyp_kurzbz,
+					mitarbeiter_uid,
+					vondatum,
+					bisdatum
+				FROM
+					campus.tbl_zeitsperre 
+				WHERE
+					mitarbeiter_uid = '. $this->db_add_param($uid). '
+				AND 
+					zeitsperretyp_kurzbz IN (\'Krank\')
+				AND 
+				(	
+					(vondatum >= \''. $from. '\' AND vondatum <= \''. $to. '\')
+					OR
+					(bisdatum >= \''. $from. '\' AND bisdatum <= \''. $to. '\')
+				)
+				ORDER BY
+					vondatum DESC;
+				';
+//			echo $qry;
+			if ($this->db_query($qry))
+			{
+				while ($row = $this->db_fetch_object())
+				{
+					$obj = new stdClass();
+					
+					$obj->zeitsperre_id = $row->zeitsperre_id;
+					$obj->zeitsperretyp_kurzbz = $row->zeitsperretyp_kurzbz;
+					$obj->mitarbeiter_uid = $row->mitarbeiter_uid;
+					$obj->vondatum = $row->vondatum;
+					$obj->bisdatum = $row->bisdatum;
+					
+					$this->result[] = $obj;					
+				}			
+				return $this->result;
+			}
+			else
+			{
+				$this->errormsg = "Fehler in der Abfrage zum Einholen aller Krankenstände eines users in einer bestimmten Periode.";
+				return false;
+			}	
+		}
+		else
+		{
+			$this->errormsg = "UID, Von- und Bis-Datum müssen vorhanden und nicht leer sein";
+			return false;
+		}	
+	}
 }
