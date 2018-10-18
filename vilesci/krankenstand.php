@@ -12,6 +12,7 @@ require_once('../../../include/benutzer.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
+require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
 
 $uid = get_uid();
@@ -62,27 +63,34 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']))
 					$zip->addFile($filename, 'Krankenstand_'. $cnt. '_'. $krankenstand_doc->insertvon. '.'. strtolower($ext));
 				}
 				
-				// Collect uid of users who uploaded a krankenstand document
-				$uid_arr []= $krankenstand_doc->insertvon;
-				
 				$cnt++;
 			}
 			
-			// Make uid array unique
-			$uid_arr = array_unique($uid_arr);
+			// Get all active and fix-employed employees
+			$all_employee_uid_arr = array();
+			$mitarbeiter = new Mitarbeiter();
+			$mitarbeiter->getPersonal('true', false, false, 'true', false, null);
+
+			foreach ($mitarbeiter->result as $mitarbeiter)
+			{
+				if ($mitarbeiter->personalnummer > 0)	// filter out dummies
+				{
+					$all_employee_uid_arr []= $mitarbeiter->uid;
+				}	
+			}	
 			
-			// Loop through all users who uploded a krankenstand document
-			foreach ($uid_arr as $uid)
+			// Create entries in csv-list
+			foreach ($all_employee_uid_arr as $uid)
 			{
 				$benutzer = new Benutzer($uid);
-				$vorname = $benutzer->vorname;
-				$nachname = $benutzer->nachname;
+				$vorname = convertToWindowsCharset($benutzer->vorname);
+				$nachname = convertToWindowsCharset($benutzer->nachname);
 			
-				// Get duration of users krankenstand, if the krankenstand was within the from-to-period
+				// Get duration of employees krankenstand, if the krankenstand was within the from-to-period
 				$timesheet = new Timesheet();	
 				$krankenstand_tage_arr = $timesheet->getKrankenstaende_byUser_inPeriod($uid, $from, $to);
 				
-				// Add duration of users krankenstand to csv-list
+				// Add duration of employees krankenstand to csv-list
 				foreach ($krankenstand_tage_arr as $krankenstand_tage)
 				{
 					$csv .= "$vorname;$nachname;$krankenstand_tage->vondatum;$krankenstand_tage->bisdatum\n";
@@ -90,7 +98,7 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']))
 			}
 					
 			// Add the csv-list to zip-archive
-			$zip->addFromString("Krankenstaende_innerhalb_$from-$to.csv", $csv);
+			$zip->addFromString("Kontrolle_Krankenstaende_$from-$to.csv", $csv);
 	
 			// Close zip archive
 			$zip->close();			
