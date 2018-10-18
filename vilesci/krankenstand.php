@@ -82,8 +82,8 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']))
 			foreach ($all_employee_uid_arr as $uid)
 			{
 				$benutzer = new Benutzer($uid);
-				$vorname = convertToWindowsCharset($benutzer->vorname);
-				$nachname = convertToWindowsCharset($benutzer->nachname);
+				$vorname = $benutzer->vorname;
+				$nachname = $benutzer->nachname;
 			
 				// Get duration of employees krankenstand, if the krankenstand was within the from-to-period
 				$timesheet = new Timesheet();	
