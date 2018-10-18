@@ -963,6 +963,7 @@ class Timesheet extends basis_db
 			$to = new DateTime($to);
 			$to = $to->format('Y-m-d');
 			
+			// Query only sick leave where duration more than 2 days
 			$qry = '
 				SELECT
 					zeitsperre_id,
@@ -976,6 +977,8 @@ class Timesheet extends basis_db
 					mitarbeiter_uid = '. $this->db_add_param($uid). '
 				AND 
 					zeitsperretyp_kurzbz IN (\'Krank\')
+				AND
+					(bisdatum - vondatum) > 2
 				AND 
 				(	
 					(vondatum >= \''. $from. '\' AND vondatum <= \''. $to. '\')
@@ -985,7 +988,7 @@ class Timesheet extends basis_db
 				ORDER BY
 					vondatum DESC;
 				';
-//			echo $qry;
+
 			if ($this->db_query($qry))
 			{
 				while ($row = $this->db_fetch_object())
