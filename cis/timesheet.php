@@ -29,7 +29,7 @@ require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/bisverwendung.class.php');
-require_once('../../../include/mail.class.php');
+require_once('../../../include/sancho.inc.php');
 require_once('../include/functions.inc.php');
 
 $uid = get_uid();
@@ -135,6 +135,7 @@ if (isset($_GET['timesheet_id']))
 // vars user of monthlist
 $benutzer = new Benutzer($uid);
 $full_name = $benutzer->getFullName();	// string full name of user
+$first_name = $benutzer->vorname;
 
 // vars supervisor of user
 $mitarbeiter = new Mitarbeiter($uid);
@@ -606,27 +607,26 @@ if (isset($_POST['submitTimesheet']))
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
 			$benutzer = new Benutzer($vorgesetzten_uid);
-			$vorgesetzter_nachname = $benutzer->nachname;							// string family name of supervisor
-			$vorgesetzter_anrede = $benutzer->anrede;								// string form of address of supervisor
+			$vorgesetzter_vorname = $benutzer->vorname;	// string first name of supervisor
 			
 			$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
-			$from = 'noreply@'. DOMAIN;
-			$subject = 'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
+			$subject = 
+				'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
 				$year. ' von '. $full_name;
-			$text = "
-				Guten Tag ". $vorgesetzter_anrede. ' '. $vorgesetzter_nachname. "!<br><br>
-				Sie haben die Monatsliste für ". $monatsname[$sprache_index][$month - 1]. " ".
-				$year. " von ". $full_name. " erhalten.<br>
-				Um diese zu genehmigen, folgen Sie diesem Link:<br><br>
-				<a href=". APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=".
-				$timesheet_id. ">Monatsliste jetzt genehmigen</a><br><br>";
+			
+			// Set vars to be used in mail content template
+			$template_data = array(
+				'firstName' => $vorgesetzter_vorname,
+				'employee' => $first_name,
+				'date_monthlist' => $monatsname[$sprache_index][$month - 1]. " ". $year,				
+				'link' => APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_id
+			);
+			
+			// Sancho header image
+			$header_img = 'sancho_header_confirm_timesheet.jpg';
 
-			$text = wordwrap($text, 70); // wrap code, otherwise display errors in mail
-			$mail = new Mail($to, $from, $subject, $text);
-			$mail->setHTMLContent($text);
-
-			// Send email to supervisor
-			if ($mail->send())
+			// Send email in Sancho design to supervisor
+			if (sendSanchoMail('Sancho_Content_confirmTimesheet', $template_data, $from, $subject, $header_img))
 			{
 				$send_date = new DateTime();
 				$timesheet = new Timesheet();
