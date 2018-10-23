@@ -64,6 +64,15 @@ if (isset($_GET['month']) && isset($_GET['year']))
 // *********************************	DATA for supervisors & personnel departments view
 $isVorgesetzter = false;	// true if uid has personnel departments permission 
 $isPersonal = false;	// true if uid is supervisor
+$isTimesheetManager = false;	//true if uid has special right to manage timesheets
+
+// Check if uid is Timesheet Manager
+$rechte = new benutzerberechtigung();
+$rechte->getBerechtigungen($uid);
+if ($rechte->isBerechtigt('addon/casetime_manageTimesheet'))
+{
+	$isTimesheetManager = true;
+}
 
 // If GET-REQUEST: check if uid is supervisor or from personnel department
 if (isset($_GET['timesheet_id']))
@@ -1010,8 +1019,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<?php endif; ?>
 			</div>
 			<div class="panel-body col-xs-4"><br>
-				<a role="button" <?php echo ($isSent || $isVorgesetzter || $isPersonal) ? 'disabled data-toggle="tooltip"' : '';
-					echo ($isSent && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?> 
+				<!--allow document uploading only for user himself AND timesheet manager-->
+				<a role="button" <?php echo ($isSent || $isVorgesetzter || ($isPersonal && !$isTimesheetManager)) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : ''; ?> 
 				   class="btn btn-default pull-right" id="uploadButton"
 				   href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsupload.php?timesheet_id='. $timesheet_id ?>"
 				   onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
@@ -1140,7 +1149,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 	
 	<!--************************************		VIEW for supervisors-->
 
-	<?php if ($isVorgesetzter || $isPersonal): ?>
+	<?php if ($isVorgesetzter || $isPersonal || $isTimesheetManager): ?>
 	<div class="panel panel-default" style="padding-bottom: 20px;">
 		<div class="panel-heading">
 			<h2 class="panel-title">Vorgesetztensicht</h2>
