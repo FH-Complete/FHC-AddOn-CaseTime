@@ -476,13 +476,12 @@ if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants 
 {
 	if($db->db_num_rows($result)==0)
 	{
-		$qry = "GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_zeitaufzeichnung TO web;
-				GRANT SELECT, UPDATE ON SEQUENCE addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq TO web;";
+		$qry = "GRANT SELECT ON addon.tbl_casetime_zeitaufzeichnung TO web;";
 		
 		if(!$db->db_query($qry))
 			echo '<strong>addon.tbl_casetime_zeitaufzeichnung Berechtigungen: '.$db->db_last_error().'</strong><br>';
 		else
-			echo '<br>INSERT, UPDATE und DELETE Rechte fuer Tabelle addon.tbl_casetime_zeitaufzeichnung und SELECT, UPDATE Rechte für Sequenz addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq fuer web user gesetzt ';
+			echo '<br>SELECT Rechte fuer Tabelle addon.tbl_casetime_zeitaufzeichnung fuer web user gesetzt ';
 	}
 }
 
@@ -491,13 +490,25 @@ if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants 
 {
 	if($db->db_num_rows($result)==0)
 	{
-		$qry = "GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_zeitsperre TO web;
-				GRANT SELECT, UPDATE ON SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq TO web;";
+		$qry = "GRANT SELECT ON addon.tbl_casetime_zeitsperre TO web;";
 		
 		if(!$db->db_query($qry))
 			echo '<strong>addon.tbl_casetime_zeitsperre Berechtigungen: '.$db->db_last_error().'</strong><br>';
 		else
-			echo '<br>INSERT, UPDATE und DELETE Rechte fuer Tabelle addon.tbl_casetime_zeitsperre und SELECT, UPDATE Rechte für Sequenz addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq fuer web user gesetzt ';
+			echo '<br>SELECT Rechte fuer Tabelle addon.tbl_casetime_zeitsperre fuer web user gesetzt ';
+	}
+}
+
+// Add permission for managing Casetime timesheets
+if ($result = @$db->db_query("SELECT 1 FROM system.tbl_berechtigung WHERE berechtigung_kurzbz = 'addon/casetime_manageTimesheet';"))
+{
+	if ($db->db_num_rows($result) == 0)
+	{
+		$qry = "INSERT INTO system.tbl_berechtigung (berechtigung_kurzbz, beschreibung) VALUES('addon/casetime_manageTimesheet', 'Managen von Casetime timesheets');";
+		if (!$db->db_query($qry))
+			echo '<strong>system.tbl_berechtigung '.$db->db_last_error().'</strong><br>';
+		else
+			echo ' system.tbl_berechtigung: Added permission to manage Casetime timesheets.<br>';
 	}
 }
 
