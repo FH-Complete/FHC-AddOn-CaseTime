@@ -538,15 +538,19 @@ foreach ($all_actualMonth_bestaetigungen as $actual_bestaetigung)
 	}
 }
 
-// *********************************	CASETIME CHECK
+// *********************************	CASETIME CHECKS
 // Check if user made any changes in Zeitaufzeichnung today concerning the month period of selected date
 $hasCaseTimeChanges_today = false;	// true if has inserted/updated Zeitaufzeichnung today
+$isSyncedWithCaseTime_today = true;	// false if has deleted Zeitaufzeichnung/Zeitsperre today
 
 // * no check if selected month is actual month as sending monthsheet is not allowed anyway
 if ($date_selected != $date_actual)
 {
 	$timesheet = new Timesheet();
 	$hasCaseTimeChanges_today = $timesheet->hasAbsentTimes($uid, $date_selected);	
+	
+	$timesheet = new Timesheet();
+	$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes($uid, $date_selected);
 }
 
 // *********************************	AJAX REQUESTS
@@ -1137,8 +1141,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today) ? 'disabled data-toggle="tooltip"' : '';
-						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet) && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today) ? 'disabled data-toggle="tooltip"' : '';
+						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
 				</div>
@@ -1300,6 +1304,17 @@ function checkCaseTimeErrors($uid, $month, $year)
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Ab dem morgigen Tag können Sie Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> versenden!</b><br><br>
 			Sie haben heute in Ihrer Zeiterfassung neue Einträge bzw. Änderungen für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> vorgenommen.<br>
+			Das System berechnet täglich über Nacht die Monatslisten neu.<br>
+			Ab morgen steht Ihnen die korrekte Monatsliste wieder zur Verfügung.
+		</div>
+		<?php endif; ?>
+		
+		<!-- IF today deleted times concerning the selected month -->
+		<?php if (!$isSyncedWithCaseTime_today): ?>
+		<div class="alert alert-warning alert-dismissible text-center" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<b>Ab dem morgigen Tag können Sie Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> versenden!</b><br><br>
+			Sie haben heute in Ihrer Zeiterfassung, in Ihren Zeitsperren oder im Urlaubstool für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> Einträge gelöscht bzw. Änderungen vorgenommen.<br>
 			Das System berechnet täglich über Nacht die Monatslisten neu.<br>
 			Ab morgen steht Ihnen die korrekte Monatsliste wieder zur Verfügung.
 		</div>

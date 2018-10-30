@@ -14,10 +14,10 @@ require_once(dirname(__FILE__). '/../../../include/dms.class.php');
  *
  * @author Cristina
  */
-class Timesheet extends basis_db 
+class Timesheet extends basis_db
 {
 	public $new = false;			// boolean
-	public $result = array();	
+	public $result = array();
 	
 	//table columns
 	public $timesheet_id;		// integer
@@ -442,7 +442,7 @@ class Timesheet extends basis_db
 	
 	/** Check if user made any inserts/updates today concerning the month period of given date
 	 * 
-	 * @param string $uid	
+	 * @param string $uid	User ID.
 	 * @param DateTime $date_monthlist	Casetime entries will be checked from first to last of the dates' month.
 	 * @return boolean	True if at least one Casetime insert/update found.
 	 * **/
@@ -1016,5 +1016,199 @@ class Timesheet extends basis_db
 			$this->errormsg = "UID, Von- und Bis-Datum müssen vorhanden und nicht leer sein";
 			return false;
 		}	
+	}
+	
+	/** Check if user has deleted today any times within the active timesheet month
+	 * 
+	 * @param string $uid User ID.
+	 * @param DateTime $date_monthlist	Casetime entries will be checked from first to last of the dates' month.
+	 * @return boolean	True when at least one deleted/changed time was found.
+	 * Deletion/Change is detected by comparing the 'user entry tables'
+	 * campus.tbl_zeitaufzeichnung / campus.tbl_zeitsperre with the SYNC tables
+	 * addon.tbl_casetime_zeitaufzeichnung / addon.tbl_casetime_zeitsperre.
+	 */
+	public function hasDeletedTimes($uid, $date_monthlist)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			if (isset($date_monthlist) && $date_monthlist instanceof DateTime)
+			{
+				$first_day_monthlist = $date_monthlist->modify('first day of this month');
+				$first_day_monthlist = $first_day_monthlist->format('Y-m-d');
+				
+				$last_day_monthlist = $date_monthlist->modify('last day of this month');
+				$last_day_monthlist = $last_day_monthlist->format('Y-m-d');
+				
+				// Check if user has deleted or changed start/ending times in zeitaufzeichnung 
+				$qry = "
+					SELECT
+						1
+					FROM
+					(
+						SELECT
+							uid,
+							datum,
+							zeit_start,
+							zeit_ende
+						FROM
+							addon.tbl_casetime_zeitaufzeichnung
+						WHERE
+							uid = ". $this->db_add_param($uid). "
+						AND
+							typ = 'ko'
+						AND
+							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
+						AND
+						(	
+							tbl_casetime_zeitaufzeichnung.zeit_start !=
+							(
+								SELECT 
+									min(start::time)
+								FROM
+									campus.tbl_zeitaufzeichnung
+								WHERE
+									uid = ". $this->db_add_param($uid). "
+								AND
+									start::date = tbl_casetime_zeitaufzeichnung.datum								
+								AND 
+								(
+									/* null values in aktivitaet_kurzbz are considered as working times -> leave them */
+									aktivitaet_kurzbz IS NULL
+									OR
+									aktivitaet_kurzbz NOT IN ('LehreExtern', 'Ersatzruhe','DienstreiseMT')
+								)
+							)
+							
+							OR
+							
+							tbl_casetime_zeitaufzeichnung.zeit_ende !=
+							(
+								SELECT
+									max(ende::time)
+								FROM
+									campus.tbl_zeitaufzeichnung
+								WHERE
+									uid = ". $this->db_add_param($uid). "
+								AND
+									ende::date = tbl_casetime_zeitaufzeichnung.datum						
+								AND
+								(
+									/* null values in aktivitaet_kurzbz are considered as working times -> leave them */
+									aktivitaet_kurzbz IS NULL
+									OR
+									aktivitaet_kurzbz NOT IN ('LehreExtern', 'Ersatzruhe','DienstreiseMT')
+								)
+							)					
+						)
+					) AS check1";
+
+				// Check if user has deleted any other times but start-/ending times in zeitaufzeichnung
+				// (which are checked in first select above)
+				$qry .= "
+					UNION
+					
+					SELECT
+						1
+					FROM
+					(
+						SELECT
+							zeitaufzeichnung_id
+						FROM
+							addon.tbl_casetime_zeitaufzeichnung
+						WHERE
+							uid = ". $this->db_add_param($uid). "
+						AND
+							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
+						AND
+							typ != 'ko'
+
+						AND NOT EXISTS
+						(
+							SELECT
+							   1
+							FROM
+								campus.tbl_zeitaufzeichnung
+							WHERE
+								zeitaufzeichnung_id = tbl_casetime_zeitaufzeichnung.zeitaufzeichnung_id
+						)
+					) AS check2 ";
+				
+				// Check if user has deleted any times in zeitsperre
+				$qry .= "
+					UNION
+					
+					SELECT
+						1
+					FROM
+					(
+						SELECT
+							datum,
+							typ
+						FROM
+							addon.tbl_casetime_zeitsperre
+						WHERE
+							uid = ". $this->db_add_param($uid). "
+						AND
+							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
+
+						AND NOT EXISTS
+						(
+							SELECT
+								datum,
+								typ
+							FROM
+							(
+								SELECT
+									generate_series(vondatum::date, bisdatum::date, '1 day')::date AS datum,
+									zeitsperretyp_kurzbz AS typ
+								FROM
+									campus.tbl_zeitsperre
+								WHERE
+									mitarbeiter_uid = 'karpenko'
+								AND
+									/* only complete days are considered in sync table */
+									vonstunde IS NULL
+								AND
+									/* only complete days are considered in sync table */
+									bisstunde IS NULL
+							) AS zsp
+							WHERE
+								datum = tbl_casetime_zeitsperre.datum
+							AND
+								/* only the following types are considered in sync table */
+								typ IN ('DienstF', 'DienstV', 'Krank', 'PflegeU', 'Urlaub', 'ZA')
+						)
+					) AS check3;";
+
+				$isSynced_today = true;	// False if at least one deleted/changed time is found in zeitaufzeichnung or zeitsperre
+	
+				// Execute query
+				if ($result = $this->db_query($qry))
+				{
+					if ($this->db_num_rows($result) > 0)
+					{
+							$isSynced_today = false;
+					}
+				}
+				else
+				{
+					$this->errormsg = "Fehler in der Abfrage zum Einholen der gelöschten CaseTime-Zeiten eines users.";
+					return false;
+				}
+	
+				// Return false if any times has been deleted/changed today 
+				return $isSynced_today;
+			}
+			else
+			{
+				$this->errormsg = "Datum muss vorhanden und nicht leer sein";
+				return false;
+			}
+		}
+		else
+		{
+			$this->errormsg = "UID muss vorhanden und nicht leer sein";
+			return false;
+		}
 	}
 }
