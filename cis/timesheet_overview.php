@@ -38,8 +38,7 @@ $sprache = getSprache();
 $sprache_index = $sprache_obj->getIndexFromSprache($sprache);	// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
-$date_last_month = new DateTime();
-$date_last_month->setTime(0,0,0);
+$date_last_month = new DateTime('first day of this month midnight');
 $date_last_month->sub(new DateInterval('P1M'));
 $date_last_month->modify('last day of this month');	// date obj of last month
 
@@ -167,7 +166,7 @@ foreach($employee_uid_arr as $employee_uid)
 			$cnt_isNotConfirmed++;
 		}
 	}
-	
+		
 	// :WORKAROUND: disable for personnel department until requests to casetime server are speeded up
 	$time_balance = false;
 	$holiday = false;
@@ -267,7 +266,6 @@ foreach($employee_uid_arr as $employee_uid)
 
 // sort employees array by employees family name
 usort($employees_data_arr, "sortEmployeesName");
-
 
 // *********************************	FUNCTIONS
 function sortEmployeesName($employee1, $employee2)
