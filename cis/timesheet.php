@@ -23,6 +23,7 @@ require_once('../include/timesheet.class.php');
 require_once('../../../include/basis_db.class.php');
 require_once('../../../include/benutzer.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/benutzerfunktion.class.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
@@ -66,13 +67,6 @@ $isVorgesetzter = false;	// true if uid has personnel departments permission
 $isPersonal = false;	// true if uid is supervisor
 $isTimesheetManager = false;	//true if uid has special right to manage timesheets
 
-// Check if uid is Timesheet Manager
-$rechte = new benutzerberechtigung();
-$rechte->getBerechtigungen($uid);
-if ($rechte->isBerechtigt('addon/casetime_manageTimesheet'))
-{
-	$isTimesheetManager = true;
-}
 
 // If GET-REQUEST: check if uid is supervisor or from personnel department
 if (isset($_GET['timesheet_id']))
@@ -115,6 +109,10 @@ if (isset($_GET['timesheet_id']))
 	$untergebenen_arr = $mitarbeiter->untergebene;
 	$confirm_vorgesetzten_uid = $uid;					// keep supervisors uid
 
+	// Store uid interimly as timesheet manager uid as it will be overwritten with employee uid
+	// Will be re-checked later for organisational unit permission			
+	$interim_timesheetManager_uid = $uid;	
+
 	// get the uid of the timesheet_id
 	if ($timesheet->getUser($timesheet_id))
 	{
@@ -124,7 +122,7 @@ if (isset($_GET['timesheet_id']))
 	{
 		die($this->errormsg);
 	}
-
+	
 	// check, if uid is an employee of supervisor
 	if (!empty($untergebenen_arr) &&
 		in_array($uid, $untergebenen_arr))
@@ -132,10 +130,25 @@ if (isset($_GET['timesheet_id']))
 		$isVorgesetzter = true;
 	}
 	
+	// check, if timesheet manager has permission for employees organisational unit
+	// * get organisational unit of employee
+	$benutzer_fkt = new Benutzerfunktion();
+	$benutzer_fkt->getBenutzerFunktionByUid($uid, 'oezuordnung', date('Y-m-d'));
+	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
+	
+	$rechte = new benutzerberechtigung();
+	$rechte->getBerechtigungen($interim_timesheetManager_uid);
+
+	if ($rechte->isBerechtigt('addon/casetime_manageTimesheet', $employee_oe_kurzbz))
+	{
+		$isTimesheetManager = true;						
+	}
+	
 	// Permission check
 	// * limited permission for request param timesheet_id
 	if (!$isPersonal &&	
-		!$isVorgesetzter)	
+		!$isVorgesetzter &&
+		!$isTimesheetManager)	
 	{
 		die('Sie haben keine Berechtigung für diese Seite');
 	}
@@ -1024,7 +1037,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 			</div>
 			<div class="panel-body col-xs-4"><br>
 				<!--allow document uploading only for user himself AND timesheet manager-->
-				<a role="button" <?php echo ($isSent || $isVorgesetzter || ($isPersonal && !$isTimesheetManager)) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : ''; ?> 
+				<a role="button" <?php echo ($isSent || ($isVorgesetzter && !$isTimesheetManager) || ($isPersonal && !$isTimesheetManager)) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : ''; ?> 
 				   class="btn btn-default pull-right" id="uploadButton"
 				   href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsupload.php?timesheet_id='. $timesheet_id ?>"
 				   onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
