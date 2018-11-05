@@ -1164,7 +1164,7 @@ class Timesheet extends basis_db
 								FROM
 									campus.tbl_zeitsperre
 								WHERE
-									mitarbeiter_uid = 'karpenko'
+									mitarbeiter_uid = ". $this->db_add_param($uid). "
 								AND
 									/* only complete days are considered in sync table */
 									vonstunde IS NULL
@@ -1179,9 +1179,9 @@ class Timesheet extends basis_db
 								typ IN ('DienstF', 'DienstV', 'Krank', 'PflegeU', 'Urlaub', 'ZA')
 						)
 					) AS check3;";
-
+				
 				$isSynced_today = true;	// False if at least one deleted/changed time is found in zeitaufzeichnung or zeitsperre
-	
+
 				// Execute query
 				if ($result = $this->db_query($qry))
 				{
