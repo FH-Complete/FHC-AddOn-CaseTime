@@ -833,7 +833,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		}
 	}
 	return $isCaseTimeError;
-}
+}	
 ?>
 
 <!DOCTYPE html>
@@ -1311,19 +1311,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 		</div>
 		<?php endif; ?>
 
-		<!-- IF today inserted/updated times concerning the selected month -->
-		<?php if ($hasCaseTimeChanges_today): ?>
-		<div class="alert alert-warning alert-dismissible text-center" role="alert">
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Ab dem morgigen Tag können Sie Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> versenden!</b><br><br>
-			Sie haben heute in Ihrer Zeiterfassung neue Einträge bzw. Änderungen für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> vorgenommen.<br>
-			Das System berechnet täglich über Nacht die Monatslisten neu.<br>
-			Ab morgen steht Ihnen die korrekte Monatsliste wieder zur Verfügung.
-		</div>
-		<?php endif; ?>
-		
-		<!-- IF today deleted times concerning the selected month -->
-		<?php if (!$isSyncedWithCaseTime_today): ?>
+		<!-- IF today inserted/updated/deleted times concerning the selected month -->
+		<?php if (!$isSyncedWithCaseTime_today || $hasCaseTimeChanges_today): ?>
 		<div class="alert alert-warning alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Ab dem morgigen Tag können Sie Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> versenden!</b><br><br>
@@ -1391,7 +1380,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php endif; ?>
 
 		<!-- IF there are casetime server errors that are defined as blocking errors -->
-		<?php if ($isCaseTimeError && !$isDisabled_by_formerUnsentTimesheet): ?>
+		<?php if ($isCaseTimeError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>
