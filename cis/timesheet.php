@@ -652,7 +652,7 @@ if (isset($_POST['submitTimesheet']))
 			$header_img = 'sancho_header_confirm_timesheet.jpg';
 
 			// Send email in Sancho design to supervisor
-			if (sendSanchoMail('Sancho_Content_confirmTimesheet', $template_data, $from, $subject, $header_img))
+			if (sendSanchoMail('Sancho_Content_confirmTimesheet', $template_data, $to, $subject, $header_img))
 			{
 				$send_date = new DateTime();
 				$timesheet = new Timesheet();
