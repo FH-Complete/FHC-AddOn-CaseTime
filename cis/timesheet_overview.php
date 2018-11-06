@@ -24,6 +24,7 @@ require_once('../../../include/basis_db.class.php');
 require_once('../../../include/benutzer.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/benutzerfunktion.class.php');
+require_once('../../../include/bisverwendung.class.php');
 require_once('../../../include/organisationseinheit.class.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
@@ -166,6 +167,24 @@ foreach($employee_uid_arr as $employee_uid)
 			$cnt_isNotConfirmed++;
 		}
 	}
+	
+	// Flag if user has obligation to record times 
+	$isZeitaufzeichnungspflichtig = false;
+
+	// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
+	$bisverwendung = new bisverwendung();
+	$now = new DateTime('today');
+	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
+	$verwendung_arr = $bisverwendung->result;
+
+	foreach($verwendung_arr as $verwendung)
+	{
+		if($verwendung->zeitaufzeichnungspflichtig)
+		{
+			$isZeitaufzeichnungspflichtig = true;
+			break;
+		}
+	}
 		
 	// :WORKAROUND: disable for personnel department until requests to casetime server are speeded up
 	$time_balance = false;
@@ -245,6 +264,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_date = $last_cntrl_date;
 		$obj->last_cntrl_uid = $last_cntrl_uid;
 		$obj->last_cntrl_remark = $last_cntrl_remark;
+		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig;	// boolean
 	}
 	// * basic data of employee who has NO timesheets
 	else
@@ -266,6 +286,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_date = $last_cntrl_date;	//empty
 		$obj->last_cntrl_uid = $last_cntrl_uid;	//empty
 		$obj->last_cntrl_remark = $last_cntrl_remark;	//empty
+		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig; // boolean
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
@@ -391,7 +412,8 @@ function sortEmployeesName($employee1, $employee2)
 			</tr>
 			<tr>
 				<?php echo ($isPersonal) ? '<th style="width: 10%">Organisationseinheit</th>' : '' ?>
-				<th>Mitarbeiter</th>		
+				<th>Mitarbeiter</th>	
+				<th data-value="ja">Zeitaufzeichnungspflicht</th>
 				<th>Status</th>
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
@@ -419,7 +441,9 @@ function sortEmployeesName($employee1, $employee2)
 				
 				<!--IF employee has AT LEAST ONE TIMESHEET-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
-				<tr>
+				
+				<!--IF employee must not record times, color row grey-->
+				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>
 					
 					<!--organisational unit (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
@@ -436,6 +460,13 @@ function sortEmployeesName($employee1, $employee2)
 						<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
 					
+					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
+					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
+						<td class='text-center'>ja</td>
+					<?php else: ?>
+						<td class='text-center'>nein</td>
+					<?php endif; ?>
+						
 					<!--status-->
 					<!-- * only consider if timesheet date is date of last month -->
 					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
@@ -507,7 +538,8 @@ function sortEmployeesName($employee1, $employee2)
 								
 				<!--IF employee has NO TIMESHEET yet-->
 				<?php else: ?>
-				<tr>					
+				<!--IF employee must not record times, color row grey-->
+				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>					
 					<!--organisational unit (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
 						<td>					
@@ -520,6 +552,13 @@ function sortEmployeesName($employee1, $employee2)
 						
 					<!--employee name to most last timesheet-->
 					<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+					
+					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
+					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
+						<td class='text-center'>ja</td>
+					<?php else: ?>
+						<td class='text-center'>nein</td>
+					<?php endif; ?>
 					
 					<!--status-->
 					<td class='text-center'>nicht angelegt</td>
