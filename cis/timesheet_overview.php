@@ -224,7 +224,7 @@ foreach($employee_uid_arr as $employee_uid)
 			foreach ($oe->result as &$oe_parent)
 			{
 				$employee_oe_parent_arr[] = $oe_parent->oe_bezeichnung;
-				$employee_oe_parent_withType_arr[] = $oe_parent->oe_typ_bezeichnung. ' '. $oe_parent->oe_bezeichnung;
+				$employee_oe_parent_withType_arr[] = "<b>". $oe_parent->oe_typ_bezeichnung. "</b> ". $oe_parent->oe_bezeichnung;
 			}			
 		}
 		
