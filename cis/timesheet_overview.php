@@ -181,7 +181,10 @@ foreach($employee_uid_arr as $employee_uid)
 	
 	
 	// Extra data for personnel department
-	$employee_oe_parent_arr = array();	// array of string oes 
+	//:NOTE: 2 different arrays of organisational units for different display, 
+	// but both are used at same time when filtering (hidden values) 
+	$employee_oe_parent_arr = array();	// array of string org units 
+	$employee_oe_parent_withType_arr = array(); // array of string org units plus type of org unit 
 	$last_cntrl_timesheet_id = '';	// timesheet_id of last controlled timesheet
 	$last_cntrl_date = '';	// date of last controlled timesheet
 	$last_cntrl_uid = '';	// controller uid of last controlled timesheet
@@ -196,12 +199,14 @@ foreach($employee_uid_arr as $employee_uid)
 		
 		// get organisational unit hierarchy
 		$oe = new Organisationseinheit();
-		$employee_oe_parent_arr = $oe->getParents($employee_oe_kurzbz);	
 		
-		foreach ($employee_oe_parent_arr as &$oe_parent)	// :NOTE: & is important to update element in foreach loop
+		if ($oe->getParents_withOEType($employee_oe_kurzbz))
 		{
-			$oe->load($oe_parent);
-			$oe_parent = $oe->bezeichnung;
+			foreach ($oe->result as &$oe_parent)
+			{
+				$employee_oe_parent_arr[] = $oe_parent->oe_bezeichnung;
+				$employee_oe_parent_withType_arr[] = $oe_parent->oe_typ_bezeichnung. ' '. $oe_parent->oe_bezeichnung;
+			}			
 		}
 		
 		// get latest controlling data
@@ -224,6 +229,7 @@ foreach($employee_uid_arr as $employee_uid)
 	if (!empty($timesheet_arr))
 	{
 		$obj->oe_parent_arr = $employee_oe_parent_arr;
+		$obj->oe_parent_withType_arr = $employee_oe_parent_withType_arr;
 		$obj->vorname = $empl_vorname;
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = $last_timesheet_id;
@@ -244,6 +250,7 @@ foreach($employee_uid_arr as $employee_uid)
 	else
 	{
 		$obj->oe_parent_arr = $employee_oe_parent_arr;
+		$obj->oe_parent_withType_arr = $employee_oe_parent_withType_arr;
 		$obj->vorname = $empl_vorname;
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = null;
@@ -420,7 +427,7 @@ function sortEmployeesName($employee1, $employee2)
 							<!--visible string of closest organisational unit-->
 							<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
 							<!--hidden string with org unit and parent org units to allow filtering of higher units-->
-							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
+							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_withType_arr)) ? implode(' > ', array_reverse($employee->oe_parent_withType_arr)) : '-' ?></small></span>
 						</td>
 					<?php endif; ?>
 						
