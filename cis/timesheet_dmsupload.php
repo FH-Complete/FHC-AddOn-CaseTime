@@ -22,6 +22,7 @@ require_once('../../../include/basis_db.class.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/person.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/benutzerfunktion.class.php');
 require_once('../include/timesheet.class.php');
 require_once('../../../include/dokument.class.php');
 require_once('../../../include/dms.class.php');
@@ -49,10 +50,23 @@ $isTimesheetOwner = ($uid == $uid_of_timesheet_id) ? true : false;		// bool for 
 $rechte = new benutzerberechtigung();
 $rechte->getBerechtigungen($uid);
 
+// get organisational unit of employee
+$benutzer_fkt = new Benutzerfunktion();
+$benutzer_fkt->getBenutzerFunktionByUid($uid_of_timesheet_id, 'oezuordnung', date('Y-m-d'));
+$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
+
+// * flag timesheet manager 
+$isTimesheetManager = false;
+if ($rechte->isBerechtigt('addon/casetime_manageTimesheet', $employee_oe_kurzbz))
+{
+	$isTimesheetManager = true;						
+}
+
 // * permission check
 if (!$isTimesheetOwner &&	// timesheets owner
 	!$rechte->isBerechtigt('mitarbeiter/zeitsperre', null, 'suid') &&	// personnel department
-	!$rechte->isBerechtigt('admin'))	// admin
+	!$rechte->isBerechtigt('admin') &&	// admin
+	!$isTimesheetManager)	// timesheet manager
 		die('Keine Berechtigung');
 
 $isSuccess = false;		// flag for alerts, bool true e.g. if document upload succeded
@@ -196,7 +210,11 @@ if (!empty($timesheet_id))
 		// refreshes display of uploaded files in opener window (timesheet.php)
 		function onUploadRefresh()
 		{
-			window.opener.location = 'timesheet.php?year=<?php echo $year ?>&month=<?php echo $month ?>&uploadRefresh=true';
+			<?php if ($isTimesheetManager): ?>
+				window.opener.location = 'timesheet.php?timesheet_id=<?php echo $timesheet_id ?>&uploadRefresh=true';
+			<?php else: ?>		
+				window.opener.location = 'timesheet.php?year=<?php echo $year ?>&month=<?php echo $month ?>&uploadRefresh=true';
+			<?php endif; ?>
 		}
 	</script>
 </head>
