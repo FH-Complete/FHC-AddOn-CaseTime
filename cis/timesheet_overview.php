@@ -198,36 +198,34 @@ foreach($employee_uid_arr as $employee_uid)
 		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
 	}
 	
-	
-	// Extra data for personnel department
+	// Get organisational unit of employee
+	$benutzer_fkt = new Benutzerfunktion();
+	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
+	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
+
+	// get organisational unit hierarchy
 	//:NOTE: 2 different arrays of organisational units for different display, 
 	// but both are used at same time when filtering (hidden values) 
 	$employee_oe_parent_arr = array();	// array of string org units 
 	$employee_oe_parent_withType_arr = array(); // array of string org units plus type of org unit 
+	
+	$oe = new Organisationseinheit();
+	if ($oe->getParents_withOEType($employee_oe_kurzbz))
+	{
+		foreach ($oe->result as &$oe_parent)
+		{
+			$employee_oe_parent_arr[] = $oe_parent->oe_bezeichnung;
+			$employee_oe_parent_withType_arr[] = "<b>". $oe_parent->oe_typ_bezeichnung. "</b> ". $oe_parent->oe_bezeichnung;
+		}			
+	}
+	
+	// Extra data for personnel department
 	$last_cntrl_timesheet_id = '';	// timesheet_id of last controlled timesheet
 	$last_cntrl_date = '';	// date of last controlled timesheet
 	$last_cntrl_uid = '';	// controller uid of last controlled timesheet
-	$last_cntrl_remark = '';	// remark of last controlled timesheet
-
+	$last_cntrl_remark = '';	// remark of last controlled timesheet	
 	if ($isPersonal)
 	{
-		// get organisational unit of employee
-		$benutzer_fkt = new Benutzerfunktion();
-		$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
-		$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
-		
-		// get organisational unit hierarchy
-		$oe = new Organisationseinheit();
-		
-		if ($oe->getParents_withOEType($employee_oe_kurzbz))
-		{
-			foreach ($oe->result as &$oe_parent)
-			{
-				$employee_oe_parent_arr[] = $oe_parent->oe_bezeichnung;
-				$employee_oe_parent_withType_arr[] = "<b>". $oe_parent->oe_typ_bezeichnung. "</b> ". $oe_parent->oe_bezeichnung;
-			}			
-		}
-		
 		// get latest controlling data
 		$timesheet = new Timesheet();
 		$wasControlled = $timesheet->getLatestControllingData($employee_uid); 
@@ -403,7 +401,8 @@ function sortEmployeesName($employee1, $employee2)
 		<!--************************************	TABLE HEAD	 -->
 		<thead class="text-center">
 			<tr class="table tablesorter-ignoreRow">
-				<?php echo ($isPersonal) ? '<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>' : '' ?>
+				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
+				<td></td>
 				<td></td>
 				<td colspan="3" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
@@ -411,7 +410,7 @@ function sortEmployeesName($employee1, $employee2)
 				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
 			</tr>
 			<tr>
-				<?php echo ($isPersonal) ? '<th style="width: 10%">Organisationseinheit</th>' : '' ?>
+				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>	
 				<th data-value="ja">Zeitaufzeichnungspflicht</th>
 				<th>Status</th>
@@ -445,16 +444,14 @@ function sortEmployeesName($employee1, $employee2)
 				<!--IF employee must not record times, color row grey-->
 				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>
 					
-					<!--organisational unit (displayed ONLY for personal department)-->
-					<?php if ($isPersonal): ?>
-						<td>
-							<!--visible string of closest organisational unit-->
-							<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
-							<!--hidden string with org unit and parent org units to allow filtering of higher units-->
-							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_withType_arr)) ? implode(' > ', array_reverse($employee->oe_parent_withType_arr)) : '-' ?></small></span>
-						</td>
-					<?php endif; ?>
-						
+					<!--organisational unit-->
+					<td>
+						<!--visible string of closest organisational unit-->
+						<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
+						<!--hidden string with org unit and parent org units to allow filtering of higher units-->
+						<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_withType_arr)) ? implode(' > ', array_reverse($employee->oe_parent_withType_arr)) : '-' ?></small></span>
+					</td>
+
 					<!--employee name & link to latest timesheet-->
 					<td>
 						<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
@@ -539,16 +536,15 @@ function sortEmployeesName($employee1, $employee2)
 				<!--IF employee has NO TIMESHEET yet-->
 				<?php else: ?>
 				<!--IF employee must not record times, color row grey-->
-				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>					
-					<!--organisational unit (displayed ONLY for personal department)-->
-					<?php if ($isPersonal): ?>
-						<td>					
-							<!--visible string of closest organisational unit-->
-							<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
-							<!--hidden string with org unit and parent org units to allow filtering of higher units-->
-							<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
-						</td>
-					<?php endif; ?>
+				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>	
+					
+					<!--organisational unit-->
+					<td>					
+						<!--visible string of closest organisational unit-->
+						<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
+						<!--hidden string with org unit and parent org units to allow filtering of higher units-->
+						<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
+					</td>
 						
 					<!--employee name to most last timesheet-->
 					<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
