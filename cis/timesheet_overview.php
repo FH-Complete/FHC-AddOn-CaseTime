@@ -32,6 +32,8 @@ require_once('../../../include/globals.inc.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
 
+session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
+
 $uid = get_uid();
 $db = new basis_db();
 $sprache_obj = new sprache();
@@ -45,6 +47,7 @@ $date_last_month->modify('last day of this month');	// date obj of last month
 
 $isPersonal = false;	// true if uid has personnel departments permission 
 $isVorgesetzter = false;	// true if uid is supervisor
+$isVorgesetzter_indirekt = false;	// true if uid is indirect supervisor on higher oe level
 $rechte = new benutzerberechtigung();
 $rechte->getBerechtigungen($uid);
 
@@ -67,18 +70,40 @@ if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
 	}	
 }
 
-// Check if uid is a supervisor
+// Define employees to be shown (all or direct); show all by default
+// * differ if requested by THIS site ($_GET) or by returning from timesheet.php ($_SESSION)
 $mitarbeiter = new Mitarbeiter();
-$mitarbeiter->getUntergebene($uid);
-$untergebenen_arr = array();
-$untergebenen_arr = $mitarbeiter->untergebene;
+$showAllMA = false;	// used to toggle between direct employees and all employees
 
+if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
+	(!isset($_GET['submitAllMA']) && isset($_SESSION['casetime/submitAllMA']) && $_SESSION['casetime/submitAllMA'] == true))
+{
+	$_SESSION['casetime/submitAllMA'] = true;	// save in session to be saved after changing to timesheet.php
+	$showAllMA = true;
+
+	$mitarbeiter->getUntergebene($uid, true);
+	$untergebenen_arr = array();
+	$untergebenen_arr = $mitarbeiter->untergebene;
+}
+else
+{
+	$_SESSION['casetime/submitAllMA'] = false;	// save in session to be saved after changing to timesheet.php
+	$mitarbeiter->getUntergebene($uid);
+	$untergebenen_arr = array();
+	$untergebenen_arr = $mitarbeiter->untergebene;
+}
+
+// Check if uid is a supervisor
 if (!empty($untergebenen_arr))
 {
-	if (!$isPersonal)	// if personnel manager is also supervisor: provide isPersonal-features (view, alerts etc)
-	{
 		$isVorgesetzter = true;
-	}	
+		
+		// check if Vorgesetzter manages child OEs
+		$mitarbeiter->getUntergebene($uid, true);		
+		if ($mitarbeiter->result['isIndirectSupervisor'])
+		{
+			$isVorgesetzter_indirekt = true;
+		}	
 }
 
 // Permission check
@@ -101,7 +126,14 @@ if (!empty($untergebenen_arr))
 // * if supervisor is also personnel manager, untergebenen_arr is overwritten
 if (!empty ($all_employee_uid_arr))	
 {
-	$employee_uid_arr = $all_employee_uid_arr;
+	if ($isPersonal && $isVorgesetzter && $_SESSION['casetime/submitAllMA'] == false)
+	{
+		$employee_uid_arr = $untergebenen_arr;
+	}
+	else
+	{
+		$employee_uid_arr = $all_employee_uid_arr;
+	}	
 }
 
 // *********************************  data for SUPERVISORS VIEW
@@ -349,25 +381,27 @@ function sortEmployeesName($employee1, $employee2)
 						filter_searchFiltered: false
 					}			
 			}
-		);	
+		);
 	});
+	
+	// **************************** FUNCTIONS
 	
 	// toggle organisational units (single or hiararchy)
 	function toggleParentOE()
+	{
+		if ($('.oe').is(':visible'))
 		{
-			if ($('.oe').is(':visible'))
-			{
-				$('.oe').css('display', 'none');
-				$('.oe_parents').css('display', 'inline');
-				$('#btn_toggle_oe').text('Direkte OE anzeigen');
-			}
-			else
-			{
-				$('.oe').css('display', 'inline');
-				$('.oe_parents').css('display', 'none');
-				$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
-			}
+			$('.oe').css('display', 'none');
+			$('.oe_parents').css('display', 'inline');
+			$('#btn_toggle_oe').text('Direkte OE anzeigen');
 		}
+		else
+		{
+			$('.oe').css('display', 'inline');
+			$('.oe_parents').css('display', 'none');
+			$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
+		}
+	}
 	</script>
 </head>
 
@@ -375,10 +409,6 @@ function sortEmployeesName($employee1, $employee2)
 	
 	<h3>Verwaltung Zeitaufzeichnung - Monatslisten</h3>
 	<br><br>
-<!--	<?php if($isVorgesetzter): ?>
-		<h4>Team von <?php echo $full_name ?></h4><br>
-	<?php endif; ?>
-	-->
 	<h4>Übersicht Monatslisten</h4>
 	
 	<!--************************************	TEXTUAL INFORMATION	 -->
@@ -393,7 +423,38 @@ function sortEmployeesName($employee1, $employee2)
 		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
 	<?php endif; ?>
 	<br><br>
-	
+	<?php if($isVorgesetzter_indirekt): ?>
+		<div class="well">
+			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
+				<label>Wählen Sie Ihre Ansicht:</label>
+				<div class="btn-group col-xs-offset-1"> 
+					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+							name="submitAllMA" value="false">Meine direkten Mitarbeiter
+					</button>
+					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
+							name="submitAllMA" value="true">Alle meine Mitarbeiter
+					</button>
+				</div>
+			</form>
+		</div>
+		<br>
+	<?php endif; ?>
+		<?php if($isPersonal && $isVorgesetzter): ?>
+		<div class="well">
+			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
+				<label>Wählen Sie Ihre Ansicht:</label>
+				<div class="btn-group col-xs-offset-1"> 
+					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
+							name="submitAllMA" value="true">Alle Mitarbeiter
+					</button>
+					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+							name="submitAllMA" value="false">Meine direkten Mitarbeiter
+					</button>
+				</div>
+			</form>
+		</div>
+		<br>
+	<?php endif; ?>
 	<!--************************************	TABLE with EMPLOYEES MONTHLIST INFORMATION	 -->
 				
 	<table class="table table-condensed table-bordered tablesorter tablesort-active" id="tbl_monthlist_overview" role="grid">
