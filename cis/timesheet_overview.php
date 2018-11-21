@@ -70,6 +70,13 @@ if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
 	}	
 }
 
+// Check if uid is timesheet manager
+$isTimesheetManager = false;
+if ($rechte->isBerechtigt('addon/casetime_manageTimesheet'))
+{
+	$isTimesheetManager = true;						
+}
+
 // Define employees to be shown (all or direct); show all by default
 // * differ if requested by THIS site ($_GET) or by returning from timesheet.php ($_SESSION)
 $mitarbeiter = new Mitarbeiter();
@@ -279,6 +286,7 @@ foreach($employee_uid_arr as $employee_uid)
 	{
 		$obj->oe_parent_arr = $employee_oe_parent_arr;
 		$obj->oe_parent_withType_arr = $employee_oe_parent_withType_arr;
+		$obj->uid = $employee_uid;
 		$obj->vorname = $empl_vorname;
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = $last_timesheet_id;
@@ -301,6 +309,7 @@ foreach($employee_uid_arr as $employee_uid)
 	{
 		$obj->oe_parent_arr = $employee_oe_parent_arr;
 		$obj->oe_parent_withType_arr = $employee_oe_parent_withType_arr;
+		$obj->uid = $employee_uid;
 		$obj->vorname = $empl_vorname;
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = null;
@@ -444,12 +453,12 @@ function sortEmployeesName($employee1, $employee2)
 			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
 				<label>Wählen Sie Ihre Ansicht:</label>
 				<div class="btn-group col-xs-offset-1"> 
-					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
-							name="submitAllMA" value="true">Alle Mitarbeiter
-					</button>
 					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
 							name="submitAllMA" value="false">Meine direkten Mitarbeiter
 					</button>
+					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
+							name="submitAllMA" value="true">Alle Mitarbeiter
+					</button>					
 				</div>
 			</form>
 		</div>
@@ -607,9 +616,17 @@ function sortEmployeesName($employee1, $employee2)
 						<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
 					</td>
 						
-					<!--employee name to most last timesheet-->
-					<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
-					
+					<!--employee name: text only (if uid is timesheet manager, provide url to create first timesheet)-->				
+					<?php if($isTimesheetManager): ?>
+						<td>
+							<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;"
+								  data-toggle="tooltip" title="Noch keine Monatsliste vorhanden. Als Timesheetmanager können sie die erste anlegen.">erstanlage</span>
+							<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=true"><?php echo $employee->nachname. ' '. $employee->vorname ?>
+						</td>
+					<?php else: ?>
+						<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+					<?php endif; ?>		
+							
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
 					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
 						<td class='text-center'>ja</td>

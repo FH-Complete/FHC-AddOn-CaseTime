@@ -50,6 +50,8 @@ $date_golive = new DateTime('first day of '. CASETIME_TIMESHEET_GOLIVE);	// firs
 $month = $date_actual->format('m');	// string month of actual timesheet
 $year = $date_actual->format('Y');	// string year of actual timesheet
 
+$isTimesheetManager = false;	//true if uid has special right to manage timesheets
+
 // month & year is overwritten by navigating through monthlist
 if (isset($_GET['month']) && isset($_GET['year']))
 {
@@ -83,7 +85,6 @@ if (isset($_GET['month']) && isset($_GET['year']))
 $isPersonal = false;	// true if uid has personnel departments permission 
 $isVorgesetzter = false;	// true if uid is supervisor
 $isVorgesetzter_indirekt = false;	//true if uid supervisor on higher oe level (not direct supervisor of employee)
-$isTimesheetManager = false;	//true if uid has special right to manage timesheets
 
 
 // If GET-REQUEST: Check if uid is supervisor, indirect supervisor, personnel- or timesheet manager
@@ -381,10 +382,15 @@ foreach ($merged_timesheet_arr as $ts)
 	}
 }
 
+// Get the most earliest monthlist date of merged timesheet array 
+// This could be date of an existing or a dummy timesheet
+$date_earliest_ts = new DateTime('first day of '. end($merged_timesheet_arr)->datum);
+
 // Flag if timesheet may not be created
 if ($date_allow_new_ts < $date_selected ||
 	$date_selected > $date_actual||
-	$date_selected < $date_golive)	
+	$date_selected < $date_golive ||
+	$date_selected < $date_earliest_ts)	
 {
 	$isAllowed_createTimesheet = false;
 }
@@ -1305,14 +1311,6 @@ function check_isTimesheetManager($uid, $employee_uid)
 				Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
 				Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
 				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.<br><br>
-<!--				
-				<i class="fa fa-check-square-o fa-lg text-info" aria-hidden="true"></i>
-				<?php if (!$isSent || !$isConfirmed): ?>
-					&nbsp;Mit Genehmigung der Monatsliste geben Sie Ihr Einverständnis für alle in diesem Monat eventuell angefallenen Überstunden.
-				<?php else: ?>
-					&nbsp;Sie haben für diesen Monat <b>eventuell angefallene Überstunden genehmigt.</b>
-				<?php endif; ?>
-					-->
 			</div>
 			<form id="formTimesheetConfirmation" method="POST" action="">
 				<input type="hidden" name="checkbox_overtime_arr" value="" />
@@ -1335,11 +1333,16 @@ function check_isTimesheetManager($uid, $employee_uid)
 			<form method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit" 
-						<?php echo ((!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) && ($isTimesheetManager || $isVorgesetzter || $isPersonal)) 
-						? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' 
-						: '' ?>
+						<?php if ((!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) && ($isVorgesetzter || $isPersonal || $isTimesheetManager)): ?>
+							disabled						
+							<?php if ($isTimesheetManager && !$isConfirmed): ?>
+								data-toggle="tooltip" title="Monatsliste wurde nicht versendet. Als Timesheet Manager können Sie diese direkt genehmigen."
+							<?php else: ?>
+								data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."
+							<?php endif; ?>
 						name="submitTimesheetSendBack" class="btn btn-default pull-right" style="border-color: #31708f; color: #31708f;"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <?php echo $full_name ?> sicher retournieren?');">Monatsliste retournieren</button>
+						<?php endif; ?>
 				</div>
 			</form>
 		</div>
@@ -1399,19 +1402,19 @@ function check_isTimesheetManager($uid, $employee_uid)
 	<?php endif; ?>
 
 	
-	<!--************************************	ALERTS	 -->
+	<!--************************************		ALERTS	 -->
 	
 	<!-- IF uid is EMPLOYEE -->
 	<?php if (!$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt): ?>
 		<!-- IF first entry AND obliged to record times AND timesheets are missing before actual date -->
-		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig): ?>
-		<div class="alert alert-danger alert-dismissible text-center" role="alert">
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Sie sind ab <?php echo $monatsname[$sprache_index][($date_begin_zeitaufzeichnungspflicht->format('n')) - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
-			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
-			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_begin_zeitaufzeichnungspflicht->format('Y') ?>&month=<?php echo $date_begin_zeitaufzeichnungspflicht->format('m')?>" 
-			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
-		</div>
+		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig && !$isTimesheetManager): ?>
+			<div class="alert alert-danger alert-dismissible text-center" role="alert">
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<b>Sie sind ab <?php echo $monatsname[$sprache_index][($date_begin_zeitaufzeichnungspflicht->format('n')) - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
+				Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
+				<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_begin_zeitaufzeichnungspflicht->format('Y') ?>&month=<?php echo $date_begin_zeitaufzeichnungspflicht->format('m')?>" 
+				   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
+		   </div>
 		<?php endif; ?>
 					
 		<!-- Info WHEN new timesheet was created and is NOT disabled by missing timesheets -->
@@ -1582,8 +1585,6 @@ function check_isTimesheetManager($uid, $employee_uid)
 
 	<!-- IF uid is SUPERVISOR, INDIRECT SUPERVISOR or PERSONNEL MANAGER
 	<?php if ($isVorgesetzter || $isPersonal || $isVorgesetzter_indirekt): ?>
-
-		<!-- Info WHEN new timesheet was created and is NOT disabled by missing timesheets -->
 		<!-- Info WHEN new timesheet was created and is NOT disabled by missing timesheets -->
 		<?php if (!$isDisabled_by_missingTimesheet): ?>
 		<div id="timesheetSaveSuccess" class="alert alert-success alert-dismissible text-center" role="alert" style="display: none;">
@@ -1592,18 +1593,12 @@ function check_isTimesheetManager($uid, $employee_uid)
 		<?php endif; ?>
  
 		<!--IF timesheet was not yet sent by the employee-->
-		<?php if(!$isSent): ?>
-		<div class="alert alert-danger alert-dismissible text-center" role="alert">
-			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> muss von Ihrem Mitarbeiter noch versendet werden!</b>
-			<?php if($isTimesheetManager): ?>
-				<br><br>
-				Als Timesheet Manager können Sie die Monatsliste jedoch direkt genehmigen, auch ohne dass diese zuvor von Ihrem Mitarbeiter verschickt worden ist.
-			<?php elseif (!$isVorgesetzter_indirekt): ?>
-				<br><br>
+		<?php if(!$isSent && ($isVorgesetzter_indirekt && $isVorgesetzter) && !$isTimesheetManager): ?>	
+			<div class="alert alert-danger alert-dismissible text-center" role="alert">
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> muss von Ihrem Mitarbeiter noch versendet werden!</b><br><br>	
 				Ihr Mitarbeiter muss die Monatsliste erst bzw. erneut versenden, bevor Sie diese genehmigen oder retournieren können.
-			<?php endif; ?>
-		</div>
+			</div>		
 		<?php endif; ?>
 		
 		<!--IF former timesheets are not yet confirmed (only shown for supervisors and timesheet managers)-->
@@ -1625,8 +1620,9 @@ function check_isTimesheetManager($uid, $employee_uid)
 					Wenn Sie nicht mit allen Überstunden einverstanden sind, retournieren Sie die Monatliste.<br>
 					Informieren Sie Ihren Mitarbeiter, damit dieser seine Zeiterfassung überarbeitet.
 				</div> 
-		-->
+		
 		<?php endif; ?>
+		-->
 		
 		 <!--IF timesheet is sent AND confirmed--> 
 		<?php if ($isSent && $isConfirmed): ?>
@@ -1640,7 +1636,24 @@ function check_isTimesheetManager($uid, $employee_uid)
 	<?php endif; ?><!-- /.end alert conditions for supervisors & hr-->
 	<br><br>
 
-
+	
+	<!--************************************		ALERTS FOR TIMESHEET MANAGER-->
+	
+	<?php if ($isTimesheetManager): ?>
+		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig): ?>
+		<div class="alert alert-danger alert-dismissible text-center" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>		
+			<b><?php echo $full_name. ' ist ab '. $monatsname[$sprache_index][($date_begin_zeitaufzeichnungspflicht->format('n')) - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
+			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_begin_zeitaufzeichnungspflicht->format('Y') ?>&month=<?php echo $date_begin_zeitaufzeichnungspflicht->format('m')?>&employee_uid=<?php echo $uid ?>&create=true"" 
+			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
+		</div>
+		<?php endif; ?>
+	
+	<?php endif; ?><!-- /.end alert conditions for timesheet managers -->
+	
+	
+	
 	<!--************************************	ALL TIMESHEETS - TABLE -->
 
 	<h4>Alle Monatslisten</h4><br>
