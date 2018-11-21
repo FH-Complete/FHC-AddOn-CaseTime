@@ -380,7 +380,7 @@ function getCaseTimeErrors($uid)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
@@ -397,7 +397,7 @@ function getCaseTimeErrors($uid)
 		}
 		else
 			return false;
-	}	
+	}
 }
 
 /**
@@ -418,7 +418,7 @@ function getCaseTimeZeitsaldo($uid)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
@@ -435,7 +435,49 @@ function getCaseTimeZeitsaldo($uid)
 		}
 		else
 			return false;
-	}	
+	}
+}
+
+/**
+ * Sendet einen Request an den CaseTime Server um den Zeitsaldo aller User abzufragen
+ */
+function getCaseTimeSalden($uidarr)
+{
+	$ch = curl_init();
+
+	$url = CASETIME_SERVER.'/sync/get_zeitsaldo_all';
+
+	$params = '';
+	$fields = array('sachb' => $uidarr);
+	$fields_string = http_build_query($fields);
+	//$fields_string = '';
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	curl_setopt($ch, CURLOPT_POST, true);
+	curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
+
+	$result = curl_exec($ch);
+
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if(isset($data->STATUS) && $data->STATUS=='OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return false;
+	}
 }
 
 /**
@@ -444,7 +486,7 @@ function getCaseTimeZeitsaldo($uid)
 function getCastTimeUrlaubssaldo($uid)
 {
 	$ch = curl_init();
-	
+
 	$url = CASETIME_SERVER.'/sync/get_urlaubsaldo';
 
 	$params = 'sachb='.$uid;
@@ -456,7 +498,7 @@ function getCastTimeUrlaubssaldo($uid)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
+
 	if (curl_errno($ch))
 	{
 		return 'Curl error: '.curl_error($ch);
@@ -520,13 +562,13 @@ function generateCaseTimeTimesheet($uid, $month, $year, $ftype)
  * Sendet einen Request an den CaseTime Server um eine generierte Monatsliste abzurufen und am Browser anzuzeigen
  */
 function renderCaseTimeTimesheet($uid, $sysFile)
-{	
+{
 	// create temp filename
 	$tmp_file = tempnam(sys_get_temp_dir(), "FHC_TIMESHEET_");
-	
+
 	// create filename (e.g. uid_zrep_monatsliste_09_2019.pdf)
 	$filename = $uid. '_'. basename($sysFile);
-	
+
 	// connect to CaseTimeServer and get timesheet pdf via sysFile-path
 
 	require_once("../../../vendor/autoload.php");
@@ -538,18 +580,18 @@ function renderCaseTimeTimesheet($uid, $sysFile)
 	}
 
 	$sftp->get($sysFile, $tmp_file);
-	
+
 	// close connection
 	$conn = null;
 
 	// display pdf in browser
-	if ($handle = fopen($tmp_file, "r")) 
-	{		
+	if ($handle = fopen($tmp_file, "r"))
+	{
 		header('Content-type: application/pdf');
 		header('Content-Disposition: inline; filename="'. $filename.'"');
 		header('Content-Length: '. filesize($tmp_file));
 
-		while (!feof($handle)) 
+		while (!feof($handle))
 		{
 			echo fread($handle, 8192);
 		}
@@ -559,7 +601,7 @@ function renderCaseTimeTimesheet($uid, $sysFile)
 	{
 		echo 'Fehler: Datei konnte nicht geoeffnet werden';
 	}
-	
+
 	// deletes temp file
 	unlink($tmp_file);
 }
