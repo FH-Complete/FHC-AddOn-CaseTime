@@ -146,6 +146,14 @@ if (!empty ($all_employee_uid_arr))
 // *********************************  data for SUPERVISORS VIEW
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
+
+// If uid is personnel manager or super leader, retrieve all time- and holiday balances at once from CaseTime server
+if ($isPersonal || $isVorgesetzter || $isVorgesetzter_indirekt)
+{
+	// this array will be checked inside the employee_uid_arr loop to match employee's balance times
+	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
+}
+
 foreach($employee_uid_arr as $employee_uid)
 {
 	// name of employee
@@ -225,10 +233,45 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 	}
 		
-	// :WORKAROUND: disable for personnel department until requests to casetime server are speeded up
+	// Get time- & holiday balances
 	$time_balance = false;
 	$holiday = false;
-	if (!$isPersonal)
+	
+	// * if uid is personnel manager or superleader, check the object-array with all time-
+	// and holiday balances and match with the actual employee
+	if ($isPersonal || $isVorgesetzter || $isVorgesetzter_indirekt)
+	{
+		if (is_object($time_holiday_balance_arr))
+		{
+			// uppercase employee uid as object property uid is uppercased
+			$uc_employee_uid = strtoupper($employee_uid);
+			
+			// match the actual employee with the one in the casetime-salden-array
+			if (property_exists($time_holiday_balance_arr, strtoupper($uc_employee_uid)))
+			{
+				// balance of time
+				$time_balance = (
+									isset($time_holiday_balance_arr->{$uc_employee_uid}->zeitsaldo) 
+									? $time_holiday_balance_arr->{$uc_employee_uid}->zeitsaldo
+									: false
+								);
+				
+				// holiday information
+				$holiday = new stdClass();
+				$holiday->AktuellerStand = (
+												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAktuell) 
+												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAktuell
+												: 'ERR'
+											);
+				$holiday->Urlaubsanspruch = (
+												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch) 
+												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch
+												: 'ERR'
+											);;
+			}
+		}	
+	}
+	else
 	{
 		// balance of time
 		$time_balance = getCaseTimeZeitsaldo($employee_uid);	// float time balance OR string error OR bool false
@@ -243,8 +286,7 @@ foreach($employee_uid_arr as $employee_uid)
 	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
 
 	// get organisational unit hierarchy
-	//:NOTE: 2 different arrays of organisational units for different display, 
-	// but both are used at same time when filtering (hidden values) 
+	//:NOTE: 2 different arrays of organisational units for different display in filter functionality (one is used by hidden values) 
 	$employee_oe_parent_arr = array();	// array of string org units 
 	$employee_oe_parent_withType_arr = array(); // array of string org units plus type of org unit 
 	
@@ -476,7 +518,7 @@ function sortEmployeesName($employee1, $employee2)
 				<td></td>
 				<td colspan="3" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
-				<?php echo (!$isPersonal) ? '<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>' : '' ?>
+				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
 				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
 			</tr>
 			<tr>
@@ -486,20 +528,17 @@ function sortEmployeesName($employee1, $employee2)
 				<th>Status</th>
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
-				<!--<th>Nicht angelegt/abgeschickt<br>(insgesamt)</th>-->
 				<th>Nicht genehmigt&nbsp;				
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
 						data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis inklusive <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?>.&#013;&#010;(auch solche, die nicht erstellt/abgeschickt und daher nicht genehmigt wurden)">							 
 					</i>
 				</th>
-				<?php echo (!$isPersonal) ? '<th>Zeitsaldo</th>' : '' ?>
-				<!--<th>Überstunden</th>-->
-				<?php echo (!$isPersonal) ?
-				'<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
+				<th>Zeitsaldo</th>
+				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
 						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">							 
 					</i>
-				</th>' : '' ?>
+				</th>
 				<?php echo ($isPersonal) ? '<th>Kontrolliert am</th>' : '' ?>
 			</tr>			
 		</thead>
@@ -582,18 +621,16 @@ function sortEmployeesName($employee1, $employee2)
 						<?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? $all_timesheets_notCreatedOrConfirmed : '-' ?>
 					</td>
 					
-					<?php if (!$isPersonal): ?>
-						<!--balance of working hours on next account-->
-						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
+					<!--balance of working hours on next account-->
+					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
 
-						<!--overtime hours-->
-						<!--<td class='text-center'>5,0 h</td>-->
+					<!--overtime hours-->
+					<!--<td class='text-center'>5,0 h</td>-->
 
-						<!--holidays cosumed-->
-						<td class='text-center'>
-							<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
-						</td>	
-					<?php endif; ?>
+					<!--holidays cosumed-->
+					<td class='text-center'>
+						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
+					</td>	
 						
 					<!--controlling date (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
