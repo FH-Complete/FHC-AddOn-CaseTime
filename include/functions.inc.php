@@ -444,11 +444,11 @@ function getCaseTimeZeitsaldo($uid)
 function getCaseTimeSalden($uidarr)
 {
 	$uidarr = array_map('strtoupper', $uidarr);	// uppercase string uids
-	
+
 	$ch = curl_init();
 
-	$url = CASETIME_SERVER.'/sync/get_zeitsaldo_all';
-	
+	$url = CASETIME_SERVER.'/sync/get_salden';
+
 	$params = '';
 	$fields = array('sachb' => $uidarr);
 	$fields_string = http_build_query($fields);
@@ -462,7 +462,7 @@ function getCaseTimeSalden($uidarr)
 	curl_setopt($ch, CURLOPT_POSTFIELDS, $fields_string);
 
 	$result = curl_exec($ch);
-	
+
 	if(curl_errno($ch))
 	{
 		return 'Curl error: ' . curl_error($ch);
