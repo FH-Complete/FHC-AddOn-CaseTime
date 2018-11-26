@@ -85,35 +85,44 @@ if(isset($_GET['download']))
 		$isTimesheetOwner = false;
 		$isPersonal = false;
 		$isVorgesetzter = false;
+		$isVorgesetzter_indirekt = false;
 		
 		// Check if timesheet belongs to uid
 		$isTimesheetOwner = ($uid == $timesheet_uid) ? true : false;		// bool for permission check; true if timesheet belongs to uid
 
-		// Check if uid has personnel manager permission
-		$rechte = new benutzerberechtigung();
-		$rechte->getBerechtigungen($uid);
-		if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
+		if (!$isTimesheetOwner)
 		{
-			$isPersonal = true;
-		}
+			// Check if uid has personnel manager permission
+			$rechte = new benutzerberechtigung();
+			$rechte->getBerechtigungen($uid);
+			if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
+			{
+				$isPersonal = true;
+			}
 
-		// Check if uid is a supervisor
-		$mitarbeiter = new Mitarbeiter();
-		$mitarbeiter->getUntergebene($uid);
-		$untergebenen_arr = $mitarbeiter->untergebene;
+			// Check if uid is a supervisor
+			$mitarbeiter = new Mitarbeiter();
+			$mitarbeiter->getUntergebene($uid);
+			$untergebenen_arr = $mitarbeiter->untergebene;
 
-			// check, if uid is an employee of supervisor
-		if (!empty($untergebenen_arr) &&
-			in_array($timesheet_uid, $untergebenen_arr))
-		{
-			$isVorgesetzter = true;
+				// check, if uid is an employee of supervisor
+			if (!empty($untergebenen_arr) &&
+				in_array($timesheet_uid, $untergebenen_arr))
+			{
+				$isVorgesetzter = true;
+			}
+			
+			// Check if uid is a supervisor on higher oe-level
+			$isVorgesetzter_indirekt = check_isVorgesetzter_indirekt($uid, $timesheet_uid);
 		}
+		
 		
 		// Permission check
 		// * limited permission for request param timesheet_id
 		if (!$isTimesheetOwner &&
 			!$isPersonal &&	
-			!$isVorgesetzter)	
+			!$isVorgesetzter &&
+			!$isVorgesetzter_indirekt)	
 		{
 			die('Sie haben keine Berechtigung für diese Seite');
 		}
@@ -128,7 +137,7 @@ if(isset($_GET['download']))
 	{
 		echo 'UID, Monat oder Jahr nicht vorhanden oder inkorrekt.';
 	}
-	
+		
 }
 
 ?>
