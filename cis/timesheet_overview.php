@@ -19,6 +19,7 @@
  */
 require_once('../../../config/cis.config.inc.php');
 require_once('../config.inc.php');
+require_once('../../../include/functions.inc.php');
 require_once('../include/timesheet.class.php');
 require_once('../../../include/basis_db.class.php');
 require_once('../../../include/benutzer.class.php');
@@ -53,10 +54,8 @@ $rechte->getBerechtigungen($uid);
 
 // Check if uid has personnel manager permission
 $all_employee_uid_arr = array();
-if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
-{
-	$isPersonal = true;
-	
+if ($isPersonal = check_isPersonal($uid))
+{	
 	// get ALL active and fix-employed employees
 	$mitarbeiter = new Mitarbeiter();
 	$mitarbeiter->getPersonal('true', false, false, 'true', false, null);
@@ -251,8 +250,8 @@ foreach($employee_uid_arr as $employee_uid)
 			{
 				// balance of time
 				$time_balance = (
-									isset($time_holiday_balance_arr->{$uc_employee_uid}->zeitsaldo) 
-									? $time_holiday_balance_arr->{$uc_employee_uid}->zeitsaldo
+									isset($time_holiday_balance_arr->{$uc_employee_uid}->Zeitsaldo) 
+									? $time_holiday_balance_arr->{$uc_employee_uid}->Zeitsaldo
 									: false
 								);
 				
@@ -261,12 +260,12 @@ foreach($employee_uid_arr as $employee_uid)
 				$holiday->AktuellerStand = (
 												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAktuell) 
 												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAktuell
-												: 'ERR'
+												: '-'
 											);
 				$holiday->Urlaubsanspruch = (
 												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch) 
 												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch
-												: 'ERR'
+												: '-'
 											);;
 			}
 		}	
@@ -622,14 +621,14 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 					
 					<!--balance of working hours on next account-->
-					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
+					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance : '-' ?></td>
 
 					<!--overtime hours-->
 					<!--<td class='text-center'>5,0 h</td>-->
 
 					<!--holidays cosumed-->
 					<td class='text-center'>
-						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
+						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : '-' ?>
 					</td>	
 						
 					<!--controlling date (displayed ONLY for personal department)-->
@@ -687,12 +686,12 @@ function sortEmployeesName($employee1, $employee2)
 					<td class='text-center'>-</td>
 					<?php if (!$isPersonal): ?>
 						<!--balance of working hours on next account-->
-						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance. ' h' : 'ERR' ?></td>
+						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance : '-' ?></td>
 						<!--overtime hours-->
 						<!--<td class='text-center'>-</td>-->	
 						<!--holidays cosumed-->
 						<td class='text-center'>
-							<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : 'ERR' ?>
+							<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : '-' ?>
 						</td>
 					<?php endif; ?>
 						
