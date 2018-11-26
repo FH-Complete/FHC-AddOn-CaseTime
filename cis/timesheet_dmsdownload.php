@@ -19,6 +19,7 @@
  */
 require_once('../../../config/cis.config.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/functions.inc.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
@@ -41,14 +42,20 @@ $timesheet = new Timesheet();
 $uid_of_dms_id = $timesheet->getUserByDMSId($dms_id);
 $isDocumentOwner = ($uid == $uid_of_dms_id) ? true : false;		// bool for permission check; true if timesheet belongs to uid
 
-// * flag supervisor of documents owner
-$isDocumentOwner_supervisor = false;
-$mitarbeiter = new Mitarbeiter();
-$mitarbeiter->getUntergebene($uid);
-$untergebenen_arr = $mitarbeiter->untergebene;
-if (!empty($untergebenen_arr) && in_array($uid_of_dms_id, $untergebenen_arr))
+// * flag leader / superleader of documents owner
+$isVorgesetzter = false;
+$isVorgesetzter_indirekt = false;
+if (!$isDocumentOwner)
 {
-	$isDocumentOwner_supervisor = true;
+	$mitarbeiter = new Mitarbeiter();
+	$mitarbeiter->getUntergebene($uid);
+	$untergebenen_arr = $mitarbeiter->untergebene;
+	if (!empty($untergebenen_arr) && in_array($uid_of_dms_id, $untergebenen_arr))
+	{
+		$isVorgesetzter = true;
+	}
+	
+	$isVorgesetzter_indirekt = check_isVorgesetzter_indirekt($uid, $uid_of_dms_id);
 }
 
 // * for other permissions
@@ -57,10 +64,11 @@ $rechte->getBerechtigungen($uid);
 
 // * permission check
 if (!$isDocumentOwner &&	// documents owner
-	!$isDocumentOwner_supervisor &&	// supervisor
+	!$isVorgesetzter &&	// leader
+	!$isVorgesetzter_indirekt &&	// superleader (leader on higher oe-level)
 	!$rechte->isBerechtigt('mitarbeiter/zeitsperre', null, 'suid') &&	// personnel department
 	!$rechte->isBerechtigt('admin'))	// admin
-		die('Keine Berechtigung');
+		die('Sie haben keine Berechtigung für diese Seite');
 	
 $doc = new dms();
 

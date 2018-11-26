@@ -24,6 +24,7 @@ require_once('../../../include/basis_db.class.php');
 require_once('../../../include/benutzer.class.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/benutzerfunktion.class.php');
+require_once('../../../include/functions.inc.php');
 require_once('../../../include/phrasen.class.php');
 require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
@@ -138,7 +139,7 @@ if (isset($_GET['timesheet_id']))
 
 	// Check if uid is a supervisor on higher oe level
 	$isVorgesetzter_indirekt = check_isVorgesetzter_indirekt($uid, $employee_uid);
-	
+
 	// Check, if uid is timesheet manager
 	$isTimesheetManager = check_isTimesheetManager($uid, $employee_uid);
 
@@ -871,76 +872,6 @@ function checkCaseTimeErrors($uid, $month, $year)
 	return $isCaseTimeError;
 }
 
-// *********************************	HELPER FUNCTIONS
-// Check if uid has personnel manager permission
-function check_isPersonal($uid)
-{
-	$isPersonal = false;
-	$rechte = new benutzerberechtigung();
-	$rechte->getBerechtigungen($uid);
-	if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
-	{
-		$isPersonal = true;
-	}
-	
-	return $isPersonal;
-}
-
-// Check if uid is a supervisor
-function check_isVorgesetzter($uid, $employee_uid)
-{
-	$isVorgesetzter = false;
-	$mitarbeiter = new Mitarbeiter();
-	$mitarbeiter->getUntergebene($uid);
-	$untergebenen_arr = $mitarbeiter->untergebene;
-	
-	// Check, if uid is an employee of supervisor
-	if (!empty($untergebenen_arr) &&
-		in_array($employee_uid, $untergebenen_arr))
-	{
-		$isVorgesetzter = true;
-	}
-	
-	return $isVorgesetzter;
-}
-
-// Check if uid is a supervisor on higher oe level
-function check_isVorgesetzter_indirekt($uid, $employee_uid)
-{
-	$isVorgesetzter_indirekt = false;
-	$mitarbeiter = new Mitarbeiter();
-	$mitarbeiter->getUntergebene($uid, true);
-	$untergebenen_ofChildOEs_arr = $mitarbeiter->untergebene;
-	
-	if (!empty($untergebenen_ofChildOEs_arr) &&
-		in_array($employee_uid, $untergebenen_ofChildOEs_arr))
-	{
-		$isVorgesetzter_indirekt = true;
-	}
-	
-	return $isVorgesetzter_indirekt;
-}
-
-// Check, if uid is timesheet manager
-function check_isTimesheetManager($uid, $employee_uid)
-{		
-	$isTimesheetManager = false;
-	
-	// get organisational unit of employee for permission check
-	$benutzer_fkt = new Benutzerfunktion();
-	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
-	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
-	
-	$rechte = new benutzerberechtigung();
-	$rechte->getBerechtigungen($uid);
-
-	if ($rechte->isBerechtigt('addon/casetime_manageTimesheet', $employee_oe_kurzbz))
-	{
-		$isTimesheetManager = true;						
-	}
-	
-	return $isTimesheetManager;
-}
 ?>
 
 <!DOCTYPE html>
@@ -1339,10 +1270,10 @@ function check_isTimesheetManager($uid, $employee_uid)
 								data-toggle="tooltip" title="Monatsliste wurde nicht versendet. Als Timesheet Manager können Sie diese direkt genehmigen."
 							<?php else: ?>
 								data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."
-							<?php endif; ?>
+							<?php endif; ?>						
+						<?php endif; ?>
 						name="submitTimesheetSendBack" class="btn btn-default pull-right" style="border-color: #31708f; color: #31708f;"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <?php echo $full_name ?> sicher retournieren?');">Monatsliste retournieren</button>
-						<?php endif; ?>
 				</div>
 			</form>
 		</div>

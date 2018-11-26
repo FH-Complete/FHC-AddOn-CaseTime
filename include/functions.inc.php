@@ -18,8 +18,7 @@
  * Authors: Andreas Oesterreicher <andreas.oesterreicher@technikum-wien.at>
  * 			Gerald Raab <gerald.raab@technikum-wien.at>
  */
-
-
+require_once(dirname(__FILE__).'/../../../include/benutzerberechtigung.class.php');
 
 /**
  * Sendet einen Request an den CaseTime Server um die Daten eines Mitarbeiters und Tages zu entfernen
@@ -648,6 +647,50 @@ function generateTimesheetAndMail($uid, $monat, $jahr, $ftype)
 		}
 		else
 			return false;
+	}
+}
+
+/** Check if uid has personnel manager permission (specific for timesheet)
+ * 
+ * @param string $uid
+ * @return boolean	True if uid has personnel manager permission.
+ */
+function check_isPersonal($uid)
+{	
+	$rechte = new benutzerberechtigung();
+	$rechte->getBerechtigungen($uid);
+	if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}		
+}
+/** Check, if uid is timesheet manager
+ * 
+ * @param string $uid
+ * @param string $employee_uid
+ * @return boolean True if uid has timesheet manager permission.
+ */
+function check_isTimesheetManager($uid, $employee_uid)
+{		
+	// get organisational unit of employee for permission check
+	$benutzer_fkt = new Benutzerfunktion();
+	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
+	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
+	
+	$rechte = new benutzerberechtigung();
+	$rechte->getBerechtigungen($uid);
+
+	if ($rechte->isBerechtigt('addon/casetime_manageTimesheet', $employee_oe_kurzbz))
+	{
+		return true;						
+	}
+	else
+	{
+		return false;
 	}
 }
 ?>
