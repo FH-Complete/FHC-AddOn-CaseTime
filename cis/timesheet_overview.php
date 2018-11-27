@@ -684,7 +684,6 @@ function sortEmployeesName($employee1, $employee2)
 					
 					<!--amount of all timesheets not confirmed-->
 					<td class='text-center'>-</td>
-					<?php if (!$isPersonal): ?>
 						<!--balance of working hours on next account-->
 						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance : '-' ?></td>
 						<!--overtime hours-->
@@ -692,9 +691,7 @@ function sortEmployeesName($employee1, $employee2)
 						<!--holidays cosumed-->
 						<td class='text-center'>
 							<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : '-' ?>
-						</td>
-					<?php endif; ?>
-						
+						</td>						
 					<!--controlling date (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
 						<td class='text-center'>-</td>
