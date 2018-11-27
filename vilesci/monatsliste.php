@@ -112,8 +112,9 @@ if(isset($_GET['download']))
 				$isVorgesetzter = true;
 			}
 			
-			// Check if uid is a supervisor on higher oe-level
-			$isVorgesetzter_indirekt = check_isVorgesetzter_indirekt($uid, $timesheet_uid);
+			// Check if uid is a supervisor on higher oe-leve
+			$mitarbeiter = new Mitarbeiter();
+			$isVorgesetzter_indirekt = $mitarbeiter->check_isVorgesetzter_indirekt($uid, $timesheet_uid);
 		}
 		
 		

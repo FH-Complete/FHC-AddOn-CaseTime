@@ -55,7 +55,7 @@ if (!$isDocumentOwner)
 		$isVorgesetzter = true;
 	}
 	
-	$isVorgesetzter_indirekt = check_isVorgesetzter_indirekt($uid, $uid_of_dms_id);
+	$isVorgesetzter_indirekt = $mitarbeiter->check_isVorgesetzter_indirekt($uid, $uid_of_dms_id);
 }
 
 // * for other permissions

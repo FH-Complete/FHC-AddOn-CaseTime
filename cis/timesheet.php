@@ -132,13 +132,15 @@ if (isset($_GET['timesheet_id']))
 	}
 	
 	// Check if uid is a supervisor
-	if ($isVorgesetzter = check_isVorgesetzter($uid, $employee_uid))
+	$mitarbeiter = new Mitarbeiter();
+	if ($isVorgesetzter = $mitarbeiter->check_isVorgesetzter($uid, $employee_uid))
 	{
 		$confirm_vorgesetzten_uid = $uid;	// keep supervisors uid
 	}
 
 	// Check if uid is a supervisor on higher oe level
-	$isVorgesetzter_indirekt = check_isVorgesetzter_indirekt($uid, $employee_uid);
+	$mitarbeiter = new Mitarbeiter();
+	$isVorgesetzter_indirekt = $mitarbeiter->check_isVorgesetzter_indirekt($uid, $employee_uid);
 
 	// Check, if uid is timesheet manager
 	$isTimesheetManager = check_isTimesheetManager($uid, $employee_uid);
