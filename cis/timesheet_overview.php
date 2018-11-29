@@ -34,7 +34,7 @@ require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
-
+	
 $uid = get_uid();
 $db = new basis_db();
 $sprache_obj = new sprache();
@@ -118,6 +118,162 @@ if (!$isPersonal &&
 {
 	die('Sie haben keine Berechtigung für diese Seite');
 }
+?>
+
+<!--:NOTE: HTML starts here, because ob_flush (used to display progress bar while php is computing time-consuming operations)
+needs the GUI to be displayed.-->
+<!DOCTYPE html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
+	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
+	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
+	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">	
+	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">	
+	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/jquery.tablesorter.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/jquery.tablesorter.widgets.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/extras/jquery.tablesorter.pager.min.js"></script>
+	<title>Timesheet Überblick</title>
+	<style>
+		.row {
+			margin-left: 0px;
+			margin-right: 0px;
+		}
+		.table>tbody>tr>td {
+			border-top: none;
+		}
+		.btn {
+			width: 185px;
+		}
+		.inactive {
+			pointer-events: none;
+			cursor: default;
+			text-decoration: none;
+			color: grey;
+		}
+	</style>
+	<script>
+	$(document).ready(function() 
+	{
+		// init tablesorter
+		$("#tbl_monthlist_overview").tablesorter(
+			{
+				theme: "default",
+				headerTemplate: '{content} {icon}',
+				widgets: ["filter"],
+				widgetOptions: 
+					{
+						filter_saveFilters : true,
+						filter_searchFiltered: false
+					}			
+			}
+		);
+	});
+	
+	// **************************** FUNCTIONS
+	
+	// toggle organisational units (single or hiararchy)
+	function toggleParentOE()
+	{
+		if ($('.oe').is(':visible'))
+		{
+			$('.oe').css('display', 'none');
+			$('.oe_parents').css('display', 'inline');
+			$('#btn_toggle_oe').text('Direkte OE anzeigen');
+		}
+		else
+		{
+			$('.oe').css('display', 'inline');
+			$('.oe_parents').css('display', 'none');
+			$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
+		}
+	}
+	
+	// trigger loading effect of progress bar
+	function triggerProgressbar()
+	{
+		var elem = document.getElementById("progressbar");   
+		var width = 1;
+		var id = setInterval(frame, 100);
+
+		function frame()
+		{
+			if (width >= 95) 
+			{
+				clearInterval(id);
+			} 
+			else
+			{
+				width++; 
+				elem.style.width = width + '%';
+				elem.innerHTML = width + '%';
+			}
+		}
+	}
+	</script>
+</head>
+
+<body class="main" style="font-family: Arial, Helvetica, sans-serif; font-size: 13px;">
+	
+	<h3>Verwaltung Zeitaufzeichnung - Monatslisten</h3>
+	<br><br>
+	<h4>Übersicht Monatslisten</h4>
+		<!--************************************	TEXTUAL INFORMATION	 -->
+	
+	<?php if($isVorgesetzter): ?>
+		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
+		Wenn Sie noch Monatslisten genehmigen müssen, wird dies in der Spalte "Nicht genehmigt" rot angezeigt.<br>
+		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen und zu verwalten.
+	<?php elseif ($isPersonal): ?>
+		Überblick über die Zeiterfassung des letzten Monats aller fix angestellten und aktiven MitarbeiterInnen.<br>
+		In der Spalte "Letzte Kontrolle" sehen Sie wann Sie zuletzt eine Monatsliste als "kontrolliert" gespeichert haben.<br>
+		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
+	<?php endif; ?>
+	<br><br>
+	<?php if($isVorgesetzter_indirekt): ?>
+		<div class="well">
+			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
+				<label>Wählen Sie Ihre Ansicht:</label>
+				<div class="btn-group col-xs-offset-1"> 
+					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+							name="submitAllMA" value="false">Meine direkten Mitarbeiter
+					</button>
+					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
+							name="submitAllMA" value="true">Alle meine Mitarbeiter
+					</button>
+				</div>
+			</form>
+		</div>
+		<br>
+	<?php endif; ?>
+	<?php if($isPersonal && $isVorgesetzter): ?>
+	<div class="well">
+		<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
+			<label>Wählen Sie Ihre Ansicht:</label>
+			<div class="btn-group col-xs-offset-1"> 
+				<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+						name="submitAllMA" value="false">Meine direkten Mitarbeiter
+				</button>
+				<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
+						name="submitAllMA" value="true">Alle Mitarbeiter
+				</button>					
+			</div>
+		</form>
+	</div>
+	<br>
+	<?php endif; ?>
+	
+	<!--PROGRESS BAR-->
+	<div class="progress hidden" id="progressbar_div">
+		<div id="progressbar" class="progress-bar progress-bar-striped active" role="progressbar" style="width: 1%">
+	  </div>
+	</div>	
+
+<?php
 		
 // vars supervisor / personnel manager
 $benutzer = new Benutzer($uid);
@@ -146,11 +302,97 @@ if (!empty ($all_employee_uid_arr))
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
 
-// If uid is personnel manager or super leader, retrieve all time- and holiday balances at once from CaseTime server
-if ($isPersonal || $isVorgesetzter || $isVorgesetzter_indirekt)
+/* Retrieve time- and holiday balances for direct/all employees
+ * from CaseTime server OR
+ * from $_SESSION var, if user remains within same browser session AND within same day
+ * Retrieving data from $_SESSION variable speeds up the process.
+*/
+// * Get time- and holiday balances for DIRECT employees from CaseTime Server
+if ($_SESSION['casetime/submitAllMA'] == false &&
+	!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) || 
+	(!empty($_SESSION['casetime/time_holiday_balance_arr_DIRECT'])) && ($_SESSION['casetime/datetime'] < new DateTime('today')))
 {
-	// this array will be checked inside the employee_uid_arr loop to match employee's balance times
+	// display progress bar
+	echo '
+		<script>
+			$("#progressbar_div").toggleClass("hidden");
+			triggerProgressbar();
+		</script>
+		';
+
+	// force displaying part of GUI + progress bar while server is still processing php script
+	ob_flush();
+	flush();
+	
+	// get time and holiday balance times
 	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
+	
+	// store array in session var
+	$_SESSION['casetime/time_holiday_balance_arr_DIRECT'] = $time_holiday_balance_arr;
+	
+	// store datetime in session var 
+	$_SESSION['casetime/datetime'] = new DateTime();
+}
+// * Get time- and holiday balances for ALL employees from CaseTime Server
+elseif($_SESSION['casetime/submitAllMA'] == true &&
+	!isset($_SESSION['casetime/time_holiday_balance_arr_ALL']) || 
+	(!empty($_SESSION['casetime/time_holiday_balance_arr_ALL'])) && ($_SESSION['casetime/datetime'] < new DateTime('today')))
+{
+	// display progress bar
+	echo '
+		<script>
+			$("#progressbar_div").toggleClass("hidden");
+			triggerProgressbar();
+		</script>
+		';
+	
+	// force displaying part of GUI + progress bar while server is still processing php script
+	ob_flush();
+	flush();
+	
+	// get time and holiday balance times
+	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
+	
+	// store array in session var
+	$_SESSION['casetime/time_holiday_balance_arr_ALL'] = $time_holiday_balance_arr;
+	
+	// store datetime in session var 
+	$_SESSION['casetime/datetime'] = new DateTime();
+
+}
+else
+{
+	// * Set time- and holiday balances for DIRECT employees from $_SESSION variable
+	if ($_SESSION['casetime/submitAllMA'] == false)
+	{
+		// hide progress bar as further php processing time is short enough
+		echo '
+		<script>
+			$("#progressbar_div").hide();
+		</script>
+		';
+		
+		// set time and holiday balance times
+		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_DIRECT'];
+	}
+	// * Set time- and holiday balances for ALL employees from $_SESSION variable
+	else
+	{
+		// display progress bar
+		echo '
+		<script>
+			$("#progressbar_div").toggleClass("hidden");
+			triggerProgressbar();
+		</script>
+		';
+		
+		// force displaying part of GUI + progress bar while server is still processing php script
+		ob_flush();
+		flush();
+		
+		// set time and holiday balance times
+		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
+	}
 }
 
 foreach($employee_uid_arr as $employee_uid)
@@ -382,7 +624,7 @@ function sortEmployeesName($employee1, $employee2)
 }
 ?>
 
-<!DOCTYPE html>
+<!--<!DOCTYPE html>
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
@@ -459,10 +701,10 @@ function sortEmployeesName($employee1, $employee2)
 	
 	<h3>Verwaltung Zeitaufzeichnung - Monatslisten</h3>
 	<br><br>
-	<h4>Übersicht Monatslisten</h4>
+	<h4>Übersicht Monatslisten</h4>-->
 	
 	<!--************************************	TEXTUAL INFORMATION	 -->
-	
+<!--	
 	<?php if($isVorgesetzter): ?>
 		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
 		Wenn Sie noch Monatslisten genehmigen müssen, wird dies in der Spalte "Nicht genehmigt" rot angezeigt.<br>
@@ -505,6 +747,13 @@ function sortEmployeesName($employee1, $employee2)
 		</div>
 		<br>
 	<?php endif; ?>
+	-->
+	<script>
+	
+	// hide progress bar when site is done
+	$("#progressbar_div").toggleClass("hidden");
+	
+</script>	
 	<!--************************************	TABLE with EMPLOYEES MONTHLIST INFORMATION	 -->
 				
 	<table class="table table-condensed table-bordered tablesorter tablesort-active" id="tbl_monthlist_overview" role="grid">
