@@ -34,7 +34,7 @@ require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
-	
+
 $uid = get_uid();
 $db = new basis_db();
 $sprache_obj = new sprache();
@@ -64,7 +64,7 @@ if ($isPersonal = check_isPersonal($uid))
 	{
 		if ($mitarbeiter->personalnummer > 0)	// filter out dummies
 		{
-			$all_employee_uid_arr []= $mitarbeiter->uid;
+			$all_employee_uid_arr[] = $mitarbeiter->uid;
 		}	
 	}	
 }
@@ -234,7 +234,7 @@ needs the GUI to be displayed.-->
 		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
 	<?php endif; ?>
 	<br><br>
-	<?php if($isVorgesetzter_indirekt): ?>
+	<?php if($isVorgesetzter_indirekt && !$isPersonal): ?>
 		<div class="well">
 			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
 				<label>Wählen Sie Ihre Ansicht:</label>
@@ -250,7 +250,7 @@ needs the GUI to be displayed.-->
 		</div>
 		<br>
 	<?php endif; ?>
-	<?php if($isPersonal && $isVorgesetzter): ?>
+	<?php if($isPersonal && ($isVorgesetzter || $isVorgesetzter_indirekt)): ?>
 	<div class="well">
 		<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
 			<label>Wählen Sie Ihre Ansicht:</label>
@@ -280,22 +280,22 @@ $benutzer = new Benutzer($uid);
 $full_name = $benutzer->getFullName();	// string full name
 
 // set employees uid arr depending if uid is supervisor or personnel manager
-$employee_uid_arr = array();	// array with employees uid
-if (!empty($untergebenen_arr))	
+$employee_uid_arr = array();	// array with employees uid who will be displayed in the table
+if (!empty($untergebenen_arr))
 {
-	$employee_uid_arr = $untergebenen_arr;
+	$employee_uid_arr = $untergebenen_arr; // direct or indirect employees
 }
-// * if supervisor is also personnel manager, untergebenen_arr is overwritten
-if (!empty ($all_employee_uid_arr))	
+// * if supervisor is also personnel manager, untergebenen_arr is overwritten when clicking "all employees"
+if (!empty($all_employee_uid_arr))
 {
-	if ($isPersonal && $isVorgesetzter && $_SESSION['casetime/submitAllMA'] == false)
+	if ($_SESSION['casetime/submitAllMA'] == false)
 	{
 		$employee_uid_arr = $untergebenen_arr;
 	}
 	else
 	{
 		$employee_uid_arr = $all_employee_uid_arr;
-	}	
+	}
 }
 
 // *********************************  data for SUPERVISORS VIEW
@@ -308,9 +308,9 @@ $employees_data_arr = array();	// array with timesheet data of all employees of 
  * Retrieving data from $_SESSION variable speeds up the process.
 */
 // * Get time- and holiday balances for DIRECT employees from CaseTime Server
-if ($_SESSION['casetime/submitAllMA'] == false &&
-	!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) || 
-	(!empty($_SESSION['casetime/time_holiday_balance_arr_DIRECT'])) && ($_SESSION['casetime/datetime'] < new DateTime('today')))
+if (!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) && $_SESSION['casetime/submitAllMA'] == false ||
+	(!empty($_SESSION['casetime/time_holiday_balance_arr_DIRECT'])) &&
+    ($_SESSION['casetime/datetime'] < new DateTime('today')))
 {
 	// display progress bar
 	echo '
@@ -330,13 +330,14 @@ if ($_SESSION['casetime/submitAllMA'] == false &&
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_DIRECT'] = $time_holiday_balance_arr;
 	
-	// store datetime in session var 
+	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
 }
 // * Get time- and holiday balances for ALL employees from CaseTime Server
 elseif($_SESSION['casetime/submitAllMA'] == true &&
-	!isset($_SESSION['casetime/time_holiday_balance_arr_ALL']) || 
-	(!empty($_SESSION['casetime/time_holiday_balance_arr_ALL'])) && ($_SESSION['casetime/datetime'] < new DateTime('today')))
+	!isset($_SESSION['casetime/time_holiday_balance_arr_ALL']) ||
+	(!empty($_SESSION['casetime/time_holiday_balance_arr_ALL'])) &&
+    ($_SESSION['casetime/datetime'] < new DateTime('today')))
 {
 	// display progress bar
 	echo '
@@ -356,7 +357,7 @@ elseif($_SESSION['casetime/submitAllMA'] == true &&
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_ALL'] = $time_holiday_balance_arr;
 	
-	// store datetime in session var 
+	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
 
 }
@@ -434,7 +435,7 @@ foreach($employee_uid_arr as $employee_uid)
 			if (count($timesheet_arr) > 1)
 			{
 				$index = 1;
-				$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[$index]->datum);	
+				$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[$index]->datum);
 			}
 		}
 		$last_timesheet_id = $timesheet_arr[$index]->timesheet_id;
@@ -500,24 +501,24 @@ foreach($employee_uid_arr as $employee_uid)
 				// holiday information
 				$holiday = new stdClass();
 				$holiday->AktuellerStand = (
-												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAktuell) 
+												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAktuell)
 												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAktuell
 												: '-'
 											);
 				$holiday->Urlaubsanspruch = (
-												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch) 
+												isset($time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch)
 												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch
 												: '-'
-											);;
+											);
 			}
-		}	
+		}
 	}
 	else
 	{
 		// balance of time
 		$time_balance = getCaseTimeZeitsaldo($employee_uid);	// float time balance OR string error OR bool false
 
-		// holiday information	
+		// holiday information
 		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
 	}
 	
@@ -527,9 +528,9 @@ foreach($employee_uid_arr as $employee_uid)
 	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
 
 	// get organisational unit hierarchy
-	//:NOTE: 2 different arrays of organisational units for different display in filter functionality (one is used by hidden values) 
-	$employee_oe_parent_arr = array();	// array of string org units 
-	$employee_oe_parent_withType_arr = array(); // array of string org units plus type of org unit 
+	//:NOTE: 2 different arrays of org units for different display in filter functionality (one is used by hidden val)
+	$employee_oe_parent_arr = array();	// array of string org units
+	$employee_oe_parent_withType_arr = array(); // array of string org units plus type of org unit
 	
 	$oe = new Organisationseinheit();
 	if ($oe->getParents_withOEType($employee_oe_kurzbz))
