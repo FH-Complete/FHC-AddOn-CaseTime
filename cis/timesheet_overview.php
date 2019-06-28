@@ -38,7 +38,7 @@ session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and 
 $uid = get_uid();
 $db = new basis_db();
 $sprache_obj = new sprache();
-$sprache = getSprache();	
+$sprache = getSprache();
 $sprache_index = $sprache_obj->getIndexFromSprache($sprache);	// users language index (for globals.inc.php)
 $p = new phrasen($sprache);
 
@@ -46,7 +46,7 @@ $date_last_month = new DateTime('first day of this month midnight');
 $date_last_month->sub(new DateInterval('P1M'));
 $date_last_month->modify('last day of this month');	// date obj of last month
 
-$isPersonal = false;	// true if uid has personnel departments permission 
+$isPersonal = false;	// true if uid has personnel departments permission
 $isVorgesetzter = false;	// true if uid is supervisor
 $isVorgesetzter_indirekt = false;	// true if uid is indirect supervisor on higher oe level
 $rechte = new benutzerberechtigung();
@@ -55,7 +55,7 @@ $rechte->getBerechtigungen($uid);
 // Check if uid has personnel manager permission
 $all_employee_uid_arr = array();
 if ($isPersonal = check_isPersonal($uid))
-{	
+{
 	// get ALL active and fix-employed employees
 	$mitarbeiter = new Mitarbeiter();
 	$mitarbeiter->getPersonal('true', false, false, 'true', false, null);
@@ -65,15 +65,15 @@ if ($isPersonal = check_isPersonal($uid))
 		if ($mitarbeiter->personalnummer > 0)	// filter out dummies
 		{
 			$all_employee_uid_arr[] = $mitarbeiter->uid;
-		}	
-	}	
+		}
+	}
 }
 
 // Check if uid is timesheet manager
 $isTimesheetManager = false;
 if ($rechte->isBerechtigt('addon/casetime_manageTimesheet'))
 {
-	$isTimesheetManager = true;						
+	$isTimesheetManager = true;
 }
 
 // Define employees to be shown (all or direct); show all by default
@@ -103,18 +103,18 @@ else
 if (!empty($untergebenen_arr))
 {
 		$isVorgesetzter = true;
-		
+
 		// check if Vorgesetzter manages child OEs
-		$mitarbeiter->getUntergebene($uid, true);		
+		$mitarbeiter->getUntergebene($uid, true);
 		if ($mitarbeiter->result['isIndirectSupervisor'])
 		{
 			$isVorgesetzter_indirekt = true;
-		}	
+		}
 }
 
 // Permission check
 if (!$isPersonal &&
-	!$isVorgesetzter)	
+	!$isVorgesetzter)
 {
 	die('Sie haben keine Berechtigung für diese Seite');
 }
@@ -129,8 +129,8 @@ needs the GUI to be displayed.-->
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
 	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
 	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
-	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">	
-	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">	
+	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">
+	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
@@ -157,7 +157,7 @@ needs the GUI to be displayed.-->
 		}
 	</style>
 	<script>
-	$(document).ready(function() 
+	$(document).ready(function()
 	{
 		// init tablesorter
 		$("#tbl_monthlist_overview").tablesorter(
@@ -165,17 +165,17 @@ needs the GUI to be displayed.-->
 				theme: "default",
 				headerTemplate: '{content} {icon}',
 				widgets: ["filter"],
-				widgetOptions: 
+				widgetOptions:
 					{
 						filter_saveFilters : true,
 						filter_searchFiltered: false
-					}			
+					}
 			}
 		);
 	});
-	
+
 	// **************************** FUNCTIONS
-	
+
 	// toggle organisational units (single or hiararchy)
 	function toggleParentOE()
 	{
@@ -192,23 +192,23 @@ needs the GUI to be displayed.-->
 			$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
 		}
 	}
-	
+
 	// trigger loading effect of progress bar
 	function triggerProgressbar()
 	{
-		var elem = document.getElementById("progressbar");   
+		var elem = document.getElementById("progressbar");
 		var width = 1;
 		var id = setInterval(frame, 100);
 
 		function frame()
 		{
-			if (width >= 95) 
+			if (width >= 95)
 			{
 				clearInterval(id);
-			} 
+			}
 			else
 			{
-				width++; 
+				width++;
 				elem.style.width = width + '%';
 				elem.innerHTML = width + '%';
 			}
@@ -218,12 +218,12 @@ needs the GUI to be displayed.-->
 </head>
 
 <body class="main" style="font-family: Arial, Helvetica, sans-serif; font-size: 13px;">
-	
+
 	<h3>Verwaltung Zeitaufzeichnung - Monatslisten</h3>
 	<br><br>
 	<h4>Übersicht Monatslisten</h4>
 		<!--************************************	TEXTUAL INFORMATION	 -->
-	
+
 	<?php if($isVorgesetzter): ?>
 		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
 		Wenn Sie noch Monatslisten genehmigen müssen, wird dies in der Spalte "Nicht genehmigt" rot angezeigt.<br>
@@ -238,8 +238,8 @@ needs the GUI to be displayed.-->
 		<div class="well">
 			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
 				<label>Wählen Sie Ihre Ansicht:</label>
-				<div class="btn-group col-xs-offset-1"> 
-					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+				<div class="btn-group col-xs-offset-1">
+					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
 							name="submitAllMA" value="false">Meine direkten Mitarbeiter
 					</button>
 					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
@@ -250,31 +250,31 @@ needs the GUI to be displayed.-->
 		</div>
 		<br>
 	<?php endif; ?>
-	<?php if($isPersonal && ($isVorgesetzter || $isVorgesetzter_indirekt)): ?>
+	<?php if($isPersonal): ?>
 	<div class="well">
 		<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
 			<label>Wählen Sie Ihre Ansicht:</label>
-			<div class="btn-group col-xs-offset-1"> 
-				<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+			<div class="btn-group col-xs-offset-1">
+				<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
 						name="submitAllMA" value="false">Meine direkten Mitarbeiter
 				</button>
 				<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
 						name="submitAllMA" value="true">Alle Mitarbeiter
-				</button>					
+				</button>
 			</div>
 		</form>
 	</div>
 	<br>
 	<?php endif; ?>
-	
+
 	<!--PROGRESS BAR-->
 	<div class="progress hidden" id="progressbar_div">
 		<div id="progressbar" class="progress-bar progress-bar-striped active" role="progressbar" style="width: 1%">
 	  </div>
-	</div>	
+	</div>
 
 <?php
-		
+
 // vars supervisor / personnel manager
 $benutzer = new Benutzer($uid);
 $full_name = $benutzer->getFullName();	// string full name
@@ -323,13 +323,13 @@ if (!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) && $_SESSION['
 	// force displaying part of GUI + progress bar while server is still processing php script
 	ob_flush();
 	flush();
-	
+
 	// get time and holiday balance times
 	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
-	
+
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_DIRECT'] = $time_holiday_balance_arr;
-	
+
 	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
 }
@@ -346,17 +346,17 @@ elseif($_SESSION['casetime/submitAllMA'] == true &&
 			triggerProgressbar();
 		</script>
 		';
-	
+
 	// force displaying part of GUI + progress bar while server is still processing php script
 	ob_flush();
 	flush();
-	
+
 	// get time and holiday balance times
 	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
-	
+
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_ALL'] = $time_holiday_balance_arr;
-	
+
 	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
 
@@ -372,7 +372,7 @@ else
 			$("#progressbar_div").hide();
 		</script>
 		';
-		
+
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_DIRECT'];
 	}
@@ -386,11 +386,11 @@ else
 			triggerProgressbar();
 		</script>
 		';
-		
+
 		// force displaying part of GUI + progress bar while server is still processing php script
 		ob_flush();
 		flush();
-		
+
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
 	}
@@ -414,23 +414,23 @@ foreach($employee_uid_arr as $employee_uid)
 		$cnt_isNotSent = 0;	// counts all timesheets not sent by the employee
 		$cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
 		$cnt_isNotCreated = 0;	// counts missing timesheets between last timesheet date and last months date
-		
+
 		// last timesheet date
 		$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[0]->datum); //set time to zero
-	
+
 		// count missing timesheets (until last month)
 		if ($last_timesheet_date < $date_last_month)
 		{
 			$cnt_isNotCreated = $date_last_month->diff($last_timesheet_date)->m;
 		}
-		
+
 		// if employee has already created monthlist for actual month, go back to the one monthlist before
 		if ($last_timesheet_date > $date_last_month)
 		{
 			// start counting with -1 as actual month should not be considered
-			$cnt_isNotSent = -1;	
+			$cnt_isNotSent = -1;
 			$cnt_isNotConfirmed = -1;
-			
+
 			// go back one monthlist only if it exists
 			if (count($timesheet_arr) > 1)
 			{
@@ -442,7 +442,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$last_timesheet_sent = (!is_null($timesheet_arr[$index]->abgeschicktamum)) ? new DateTime($timesheet_arr[$index]->abgeschicktamum) : null;
 		$last_timesheet_confirmed = (!is_null($timesheet_arr[$index]->genehmigtamum)) ? new DateTime ($timesheet_arr[$index]->genehmigtamum) : null;
 	}
-		
+
 	// data of ALL timesheets
 	foreach ($timesheet_arr as $timesheet)
 	{
@@ -450,14 +450,14 @@ foreach($employee_uid_arr as $employee_uid)
 		{
 			$cnt_isNotSent++;
 		}
-		
+
 		if (is_null($timesheet->genehmigtamum))
 		{
 			$cnt_isNotConfirmed++;
 		}
 	}
-	
-	// Flag if user has obligation to record times 
+
+	// Flag if user has obligation to record times
 	$isZeitaufzeichnungspflichtig = false;
 
 	// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
@@ -474,11 +474,11 @@ foreach($employee_uid_arr as $employee_uid)
 			break;
 		}
 	}
-		
+
 	// Get time- & holiday balances
 	$time_balance = false;
 	$holiday = false;
-	
+
 	// * if uid is personnel manager or superleader, check the object-array with all time-
 	// and holiday balances and match with the actual employee
 	if ($isPersonal || $isVorgesetzter || $isVorgesetzter_indirekt)
@@ -487,17 +487,17 @@ foreach($employee_uid_arr as $employee_uid)
 		{
 			// uppercase employee uid as object property uid is uppercased
 			$uc_employee_uid = strtoupper($employee_uid);
-			
+
 			// match the actual employee with the one in the casetime-salden-array
 			if (property_exists($time_holiday_balance_arr, strtoupper($uc_employee_uid)))
 			{
 				// balance of time
 				$time_balance = (
-									isset($time_holiday_balance_arr->{$uc_employee_uid}->Zeitsaldo) 
+									isset($time_holiday_balance_arr->{$uc_employee_uid}->Zeitsaldo)
 									? $time_holiday_balance_arr->{$uc_employee_uid}->Zeitsaldo
 									: false
 								);
-				
+
 				// holiday information
 				$holiday = new stdClass();
 				$holiday->AktuellerStand = (
@@ -521,7 +521,7 @@ foreach($employee_uid_arr as $employee_uid)
 		// holiday information
 		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
 	}
-	
+
 	// Get organisational unit of employee
 	$benutzer_fkt = new Benutzerfunktion();
 	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
@@ -531,7 +531,7 @@ foreach($employee_uid_arr as $employee_uid)
 	//:NOTE: 2 different arrays of org units for different display in filter functionality (one is used by hidden val)
 	$employee_oe_parent_arr = array();	// array of string org units
 	$employee_oe_parent_withType_arr = array(); // array of string org units plus type of org unit
-	
+
 	$oe = new Organisationseinheit();
 	if ($oe->getParents_withOEType($employee_oe_kurzbz))
 	{
@@ -539,20 +539,20 @@ foreach($employee_uid_arr as $employee_uid)
 		{
 			$employee_oe_parent_arr[] = $oe_parent->oe_bezeichnung;
 			$employee_oe_parent_withType_arr[] = "<b>". $oe_parent->oe_typ_bezeichnung. "</b> ". $oe_parent->oe_bezeichnung;
-		}			
+		}
 	}
-	
+
 	// Extra data for personnel department
 	$last_cntrl_timesheet_id = '';	// timesheet_id of last controlled timesheet
 	$last_cntrl_date = '';	// date of last controlled timesheet
 	$last_cntrl_uid = '';	// controller uid of last controlled timesheet
-	$last_cntrl_remark = '';	// remark of last controlled timesheet	
+	$last_cntrl_remark = '';	// remark of last controlled timesheet
 	if ($isPersonal)
 	{
 		// get latest controlling data
 		$timesheet = new Timesheet();
-		$wasControlled = $timesheet->getLatestControllingData($employee_uid); 
-		
+		$wasControlled = $timesheet->getLatestControllingData($employee_uid);
+
 		if ($wasControlled)
 		{
 			$last_cntrl_timesheet_id = $timesheet->timesheet_id;
@@ -562,7 +562,7 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 
 	}
-	
+
 	// Collect all employees data to push to overall employees array
 	$obj = new stdClass();
 	// * full data of employee who has timesheets
@@ -632,8 +632,8 @@ function sortEmployeesName($employee1, $employee2)
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
 	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
 	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
-	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">	
-	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">	
+	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">
+	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
@@ -660,7 +660,7 @@ function sortEmployeesName($employee1, $employee2)
 		}
 	</style>
 	<script>
-	$(document).ready(function() 
+	$(document).ready(function()
 	{
 		// init tablesorter
 		$("#tbl_monthlist_overview").tablesorter(
@@ -668,17 +668,17 @@ function sortEmployeesName($employee1, $employee2)
 				theme: "default",
 				headerTemplate: '{content} {icon}',
 				widgets: ["filter"],
-				widgetOptions: 
+				widgetOptions:
 					{
 						filter_saveFilters : true,
 						filter_searchFiltered: false
-					}			
+					}
 			}
 		);
 	});
-	
+
 	// **************************** FUNCTIONS
-	
+
 	// toggle organisational units (single or hiararchy)
 	function toggleParentOE()
 	{
@@ -699,13 +699,13 @@ function sortEmployeesName($employee1, $employee2)
 </head>
 
 <body class="main" style="font-family: Arial, Helvetica, sans-serif; font-size: 13px;">
-	
+
 	<h3>Verwaltung Zeitaufzeichnung - Monatslisten</h3>
 	<br><br>
 	<h4>Übersicht Monatslisten</h4>-->
-	
+
 	<!--************************************	TEXTUAL INFORMATION	 -->
-<!--	
+<!--
 	<?php if($isVorgesetzter): ?>
 		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
 		Wenn Sie noch Monatslisten genehmigen müssen, wird dies in der Spalte "Nicht genehmigt" rot angezeigt.<br>
@@ -720,8 +720,8 @@ function sortEmployeesName($employee1, $employee2)
 		<div class="well">
 			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
 				<label>Wählen Sie Ihre Ansicht:</label>
-				<div class="btn-group col-xs-offset-1"> 
-					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+				<div class="btn-group col-xs-offset-1">
+					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
 							name="submitAllMA" value="false">Meine direkten Mitarbeiter
 					</button>
 					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
@@ -736,13 +736,13 @@ function sortEmployeesName($employee1, $employee2)
 		<div class="well">
 			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
 				<label>Wählen Sie Ihre Ansicht:</label>
-				<div class="btn-group col-xs-offset-1"> 
-					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>" 
+				<div class="btn-group col-xs-offset-1">
+					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
 							name="submitAllMA" value="false">Meine direkten Mitarbeiter
 					</button>
 					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
 							name="submitAllMA" value="true">Alle Mitarbeiter
-					</button>					
+					</button>
 				</div>
 			</form>
 		</div>
@@ -750,15 +750,15 @@ function sortEmployeesName($employee1, $employee2)
 	<?php endif; ?>
 	-->
 	<script>
-	
+
 	// hide progress bar when site is done
 	$("#progressbar_div").toggleClass("hidden");
-	
-</script>	
+
+</script>
 	<!--************************************	TABLE with EMPLOYEES MONTHLIST INFORMATION	 -->
-				
+
 	<table class="table table-condensed table-bordered tablesorter tablesort-active" id="tbl_monthlist_overview" role="grid">
-		
+
 		<!--************************************	TABLE HEAD	 -->
 		<thead class="text-center">
 			<tr class="table tablesorter-ignoreRow">
@@ -772,36 +772,36 @@ function sortEmployeesName($employee1, $employee2)
 			</tr>
 			<tr>
 				<th style="width: 10%">Organisationseinheit</th>
-				<th>Mitarbeiter</th>	
+				<th>Mitarbeiter</th>
 				<th data-value="ja">Zeitaufzeichnungspflicht</th>
 				<th>Status</th>
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
-				<th>Nicht genehmigt&nbsp;				
+				<th>Nicht genehmigt&nbsp;
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis inklusive <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?>.&#013;&#010;(auch solche, die nicht erstellt/abgeschickt und daher nicht genehmigt wurden)">							 
+						data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis inklusive <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?>.&#013;&#010;(auch solche, die nicht erstellt/abgeschickt und daher nicht genehmigt wurden)">
 					</i>
 				</th>
 				<th>Zeitsaldo</th>
 				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">							 
+						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">
 					</i>
 				</th>
 				<?php echo ($isPersonal) ? '<th>Kontrolliert am</th>' : '' ?>
-			</tr>			
+			</tr>
 		</thead>
-		
+
 		<!--************************************	TABLE BODY	 -->
-		<tbody> 
+		<tbody>
 			<?php foreach ($employees_data_arr as $employee): ?>
-				
+
 				<!--IF employee has AT LEAST ONE TIMESHEET-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
-				
+
 				<!--IF employee must not record times, color row grey-->
 				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>
-					
+
 					<!--organisational unit-->
 					<td>
 						<!--visible string of closest organisational unit-->
@@ -814,62 +814,62 @@ function sortEmployeesName($employee1, $employee2)
 					<td>
 						<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
-					
+
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
 					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
 						<td class='text-center'>ja</td>
 					<?php else: ?>
 						<td class='text-center'>nein</td>
 					<?php endif; ?>
-						
+
 					<!--status-->
 					<!-- * only consider if timesheet date is date of last month -->
 					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
-					
+
 						<!-- * status text if confirmed-->
 						<?php if (!is_null($employee->last_timesheet_confirmed)): ?>
 							<td class='text-center'>genehmigt</td>
-							
+
 						<!-- * status text if sent-->
 						<?php elseif (!is_null($employee->last_timesheet_sent)): ?>
 							<td class='text-center'>abgeschickt</td>
-							
+
 						<!-- * status text if created-->
-						<?php else: ?>	
+						<?php else: ?>
 							<td class='text-center'>angelegt</td>
 						<?php endif; ?>
-							
+
 					<!-- * status text if NO created timesheet for the last month-->
-					<?php else: ?>	
+					<?php else: ?>
 						<td class='text-center'>nicht angelegt</td>
 					<?php endif; ?>
-					
+
 					<!--sending date-->
 					<!-- * only consider if timesheet date is date of last month -->
-					<?php if ($date_last_month == $employee->last_timesheet_date): ?>	
+					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
 						<td class='text-center'>
 							<?php echo (!is_null($employee->last_timesheet_sent)) ? $employee->last_timesheet_sent->format('d.m.Y') : '-' ?>
 						</td>
-					<?php else: ?>	
+					<?php else: ?>
 						<td class='text-center'>-</td>
 					<?php endif; ?>
-						
+
 					<!--confirmation date-->
 					<!-- * only consider if timesheet date is date of last month -->
 					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
 						<td class='text-center'>
 							<?php echo (!is_null($employee->last_timesheet_confirmed)) ? $employee->last_timesheet_confirmed->format('d.m.Y') : '-' ?>
 						</td>
-					<?php else: ?>	
+					<?php else: ?>
 						<td class='text-center'>-</td>
 					<?php endif; ?>
-											
+
 					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
 					<?php $all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed; ?>
 					<td class='text-center <?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? 'danger' : '' ?>'>
 						<?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? $all_timesheets_notCreatedOrConfirmed : '-' ?>
 					</td>
-					
+
 					<!--balance of working hours on next account-->
 					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance : '-' ?></td>
 
@@ -879,30 +879,30 @@ function sortEmployeesName($employee1, $employee2)
 					<!--holidays cosumed-->
 					<td class='text-center'>
 						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : '-' ?>
-					</td>	
-						
+					</td>
+
 					<!--controlling date (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
 						<td class='text-center'>
 							<?php echo (!empty($employee->last_cntrl_date)) ? $employee->last_cntrl_date->format('d.m.Y') : '-' ?>
 						</td>
-					<?php endif; ?>				
+					<?php endif; ?>
 				</tr>
-								
+
 				<!--IF employee has NO TIMESHEET yet-->
 				<?php else: ?>
 				<!--IF employee must not record times, color row grey-->
-				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>	
-					
+				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>
+
 					<!--organisational unit-->
-					<td>					
+					<td>
 						<!--visible string of closest organisational unit-->
 						<span class="oe" style='display: inline;'><?php echo (!empty($employee->oe_parent_arr)) ? $employee->oe_parent_arr[0] : '-' ?></span>
 						<!--hidden string with org unit and parent org units to allow filtering of higher units-->
 						<span class="oe_parents" style='display: none;'><small><?php echo (!empty($employee->oe_parent_arr)) ? implode(' > ', array_reverse($employee->oe_parent_arr)) : '-' ?></small></span>
 					</td>
-						
-					<!--employee name: text only (if uid is timesheet manager, provide url to create first timesheet)-->				
+
+					<!--employee name: text only (if uid is timesheet manager, provide url to create first timesheet)-->
 					<?php if($isTimesheetManager): ?>
 						<td>
 							<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;"
@@ -911,44 +911,44 @@ function sortEmployeesName($employee1, $employee2)
 						</td>
 					<?php else: ?>
 						<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
-					<?php endif; ?>		
-							
+					<?php endif; ?>
+
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
 					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
 						<td class='text-center'>ja</td>
 					<?php else: ?>
 						<td class='text-center'>nein</td>
 					<?php endif; ?>
-					
+
 					<!--status-->
 					<td class='text-center'>nicht angelegt</td>
-					
+
 					<!--sending date-->
 					<td class='text-center'>-</td>
-					
+
 					<!--confirmation date-->
 					<td class='text-center'>-</td>
-					
+
 					<!--amount of all timesheets not sent-->
-					<!--<td class='text-center'>-</td>-->	
-					
+					<!--<td class='text-center'>-</td>-->
+
 					<!--amount of all timesheets not confirmed-->
 					<td class='text-center'>-</td>
 						<!--balance of working hours on next account-->
 						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance : '-' ?></td>
 						<!--overtime hours-->
-						<!--<td class='text-center'>-</td>-->	
+						<!--<td class='text-center'>-</td>-->
 						<!--holidays cosumed-->
 						<td class='text-center'>
 							<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : '-' ?>
-						</td>						
+						</td>
 					<!--controlling date (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
 						<td class='text-center'>-</td>
 					<?php endif; ?>
 				</tr>
 				<?php endif; ?>
-				
+
 			<?php endforeach; ?>
 		</tbody>
 	</table>
