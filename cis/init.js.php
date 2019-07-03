@@ -120,9 +120,10 @@ function AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand)
 	var content = '<table>';
 	content+= '<tr><td>Urlaubsanspruch für das laufende Jahr</td><td align="right">'+urlaubsanspruch+' Tage</td></tr>';
 	content+='<tr><td>+ Resturlaub Übertrag aus Vorjahr</td><td align="right">'+resturlaub+' Tage</td></tr>';
-	content+='<tr><td>- bereits gebuchter Urlaub</td><td align="right">'+gebuchterurlaub+' Tage</td></tr>';
+	content+='<tr><td>- bereits gebuchter Urlaub*</td><td align="right">'+gebuchterurlaub+' Tage</td></tr>';
 	content+='<tr><td style="border-top: 1px solid black;"><b>Aktueller Stand (noch verfügbar)</b></td>';
 	content+='    <td align="right" style="'+txtstyle+'">'+aktuellerstand+' Tage</td></tr>';
+	content+='<tr><td colspan="2" style="font-size:10px;">* beinhaltet auch von HR abgebuchte Urlaubstage</td></tr>';
 	content+='</table>';
 	return content;
 }
