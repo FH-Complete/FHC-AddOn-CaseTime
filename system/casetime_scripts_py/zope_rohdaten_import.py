@@ -89,11 +89,11 @@ try:
    #Variable für die Prüfung ob Sachbearbeiter oder Bewegungsart vorhanden ist
    check_var = ''
 
-   # bei LehreExtern werden die Buchungen mit Fehlerok erzeugt
    if bwart == 'EL':
       fehler_ok = 'J'
    else:
       fehler_ok = 'N'
+
    #Auslesen des Sperrdatums
    sql = "select to_char(sperrdatum, 'YYYYMMDD') from rechner"
 
@@ -156,10 +156,10 @@ try:
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
 
    # Prüfung ob Bewegungsart vorhanden ist
-   if bwart not in ('DA','DE'):
+   if bwart not in ('da','de'):
       sql_check = """select count(*)
-                     from BEWEGUNGSARTEN
-                     where BWART = UPPER('%s')""" %(bwart)
+                     from   BEWEGUNGSARTEN
+                     where  BWART = UPPER('%s')""" %(bwart)
 
       #context.script_log('/sync/rohdaten_import  SQL: ', str(sql_check))
 
@@ -253,7 +253,7 @@ try:
       return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
 
    # Einfügen des Datensatzes mit TERMID='HTTP', POSNR=1, Hinweis='HTTP-Zeitbuchung', FEHLEROK='N', SACHBEARBEITER.VORNAME / NACHNAME (wenn vorhanden)
-   if
+
    sql = """insert into ZEITROHDATEN (SACHB, BWART, DATUM, ZEIT, TERMID, TRANSNR, POSNR, HINWEIS, FEHLEROK, VORNAME, NACHNAME)
            select UPPER('%s'), UPPER('%s'), '%s', '%s', 'HTTP', nextval('SEQ_TRANSNR'), 1 , 'HTTP-Zeitbuchung', '%s', coalesce(VORNAME,''), coalesce(NAME,'')
            from SACHBEARBEITER
@@ -346,6 +346,23 @@ try:
             sachb = UPPER('%s')
             and
             datum = '%s'
+   """ % (sachb, datumvon)
+   erg_verarb = context.sql_execute(dbconn,sql)
+
+   sql = """delete from ZEITROHDATEN
+            where  TERMID in ('FIXE_PAUSE', 'RELATIVE_PAUSE')
+            and    SACHB = UPPER('%s')
+            and    BUCHUNGSDATUM = cast('%s' as date)
+   """ % (sachb, datumvon)
+   erg_verarb = context.sql_execute(dbconn,sql)
+
+   sql = """update ZEITROHDATEN
+            set FEHLEROK = 'N',
+               RWB_MODIFIED = 'N',
+               HINWEIS = NULL
+            where  coalesce(RWB_MODIFIED,'N') = 'J'
+            and SACHB = UPPER('%s')
+            and BUCHUNGSDATUM = cast('%s' as date)
    """ % (sachb, datumvon)
    erg_verarb = context.sql_execute(dbconn,sql)
 
