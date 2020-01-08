@@ -696,7 +696,7 @@ if (isset($_POST['submitTimesheet']))
 	}
 }
 
-// *********************************	CONFIRMATION by supervisor
+// *********************************	CONFIRMATION by direct/indirect supervisor, timesheet- or personal manager
 $isApproved_overtime = true;	// boolean to flag as approved when ALL overtimes were checked
 $checkbox_overtime_arr = array();	// string array of checkbox checked-status
 if (isset($_POST['submitTimesheetConfirmation']))
@@ -718,7 +718,7 @@ if (isset($_POST['submitTimesheetConfirmation']))
 	$timesheet = new Timesheet();
 	$timesheet->timesheet_id = $timesheet_id;
 	$timesheet->genehmigtamum = $confirm_date->format('Y-m-d H:i:s');
-	$timesheet->genehmigtvon = $confirm_vorgesetzten_uid;
+	$timesheet->genehmigtvon = get_uid();	// NOTE: not $uid, as this was set to employees uid before
 
 	// check if all overtimes are checked
 //	if($checked_cnt != 3) //:TODO: integer to be changed with real overtimes
