@@ -765,7 +765,7 @@ function sortEmployeesName($employee1, $employee2)
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
 				<td></td>
 				<td></td>
-				<td colspan="3" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
+				<td colspan="2" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
 				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
@@ -774,7 +774,7 @@ function sortEmployeesName($employee1, $employee2)
 				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>
 				<th data-value="ja">Zeitaufzeichnungspflicht</th>
-				<th>Status</th>
+				<!--<th>Status</th>-->
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
 				<th>Nicht genehmigt&nbsp;
@@ -824,25 +824,25 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--status-->
 					<!-- * only consider if timesheet date is date of last month -->
-					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
+<!--					<?php /*if ($date_last_month == $employee->last_timesheet_date): */?>
 
 						<!-- * status text if confirmed-->
-						<?php if (!is_null($employee->last_timesheet_confirmed)): ?>
-							<td class='text-center'>genehmigt</td>
+						<?php /*if (!is_null($employee->last_timesheet_confirmed)): */?>
+							<!--<td class='text-center'>genehmigt</td>-->
 
 						<!-- * status text if sent-->
-						<?php elseif (!is_null($employee->last_timesheet_sent)): ?>
-							<td class='text-center'>abgeschickt</td>
+						<?php /*elseif (!is_null($employee->last_timesheet_sent)): */?>
+							<!--<td class='text-center'>abgeschickt</td>-->
 
 						<!-- * status text if created-->
-						<?php else: ?>
-							<td class='text-center'>angelegt</td>
-						<?php endif; ?>
+						<?php /*else: */?>
+							<!--<td class='text-center'>angelegt</td>-->
+						<?php /*endif; */?>
 
 					<!-- * status text if NO created timesheet for the last month-->
-					<?php else: ?>
-						<td class='text-center'>nicht angelegt</td>
-					<?php endif; ?>
+					<?php /*else: */?>
+						<!--<td class='text-center'>nicht angelegt</td>-->
+					<?php /*endif; */?>
 
 					<!--sending date-->
 					<!-- * only consider if timesheet date is date of last month -->
@@ -921,7 +921,7 @@ function sortEmployeesName($employee1, $employee2)
 					<?php endif; ?>
 
 					<!--status-->
-					<td class='text-center'>nicht angelegt</td>
+					<!--<td class='text-center'>nicht angelegt</td>-->
 
 					<!--sending date-->
 					<td class='text-center'>-</td>
