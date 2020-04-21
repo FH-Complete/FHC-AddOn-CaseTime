@@ -74,6 +74,8 @@ else
 	$user_arr = $ct->getUserToSync();
 }
 
+$msglog_hr_include_users_arr = unserialize(CASETIME_MSGLOG_HR_INCLUDE_USERS);
+
 // Urlaub/Krankenstand holen die geloescht wurden
 $qry = "
 SELECT
@@ -194,6 +196,10 @@ if($result = $db->db_query($qry))
 		{
 			$msglog_hr .= "\nDelete ".$row->uid.' '.$row->datum.' '.$row->typ;
 		}
+		if (in_array($row->uid, $msglog_hr_include_users_arr))
+		{
+			$msglog_hr .= "\n * Delete ".$row->uid.' '.$row->datum.' '.$row->typ;
+		}
 
 		$retval = SendDataDelete($row->uid, $row->datum, $row->typ);
 
@@ -278,6 +284,8 @@ $qry = "
 		AND datum>=".$db->db_add_param($sync_datum_start)."
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")";
 
+
+
 if($result = $db->db_query($qry))
 {
 	while($row = $db->db_fetch_object($result))
@@ -287,7 +295,10 @@ if($result = $db->db_query($qry))
 		{
 			$msglog_hr .= "\n ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
 		}
-
+		if (in_array($row->mitarbeiter_uid, $msglog_hr_include_users_arr))
+		{
+			$msglog_hr .= "\n * ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
+		}
 		$retval = SendDataImport($row->mitarbeiter_uid, $row->datum, $row->typ);
 
 		if($retval===true)
@@ -333,8 +344,8 @@ if ($msglog_hr != '')
 {
 	if (CASETIME_SYNC_HR_EMAIL != '')
 	{
-		$msglog_hr = "Geänderte Dienstfreistellungen:\n\n".$msglog_hr;
-		$mail = new mail(CASETIME_SYNC_HR_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync DienstF', $msglog_hr);
+		$msglog_hr = "Geänderte Dienstfreistellungen und Einträge definierter User (*):\n\n".$msglog_hr;
+		$mail = new mail(CASETIME_SYNC_HR_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync HR', $msglog_hr);
 		if($mail->send())
 			echo "<br>Mail gesendet";
 		else

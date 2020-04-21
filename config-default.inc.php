@@ -30,7 +30,7 @@ define('CASETIME_TIMESHEET_GOLIVE', '2018-09-01');
 // casetime server errors that should block the sending of timesheet
 define ('CASETIME_BLOCKING_ERR', serialize(
 	array(
-		'Tag fehlt', 
+		'Tag fehlt',
 		'kein Zeitmodell zugeordnet',
 		'G erwartet',
 		'nicht alle Pausen wurden korrekt beendet',
@@ -38,4 +38,12 @@ define ('CASETIME_BLOCKING_ERR', serialize(
 		'jedoch nur eine Pausenzeit von',
 		'KO- bzw. GT-Stempelung'
 	)));
+
+// user array to be included in sync-log for CASETIME_SYNC_HR_EMAIL
+define ('CASETIME_MSGLOG_HR_INCLUDE_USERS', serialize(
+	array(
+			'UID1',
+			'UID2'
+  )));
+
 ?>
