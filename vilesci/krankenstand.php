@@ -168,13 +168,30 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']))
 	</script>
 </head>
 <body class="Background_main">
-	<h2>Krankenstände der MitarbeiterInnen</h2>
+	<h2>Bestätigungen der MitarbeiterInnen</h2>
 	
-	<h3>ZIP-Download von Krankenstand-Bestätigungen</h3>
+	<h3>ZIP-Download von Bestätigungen</h3>
 	<br>
 	
 	<form accept-charset="UTF-8" action="<?php $_SERVER['PHP_SELF'] ?>" method="POST">
 		<table>
+            <tr>
+                <td style="width: 50px;">Typ</td>
+                <td colspan="3">
+                    <select id="typ" name='dokument_kurzbz' class="form-control" style='width:300px'>
+		
+		                <?php foreach ($dokument->result as $dok): ?>
+                            <option value="<?php echo $dok->dokument_kurzbz ?>"
+				                <?php echo
+				                (!isset($_POST['dokument_kurzbz']) && $dok->dokument_kurzbz == 'bst_krnk') || // default Krankenstand Bestaetigung
+				                ((isset($_POST['dokument_kurzbz']) && $_POST['dokument_kurzbz'] == $dok->dokument_kurzbz)) ? 'selected' : ''; ?>>
+				                <?php echo $dok->bezeichnung ?>
+                            </option>
+		                <?php endforeach; ?>
+
+                    </select>
+                </td>
+            </tr>
 			<tr>
 				<td style="width: 50px;">Von</td>
 				<td><input id="from" type="text" name="from" value="">
