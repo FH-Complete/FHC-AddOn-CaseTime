@@ -21,7 +21,7 @@
 // Submenuepunkt hinzufuegen unter dem Hauptmenue Punkt "Person"
 $menu_addon = array
 (
-	'Krankenstaende'=>array('name'=>'Krankenstände', 'link'=>'../addons/casetime/vilesci/krankenstand.php', 'target'=>'main','permissions'=>array('mitarbeiter/zeitsperre')),
+	'Krankenstaende'=>array('name'=>'Bestätigungen', 'link'=>'../addons/casetime/vilesci/krankenstand.php', 'target'=>'main','permissions'=>array('mitarbeiter/zeitsperre')),
 
 );
 $menu['Personen']['Mitarbeiter'] = array_merge($menu['Personen']['Mitarbeiter'], $menu_addon);
