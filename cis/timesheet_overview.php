@@ -465,14 +465,19 @@ foreach($employee_uid_arr as $employee_uid)
 	$now = new DateTime('today');
 	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
 	$verwendung_arr = $bisverwendung->result;
-
+	$vertragsstunden = 0;
 	foreach($verwendung_arr as $verwendung)
 	{
+		if ($verwendung->ba1code == 103)
+		{
+			$vertragsstunden = $verwendung->vertragsstunden;
+		}
 		if($verwendung->zeitaufzeichnungspflichtig)
 		{
 			$isZeitaufzeichnungspflichtig = true;
 			break;
 		}
+
 	}
 
 	// Get time- & holiday balances
@@ -521,6 +526,25 @@ foreach($employee_uid_arr as $employee_uid)
 		// holiday information
 		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
 	}
+
+	// set css-class for time-balance field
+	if (!$vertragsstunden)
+	{
+		$zeitsaldoklasse = ' danger';
+	}
+	elseif (isset($vertragsstunden) && isset($time_balance))
+	{
+		if ($time_balance > $vertragsstunden * 3 or $time_balance < $vertragsstunden * -1)
+			$zeitsaldoklasse = ' danger';
+		elseif ($time_balance > $vertragsstunden * 1.5)
+			$zeitsaldoklasse = ' warning';
+		else
+			$zeitsaldoklasse = '';
+	}
+	else {
+			$zeitsaldoklasse = '';
+	}
+
 
 	// Get organisational unit of employee
 	$benutzer_fkt = new Benutzerfunktion();
@@ -587,6 +611,8 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_uid = $last_cntrl_uid;
 		$obj->last_cntrl_remark = $last_cntrl_remark;
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig;	// boolean
+		$obj->vertragsstunden = $vertragsstunden;
+		$obj->zeitsaldoklasse = $zeitsaldoklasse;
 	}
 	// * basic data of employee who has NO timesheets
 	else
@@ -610,6 +636,8 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_uid = $last_cntrl_uid;	//empty
 		$obj->last_cntrl_remark = $last_cntrl_remark;	//empty
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig; // boolean
+		$obj->vertragsstunden = $vertragsstunden;
+		$obj->zeitsaldoklasse = $zeitsaldoklasse;
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
@@ -782,7 +810,10 @@ function sortEmployeesName($employee1, $employee2)
 						data-toggle="tooltip" title="Anzahl nicht genehmigter Monatslisten bis inklusive <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?>.&#013;&#010;(auch solche, die nicht erstellt/abgeschickt und daher nicht genehmigt wurden)">
 					</i>
 				</th>
-				<th>Zeitsaldo</th>
+				<th>Zeitsaldo
+					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
+						data-toggle="tooltip" title="Aktueller Stand / Wochenarbeitszeit&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
+				</th>
 				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
 						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">
@@ -871,7 +902,10 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--balance of working hours on next account-->
-					<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance : '-' ?></td>
+					<td class='text-center<?php echo $employee->zeitsaldoklasse ?>'><?php
+					echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
+					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';
+					?></td>
 
 					<!--overtime hours-->
 					<!--<td class='text-center'>5,0 h</td>-->
@@ -935,7 +969,11 @@ function sortEmployeesName($employee1, $employee2)
 					<!--amount of all timesheets not confirmed-->
 					<td class='text-center'>-</td>
 						<!--balance of working hours on next account-->
-						<td class='text-center'><?php echo (is_float($employee->time_balance)) ? $employee->time_balance : '-' ?></td>
+
+						<td class='text-center<?php echo $zeitsaldoklasse ?>'><?php
+						echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
+						echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';
+						?></td>
 						<!--overtime hours-->
 						<!--<td class='text-center'>-</td>-->
 						<!--holidays cosumed-->
