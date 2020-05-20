@@ -877,9 +877,10 @@ class Timesheet extends basis_db
 	 *
 	 * @param string $from
 	 * @param string $to
+	 * @param string $dokument_kurzbz (Bestaetigungen start with bst_ e.g. bst_arzt)
 	 * @return boolean	True on success. If true, returns object-array with all nursing confirmations of the given period.
 	 */
-	public function loadKrankenstaende_inPeriod($from, $to)
+	public function loadBestaetigungen_inPeriod($from, $to, $dokument_kurzbz = null)
 	{
 		if (isset($from) && !empty($from) &&
 			isset($to) && !empty($to))
@@ -909,12 +910,18 @@ class Timesheet extends basis_db
 				(
 					tbl_dms_version.insertamum >= ' . $this->db_add_param($from, FHC_STRING) . '
 				AND
-					tbl_dms_version.insertamum <= ' . $this->db_add_param($to, FHC_STRING) . ')
-				AND
-					dokument_kurzbz LIKE \'bst_krnk\'
-
+					tbl_dms_version.insertamum <= ' . $this->db_add_param($to, FHC_STRING) . ')';
+			
+			if (is_string($dokument_kurzbz))
+			{
+				$qry .= ' 
+				AND dokument_kurzbz LIKE ' . $this->db_add_param($dokument_kurzbz, FHC_STRING);
+			}
+					
+			$qry .= '
 				ORDER BY
-					insertamum DESC';
+					insertamum DESC
+			';
 
 			if ($this->db_query($qry))
 			{
