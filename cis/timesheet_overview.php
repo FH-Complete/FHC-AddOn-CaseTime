@@ -532,6 +532,10 @@ foreach($employee_uid_arr as $employee_uid)
 	{
 		$zeitsaldoklasse = ' danger';
 	}
+	elseif (!$isZeitaufzeichnungspflichtig)
+	{
+		$zeitsaldoklasse = '';
+	}
 	elseif (isset($vertragsstunden) && isset($time_balance))
 	{
 		if ($time_balance > $vertragsstunden * 3 or $time_balance < $vertragsstunden * -1)
@@ -801,7 +805,7 @@ function sortEmployeesName($employee1, $employee2)
 			<tr>
 				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>
-				<th data-value="ja">Zeitaufzeichnungspflicht</th>
+				<th>AZG anwendbar</th>
 				<!--<th>Status</th>-->
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
@@ -812,7 +816,7 @@ function sortEmployeesName($employee1, $employee2)
 				</th>
 				<th>Zeitsaldo
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Aktueller Stand / Wochenarbeitszeit&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
+						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
 				</th>
 				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
