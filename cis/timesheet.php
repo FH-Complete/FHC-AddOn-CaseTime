@@ -1765,6 +1765,10 @@ function checkCaseTimeErrors($uid, $month, $year)
 		</div>
 	<?php endif; ?>
 
+	<div class="panel panel-default">
+		<div class="panel-heading text-center"><p>Supportanfragen unter<br><a href="mailto:zeiterfassung@technikum-wien.at">zeiterfassung@technikum-wien.at</a></p></div>
+	</div>
+
 	<?php if (!empty($timesheet_cntrl_remark)): ?>
 	<div class="panel panel-warning">
 		<div class="panel-heading">Kontrollnotiz der Personalabteilung

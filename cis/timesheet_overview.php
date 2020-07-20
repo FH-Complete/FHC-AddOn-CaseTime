@@ -233,6 +233,7 @@ needs the GUI to be displayed.-->
 		In der Spalte "Letzte Kontrolle" sehen Sie wann Sie zuletzt eine Monatsliste als "kontrolliert" gespeichert haben.<br>
 		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
 	<?php endif; ?>
+	<p><br>Supportanfragen unter <a href="mailto:zeiterfassung@technikum-wien.at">zeiterfassung@technikum-wien.at</a></p>
 	<br><br>
 	<?php if($isVorgesetzter_indirekt && !$isPersonal): ?>
 		<div class="well">
