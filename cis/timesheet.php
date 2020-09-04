@@ -1214,7 +1214,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
 			<div class="panel-body col-xs-8">
 				<b>Monatsliste abschließen</b><br><br>
-				Wenn  Sie alle erforderlichen Dokumente hochgeladen haben, verschicken Sie bis zum 05. des Folgemonats Ihre Monatsliste zur Freigabe an Ihre Vorgesetzte / Ihren Vorgesetzten.<br>
+				Wenn  Sie alle erforderlichen Dokumente hochgeladen haben, verschicken Sie bis zum 03. des Folgemonats Ihre Monatsliste zur Freigabe an Ihre Vorgesetzte / Ihren Vorgesetzten.<br>
 				Nach dem Verschicken kann diese <b>nicht</b> mehr bearbeitet werden.
 			</div>
 			<form method="POST" action="">
