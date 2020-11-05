@@ -1010,7 +1010,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php endif; ?>
 
 		<!--title-->
-		<h3>Zeitaufzeichnung - Monatslisten von <?php echo $full_name ?></h3>
+		<h3>Zeitaufzeichnung - Monatslisten von <?php echo $full_name.' ('.$mitarbeiter->uid.')' ?></h3>
 		<br>
 
 		<!--************************************	PANEL ACTUAL TIMESHEET	 -->
