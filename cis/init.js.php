@@ -258,28 +258,31 @@ function AddonCaseTimeLoadZeitsaldo(uid,exportXLS)
 				$('#zeitsaldo').css('margin-left','50px');
 				$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden ('+std_anzeigealt+')');
 				$('#monatsliste').css('margin-left','50px');
-				moli_str = '<a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatAktuell+','+JahrAktuell+')">Monatsliste '+MonatAktuell+'.'+JahrAktuell+'</a>';
-				moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatLetztes+','+JahrLetztes+')">Monatsliste '+MonatLetztes+'.'+JahrLetztes+'</a>';
-				moli_str += '<br><a href="javascript:void(0)" onclick="AddonCaseTimeGenerateMonatsliste('+MonatVorLetztes+','+JahrVorLetztes+')">Monatsliste '+MonatVorLetztes+'.'+JahrVorLetztes+'</a>';
-				moli_dd = 'Monatsliste: <br>';
-				moli_dd += '<select name="monat" id="monat">';
-				moli_dd += '<option value="1">Jänner</option>';
-				moli_dd += '<option value="2">Februar</option>';
-				moli_dd += '<option value="3">März</option>';
-				moli_dd += '<option value="4">April</option>';
-				moli_dd += '<option value="5">Mai</option>';
-				moli_dd += '<option value="6">Juni</option>';
-				moli_dd += '<option value="7">Juli</option>';
-				moli_dd += '<option value="8">August</option>';
-				moli_dd += '<option value="9">September</option>';
-				moli_dd += '<option value="10">Oktober</option>';
-				moli_dd += '<option value="11">November</option>';
-				moli_dd += '<option value="12">Dezember</option></select>';
-				moli_dd += '<select name="jahr" id="jahr"><option value="'+JahrAktuell+'">'+JahrAktuell+'</option><option value="'+VorJahr+'">'+VorJahr+'</option></select>';
+
+				moli_dd = '';
 				if (exportXLS)
+				{
+					moli_dd += 'Monatsliste: <br>';
+					moli_dd += '<select name="monat" id="monat">';
+					moli_dd += '<option value="1">Jänner</option>';
+					moli_dd += '<option value="2">Februar</option>';
+					moli_dd += '<option value="3">März</option>';
+					moli_dd += '<option value="4">April</option>';
+					moli_dd += '<option value="5">Mai</option>';
+					moli_dd += '<option value="6">Juni</option>';
+					moli_dd += '<option value="7">Juli</option>';
+					moli_dd += '<option value="8">August</option>';
+					moli_dd += '<option value="9">September</option>';
+					moli_dd += '<option value="10">Oktober</option>';
+					moli_dd += '<option value="11">November</option>';
+					moli_dd += '<option value="12">Dezember</option></select>';
+					moli_dd += '<select name="jahr" id="jahr"><option value="'+JahrAktuell+'">'+JahrAktuell+'</option><option value="'+VorJahr+'">'+VorJahr+'</option></select>';
 					moli_dd += '<select name="ftype" id="ftype"><option value="pdf">PDF</option><option value="xls">XLS</option></select>';
-				moli_dd += '<input type="button" onclick="AddonCaseTimeGenerateMonatslisteDD()" value="generieren">';
-				moli_dd += '<br><br><a href="../../../addons/casetime/cis/timesheet.php">Monatslisten verwalten</a>';
+					moli_dd += '<input type="button" onclick="AddonCaseTimeGenerateMonatslisteDD()" value="generieren"><br><br>';
+				}
+
+				moli_dd += '<a href="../../../addons/casetime/cis/timesheet.php">Monatslisten verwalten</a>';
+
 				$('#monatsliste').html(moli_dd);
 				document.getElementById('monat').selectedIndex=MonatLetztes-1;
 				if (MonatLetztes == 12)
