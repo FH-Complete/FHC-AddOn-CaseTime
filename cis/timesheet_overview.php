@@ -960,10 +960,17 @@ function sortEmployeesName($employee1, $employee2)
 						<td>
 							<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;"
 								  data-toggle="tooltip" title="Noch keine Monatsliste vorhanden. Als Timesheetmanager können sie die erste anlegen.">erstanlage</span>
-							<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=true"><?php echo $employee->nachname. ' '. $employee->vorname ?>
+							<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=false"><?php echo $employee->nachname. ' '. $employee->vorname ?>
 						</td>
 					<?php else: ?>
 						<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+					<?php endif; ?>
+
+                    <!--obligated to record times (zeitaufzeichnungspflichtig)-->
+					<?php if ($employee->azg): ?>
+                        <td class='text-center'>ja</td>
+					<?php else: ?>
+                        <td class='text-center'>nein</td>
 					<?php endif; ?>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->

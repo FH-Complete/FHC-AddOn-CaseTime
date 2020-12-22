@@ -416,6 +416,13 @@ if ($date_selected < $date_golive)
 	$isBeforeGolive = true;
 }
 
+if (isset($_GET['create']))
+{
+	if ($_GET['create'] === 'false')
+	{
+		$isAllowed_createTimesheet = false;
+	}
+}
 // *********************************	ACTUAL TIMESHEET (of month/year selected)
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
