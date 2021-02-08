@@ -60,6 +60,8 @@ addon.push(
 				break;
 
 			case 'cis/private/profile/urlaubstool.php':
+				AddonCaseTimeShowFeiertage();
+				break;
 			case 'cis/private/profile/zeitsperre_resturlaub.php':
 			case 'cis/private/profile/urlaubsfreigabe.php':
 				if (params.uid)
@@ -73,6 +75,37 @@ addon.push(
 		}
 	}
 });
+
+function AddonCaseTimeShowFeiertage(uid)
+{
+	$.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid=hacker',
+		success: function (result)
+		{
+			console.log(result)
+			let dates = result.map(x => x[0])
+			console.log(dates)
+			for(i in dates)
+			{
+				console.log(dates[i])
+
+				let found = document.getElementById(dates[i])
+				if(found !== null)
+				{
+					let parent = found.parentElement
+					parent.style.backgroundColor = "#65b3e7"
+					parent.innerHTML += "<div style=' font-size: 13px; '>Feiertag</div>"
+					console.log(found)
+				}
+			}
+		},
+		error: function(){
+			console.log("Error Casetime Load");
+		}
+	});
+}
 
 /**
  * Urlaubsstand in urlaubstool.php anzeigen
