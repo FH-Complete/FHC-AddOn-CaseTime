@@ -482,6 +482,45 @@ function getCaseTimeSalden($uidarr)
 }
 
 /**
+ * Sendet einen Request an den CaseTime Server um den Zeitsaldo aller User abzufragen
+ */
+function getCaseAllZeitmodelle()
+{
+	$ch = curl_init();
+
+	$url = CASETIME_SERVER.'/sync/get_all_missing_zeitmodelle';
+
+	//$fields_string = '';
+	curl_setopt($ch, CURLOPT_URL, $url ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	curl_setopt($ch, CURLOPT_POST, true);
+
+	$result = curl_exec($ch);
+
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if(isset($data->STATUS) && $data->STATUS=='OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return $data;
+	}
+}
+
+
+/**
  * Sendet einen Request an den CaseTime Server um den Urlaubssaldo abzufragen
  */
 function getCastTimeUrlaubssaldo($uid)

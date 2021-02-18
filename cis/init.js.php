@@ -73,7 +73,22 @@ addon.push(
 		}
 	}
 });
-
+function AddonCaseTimeShowTimesheets()
+{
+	$.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/zeitsaldo.php',
+		success: function (result)
+		{
+			console.log(result)
+		},
+		error: function(){
+			$('#resturlaub').html('&nbsp;');
+			//alert("Error Casetime Load");
+		}
+	});
+}
 /**
  * Urlaubsstand in urlaubstool.php anzeigen
  */
