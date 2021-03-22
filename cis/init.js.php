@@ -61,9 +61,17 @@ addon.push(
 
 			case 'cis/private/profile/zeitsperre_resturlaub.php':
 				AddonCaseTimeCreateDatesForFeiertage(params.uid, params.holiDays);
+				if (params.uid)
+				{
+					AddonCaseTimeShowUrlaub(params.uid);
+				}
 				break;
 			case 'cis/private/profile/urlaubstool.php':
 				AddonCaseTimeShowFeiertage();
+				if (params.uid)
+				{
+					AddonCaseTimeShowUrlaub(params.uid);
+				}
 				break;
 			case 'cis/private/profile/urlaubsfreigabe.php':
 				if (params.uid)
