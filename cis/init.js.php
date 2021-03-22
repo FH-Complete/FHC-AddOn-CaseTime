@@ -83,7 +83,7 @@ function AddonCaseTimeCreateDatesForFeiertage(uid, holiDays)
 	let dates = $.ajax({
 		type: "GET",
 		dataType: 'json',
-		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid=hacker',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid='+uid,
 		success: function (result)
 		{
 			if(Array.isArray(result))
@@ -112,7 +112,7 @@ function AddonCaseTimeShowFeiertage(uid)
 	$.ajax({
 		type: "GET",
 		dataType: 'json',
-		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid=hacker',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid='+uid,
 		success: function (result)
 		{
 			if(Array.isArray(result))
