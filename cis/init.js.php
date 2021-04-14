@@ -155,13 +155,16 @@ function AddonCaseTimeShowUrlaub(uid)
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/urlaub.php?uid='+uid,
 		success: function (result)
 		{
+			console.log(result);
 			var urlaubsanspruch = result.Urlaubsanspruch;
 			var resturlaub = result.Resturlaub;
 			var aktuellerstand = result.AktuellerStand;
+			var uzuebertrag = result.uzuebertrag;
+			var uzuebertragNegativ = result.uzuebertragNegativ;
 
 			if(urlaubsanspruch!=0 || aktuellerstand!="0" || aktuellerstand!="0.0")
 			{
-				var content = AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand);
+				var content = AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand,uzuebertrag, uzuebertragNegativ);
 				$('#resturlaub').html(content);
 			}
 			else
@@ -180,17 +183,19 @@ function AddonCaseTimeShowUrlaub(uid)
 /**
  * Formatiert die Ausgabe des Urlaubs
  */
-function AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand)
+function AddonCaseTimeFormatUrlaub(urlaubsanspruch, resturlaub, aktuellerstand, uzuebertrag, uzuebertragNegativ)
 {
 	var gebuchterurlaub = urlaubsanspruch+resturlaub-aktuellerstand;
+	var anspruch = urlaubsanspruch+uzuebertrag
 	if (aktuellerstand < 0)
 		var txtstyle = 'border-top: 1px solid black; color: red; font-weight: bold;';
 	else
 		var txtstyle = 'border-top: 1px solid black;';
 	var content = '<table>';
-	content+= '<tr><td>Urlaubsanspruch für das laufende Jahr</td><td align="right">'+urlaubsanspruch+' Tage</td></tr>';
 	content+='<tr><td>+ Resturlaub Übertrag aus Vorjahr</td><td align="right">'+resturlaub+' Tage</td></tr>';
+	content+= '<tr><td>Urlaubsanspruch für das laufende Jahr</td><td align="right">'+anspruch+' Tage</td></tr>';
 	content+='<tr><td>- bereits gebuchter Urlaub*</td><td align="right">'+gebuchterurlaub+' Tage</td></tr>';
+	content+='<tr><td>- Korrekturbuchungen HR</td><td align="right">'+uzuebertragNegativ+' Tage</td></tr>';
 	content+='<tr><td style="border-top: 1px solid black;"><b>Aktueller Stand (noch verfügbar)</b></td>';
 	content+='    <td align="right" style="'+txtstyle+'">'+aktuellerstand+' Tage</td></tr>';
 	content+='<tr><td colspan="2" style="font-size:10px;">* beinhaltet auch von HR abgebuchte Urlaubstage</td></tr>';

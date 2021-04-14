@@ -514,7 +514,7 @@ function getCastTimeUrlaubssaldo($uid)
 			return $data->RESULT;
 		}
 		else
-			return false;
+			return $data;
 	}
 }
 
