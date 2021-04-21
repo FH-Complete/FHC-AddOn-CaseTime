@@ -29,17 +29,9 @@ def get_all_feiertage(self):
 
     vars_dict = {}
 
-    try:
-        datum_von = time.strptime(datum, "%Y%m%d")
-    except:
-        return 'Falsches Datumsformat'
-    vars_dict['datum'] = datum
-    vars_dict['anz_tage'] = anz_tage
-
     # datum und faktor der feiertage für den sachb  holen für anz_tage bis datum
     sql_str ="""select distinct f.datum, f.faktor from feiertage f
             """
-
     erg = self.sql_execute(dbconn,sql_str)
     
     error = erg[0]
@@ -57,6 +49,3 @@ def get_all_feiertage(self):
    
 
     #print erg[1]
-
-
-
