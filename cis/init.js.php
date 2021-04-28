@@ -59,8 +59,20 @@ addon.push(
 				AddonCaseTimeLoadZeitsaldo(params.uid, params.exportXLS);
 				break;
 
-			case 'cis/private/profile/urlaubstool.php':
 			case 'cis/private/profile/zeitsperre_resturlaub.php':
+				AddonCaseTimeCreateDatesForFeiertage(params.uid, params.holiDays);
+				if (params.uid)
+				{
+					AddonCaseTimeShowUrlaub(params.uid);
+				}
+				break;
+			case 'cis/private/profile/urlaubstool.php':
+				AddonCaseTimeShowFeiertage();
+				if (params.uid)
+				{
+					AddonCaseTimeShowUrlaub(params.uid);
+				}
+				break;
 			case 'cis/private/profile/urlaubsfreigabe.php':
 				if (params.uid)
 				{
@@ -73,6 +85,64 @@ addon.push(
 		}
 	}
 });
+
+function AddonCaseTimeCreateDatesForFeiertage(uid, holiDays)
+{
+	let dates = $.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid='+uid,
+		success: function (result)
+		{
+			if(Array.isArray(result))
+			{
+				let dates = result.map(x => x[0])
+
+				for (i in dates)
+				{
+					date = dates[i].split(".")
+					day = Number(date[0])
+					month = Number(date[1])
+					year = Number(date[2])
+					holiDays.push([year, month, day, ""])
+				}
+			}
+		},
+		error: function(){
+			console.log("Error Casetime Load");
+		}
+	});
+	return dates
+}
+
+function AddonCaseTimeShowFeiertage(uid)
+{
+	$.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid='+uid,
+		success: function (result)
+		{
+			if(Array.isArray(result))
+			{
+				let dates = result.map(x => x[0])
+				for (i in dates)
+				{
+					let found = document.getElementById(dates[i])
+					if (found !== null)
+					{
+						let parent = found.parentElement
+						parent.style.backgroundColor = "#65b3e7"
+						parent.innerHTML += "<div style=' font-size: 13px; '>Feiertag</div>"
+					}
+				}
+			}
+		},
+		error: function(){
+			console.log("Error Casetime Load");
+		}
+	});
+}
 
 /**
  * Urlaubsstand in urlaubstool.php anzeigen
