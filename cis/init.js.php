@@ -155,7 +155,6 @@ function AddonCaseTimeShowUrlaub(uid)
 		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/urlaub.php?uid='+uid,
 		success: function (result)
 		{
-			console.log(result);
 			var urlaubsanspruch = result.Urlaubsanspruch;
 			var resturlaub = result.Resturlaub;
 			var aktuellerstand = result.AktuellerStand;
