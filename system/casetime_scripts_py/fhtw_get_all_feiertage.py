@@ -20,9 +20,9 @@ def get_all_feiertage(self):
     remote_ip_str = """select count(*) from rechner where '%s' = ANY(fhcomplete_allowed_ip)""" % remote_ip
     allowed_ip = self.sql_execute(dbconn, remote_ip_str)
     if not allowed_ip[1][0][0]:
-        return json.dumps({'STATUS':'ERR','RESULT':'Not Allowed'}, ensure_ascii=False, encoding='utf8') 
+        return json.dumps({'STATUS':'ERR','RESULT':'Not Allowed'}, ensure_ascii=False, encoding='utf8')
     ### end check
-   
+
     # dict für jason
     ret_dict = {'STATUS':'', 'RESULT':''}
     data_dict = {}
@@ -37,11 +37,11 @@ def get_all_feiertage(self):
     vars_dict['anz_tage'] = anz_tage
 
     # datum und faktor der feiertage für den sachb  holen für anz_tage bis datum
-    sql_str ="""select distinct f.datum, f.faktor from feiertage f
+    sql_str ="""select distinct f.datum, f.faktor from feiertage f WHERE fkid=1
             """
 
     erg = self.sql_execute(dbconn,sql_str)
-    
+
     error = erg[0]
     data = erg[1]
     data_flat = []
@@ -54,9 +54,6 @@ def get_all_feiertage(self):
         ret_dict['STATUS']='OK'
         ret_dict['RESULT'] = data
     return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')
-   
+
 
     #print erg[1]
-
-
-
