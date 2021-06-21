@@ -75,7 +75,7 @@ addon.push(
 				}
 				break;
 			case 'cis/private/profile/urlaubstool.php':
-				AddonCaseTimeShowFeiertage();
+				AddonCaseTimeShowFeiertage(params.uid);
 				if (params.uid)
 				{
 					AddonCaseTimeShowUrlaub(params.uid);
@@ -262,12 +262,12 @@ function AddonCaseTimeLoadErrors(uid)
 				{
                     // Config-Array mit blockierenden Fehlermeldungen holen
                     const casetime_blocking_err = <?php echo json_encode($casetime_blocking_err) ?>;
-                    
+
                     // Prüfen, ob Zeitfehler blockierend ist
                     let has_blocking_error = casetime_blocking_err.some(
                         (blocking_error) => message.includes(blocking_error)
                     );
-                    
+
                     // Blockierende Zeitfehler hervorheben
                     has_blocking_error
                         ? $('#'+tagid)
