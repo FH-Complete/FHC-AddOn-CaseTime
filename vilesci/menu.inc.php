@@ -22,6 +22,7 @@
 $menu_addon = array
 (
 	'Krankenstaende'=>array('name'=>'Bestätigungen', 'link'=>'../addons/casetime/vilesci/krankenstand.php', 'target'=>'main','permissions'=>array('mitarbeiter/zeitsperre')),
+	'CaseTimeSync'=>array('name'=>'CaseTime Sync', 'link'=>'../addons/casetime/vilesci/manual_sync.php', 'target'=>'main','permissions'=>array('addon/casetime_manageTimesheet')),
 
 );
 $menu['Personen']['Mitarbeiter'] = array_merge($menu['Personen']['Mitarbeiter'], $menu_addon);

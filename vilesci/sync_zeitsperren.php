@@ -42,7 +42,8 @@ if(php_sapi_name() != 'cli')
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 
-	if(!$rechte->isBerechtigt('admin'))
+	if(!$rechte->isBerechtigt('admin')
+	&& !$rechte->isBerechtigt('addon/casetime_manageTimesheet'))
 		die('Sie haben keine Berechtigung fuer diese Seite');
 }
 
