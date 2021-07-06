@@ -81,13 +81,13 @@ if(isset($_GET['work']))
 		});
 		function syncZeitsperren()
 		{
-			var user  = $('#input_user').value;
+			var user  = $('#input_user').val();
 			window.open("sync_zeitsperren.php?uid="+user)
 		}
 
 		function syncZeitaufzeichnung()
 		{
-			var user  = $('#input_user').value;
+			var user  = $('#input_user').val();
 			window.open("sync_zeitaufzeichnung.php?uid="+user)
 		}
 		</script>
