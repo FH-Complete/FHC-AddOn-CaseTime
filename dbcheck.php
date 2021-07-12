@@ -265,6 +265,16 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet"))
 		echo ' addon.tbl_casetime_timesheet: Tabelle addon.tbl_casetime_timesheet hinzugefuegt!<br>';
 }
 
+//Spalte vorzeitig_abgeschickt in addon.tbl_casetime_timesheet
+if(!$result = @$db->db_query("SELECT vorzeitig_abgeschickt FROM addon.tbl_casetime_timesheet LIMIT 1"))
+{
+	$qry = "ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN vorzeitig_abgeschickt BOOLEAN NOT NULL DEFAULT FALSE;";
+	
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_timesheet: '.$db->db_last_error().'</strong><br>';
+	else
+		echo '<br>addon.tbl_casetime_timesheet: Spalte vorzeitig_abgeschickt hinzugefuegt';
+}
 
 // Tabelle für die DMS Dokumenten IDs, die zu den monatlich zu genehmigenden Timesheets angehängt werden müssen (Krankenstände etc)
 if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet_dms"))
@@ -521,7 +531,7 @@ $tabellen=array(
 	"addon.tbl_casetime_gruppen"  => array("casetime_gruppen_id","oe_kurzbz","uid","sync"),
 	"addon.tbl_casetime_zeitsperre"  => array("casetime_zeitsperre_id","uid","datum","typ"),
 	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id", "datum_bis"),
-	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon", "kontrolliertamum", "kontrolliertvon", "kontroll_notizen"),
+	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon", "kontrolliertamum", "kontrolliertvon", "kontroll_notizen", "vorzeitig_abgeschickt"),
 	"addon.tbl_casetime_timesheet_dms"  => array("timesheet_dms_id","timesheet_id","dms_id","insertamum", "insertvon"),
 );
 
