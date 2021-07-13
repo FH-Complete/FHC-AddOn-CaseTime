@@ -195,6 +195,7 @@ else
 $date_selected = new DateTime($year. '-'. $month);	// date obj of date selected; day and time is automatically set to first and zero
 
 $isFuture = false;	// true if date selected is in the future
+$isPast = false;	// true if date selected is in the past
 $isMissing_doc = false;	// true if upload documents are missing after check against absences
 
 // Check if user has obligation to record times
@@ -410,6 +411,12 @@ if (($date_selected > $date_actual))
 	$isFuture = true;
 }
 
+// Flag if selected date is in the past
+if (($date_selected < $date_actual))
+{
+	$isPast = true;
+}
+
 // Flag if date selected is before golive
 if ($date_selected < $date_golive)
 {
@@ -420,6 +427,7 @@ if ($date_selected < $date_golive)
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
 $timesheet->new = (is_null($timesheet_id) ? true : false);
+$timesheet_vorzeitig_abgeschickt = $timesheet->vorzeitig_abgeschickt;
 $timesheet_cntrl_date = (!is_null($timesheet->kontrolliertamum)) ? new DateTime($timesheet->kontrolliertamum) : '';
 $timesheet_cntrl_uid = (!is_null($timesheet->kontrolliertvon)) ? $timesheet->kontrolliertvon : '';
 $timesheet_cntrl_remark = (!is_null($timesheet->kontroll_notizen)) ? $timesheet->kontroll_notizen : '';
@@ -608,6 +616,30 @@ if (isset($_POST['action']) && isset($_POST['method']))
 			// ajax return true if deleting succeeded, false if failed
 			echo json_encode($result);
 			exit;
+		}
+	}
+}
+
+if (isset($_POST['action']) && isset($_POST['method']))
+{
+	if ($_POST['action'] == 'ajax' && $_POST['method'] == 'saveVorzeitigAbgeschickt')
+	{
+		if (isset($_POST['timesheet_id']) && is_numeric($_POST['timesheet_id']))
+		{
+			if (isset($_POST['vorzeitig_abgeschickt']) && is_string($_POST['vorzeitig_abgeschickt']))
+			{
+				$result = false;
+				$timesheet = new Timesheet();
+				
+				if ($timesheet->saveVorzeitigAbgeschickt($_POST['timesheet_id'], $_POST['vorzeitig_abgeschickt']))
+				{
+					$result = true;
+				}
+				
+				// return true if update was done successfully
+				echo json_encode($result);
+				exit;
+			}
 		}
 	}
 }
@@ -880,10 +912,14 @@ function checkCaseTimeErrors($uid, $month, $year)
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<link rel="stylesheet" type="text/css" href="../../../vendor/components/jqueryui/themes/base/jquery-ui.min.css">
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
-	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
+	<link rel="stylesheet" type="text/css" href="../../../vendor/components/font-awesome/css/font-awesome.min.css">
+	<link rel="stylesheet" type="text/css" href="../../../public/css/DialogLib.css">
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
+	<script type="text/javascript" src="../../../public/js/DialogLib.js"></script>
 	<title>Timesheet</title>
 	<style>
 		.row {
@@ -990,6 +1026,33 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 			$("input[name='checkbox_overtime_arr']").val(checked);
 		});
+		
+		// Save 'Vor Monatsende abschließen' - Checkbox value
+        $("#vorzeitigAbgeschickt").change(function() {
+            let timesheet_id = $(this).closest('form').find('input[name=timesheet_id]').val();
+            let vorzeitig_abgeschickt = this.checked;
+           
+            $.ajax({
+                type: 'POST',
+                dataType: 'json',
+                cache: false,
+                data: {
+                    action: 'ajax',
+                    method: 'saveVorzeitigAbgeschickt',
+                    timesheet_id: timesheet_id,
+					vorzeitig_abgeschickt: vorzeitig_abgeschickt
+                },
+                success: function (result) {
+                    if (result) {
+                        FHC_DialogLib.alertSuccess('Gespeichert');
+                    }
+                    else
+					{
+					    FHC_DialogLib.alertError('Fehler beim Speichern')
+					}
+                }
+            })
+        })
 	});
 	</script>
 </head>
@@ -1225,6 +1288,29 @@ function checkCaseTimeErrors($uid, $month, $year)
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
 				</div>
 			</form>
+		</div>
+		
+		<!-- panel: Monatsliste vorzeitig abschließen -->
+		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
+			<div class="panel-body col-xs-8">
+				<b>Monatsliste vorzeitig abschließen</b><br><br>
+				Wenn Sie vor Monatsende Ihre Zeitaufzeichnung beenden wollen (zB aufgrund Urlaub/Feiertage zu Monatsende), markieren Sie die Checkbox.<br>
+				Die Monatsliste wird dann zu Beginn des Folgemonats automatisch an Ihre Vorgesetzte / Ihren Vorgesetzten versendet werden.
+			</div>
+
+			<div class="panel-body col-xs-4"><br>
+				<form id="form-vorzeitigAbgeschickt" class="pull-right">
+					<input type="hidden" id="timesheet_id" name="timesheet_id" value="<?php echo $timesheet_id; ?>">
+					<div class="form-check pull-right">
+						<input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
+							<?php echo ($isPast || $isSent || $isDisabled_by_formerUnsentTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt)
+								? ' disabled data-toggle="tooltip" title="'. ($isPast ? 'Diese Option steht für vergangene Monate nicht zur Verfügung.' : 'Information zur Sperre weiter unten in der Messagebox.'). '"'
+								: '' ?>
+						<span class="form-check-label" for="vorzeitigAbgeschickt"> Vor Monatsende abschließen</span>
+					</div>
+				</form>
+			</div>
+
 		</div>
 	</div><!--/.panel-->
 	<br><br>

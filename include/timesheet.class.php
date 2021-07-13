@@ -31,6 +31,7 @@ class Timesheet extends basis_db
 	public $kontrolliertamum;	// timestamp
 	public $kontrolliertvon;	// varchar(32)
 	public $kontroll_notizen;	// text
+	public $vorzeitig_abgeschickt; // boolean
 
 	/** Constructor
 	 *
@@ -69,7 +70,8 @@ class Timesheet extends basis_db
 					genehmigtvon,
 					kontrolliertamum,
 					kontrolliertvon,
-					kontroll_notizen
+					kontroll_notizen,
+					vorzeitig_abgeschickt
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -94,6 +96,7 @@ class Timesheet extends basis_db
 					$this->kontrolliertamum = $row->kontrolliertamum;
 					$this->kontrolliertvon = $row->kontrolliertvon;
 					$this->kontroll_notizen = $row->kontroll_notizen;
+					$this->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
 
 					$this->new = false;
 					return true;
@@ -138,7 +141,8 @@ class Timesheet extends basis_db
 					genehmigtvon,
 					kontrolliertamum,
 					kontrolliertvon,
-					kontroll_notizen
+					kontroll_notizen,
+					vorzeitig_abgeschickt
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -159,6 +163,7 @@ class Timesheet extends basis_db
 					$this->kontrolliertamum = $row->kontrolliertamum;
 					$this->kontrolliertvon = $row->kontrolliertvon;
 					$this->kontroll_notizen = $row->kontroll_notizen;
+					$this->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
 
 					return true;
 				}
@@ -202,7 +207,8 @@ class Timesheet extends basis_db
 					genehmigtvon,
 					kontrolliertamum,
 					kontrolliertvon,
-					kontroll_notizen
+					kontroll_notizen,
+					vorzeitig_abgeschickt
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -227,6 +233,7 @@ class Timesheet extends basis_db
 					$obj->kontrolliertamum = $row->kontrolliertamum;
 					$obj->kontrolliertvon = $row->kontrolliertvon;
 					$obj->kontroll_notizen = $row->kontroll_notizen;
+					$obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
 
 					$this->result[] = $obj;
 				}
@@ -1215,6 +1222,34 @@ class Timesheet extends basis_db
 		else
 		{
 			$this->errormsg = "UID muss vorhanden und nicht leer sein";
+			return false;
+		}
+	}
+	
+	
+	/**
+	 * Saves users if Monatsliste should be closed before the month has finnished.
+	 * @param $timesheet_id
+	 * @param $vorzeitig_abgeschickt
+	 * @return bool
+	 */
+	public function saveVorzeitigAbgeschickt($timesheet_id, $vorzeitig_abgeschickt)
+	{
+		$qry = '
+				UPDATE
+					addon.tbl_casetime_timesheet
+				SET 
+					vorzeitig_abgeschickt = '. $this->db_add_param($this->db_escape($vorzeitig_abgeschickt)). '
+				WHERE 
+					timesheet_id = '. $this->db_add_param($timesheet_id);
+		
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Update von vorzeitig_abgeschickt';
 			return false;
 		}
 	}
