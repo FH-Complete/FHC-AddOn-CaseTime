@@ -8,6 +8,7 @@
 require_once(dirname(__FILE__). '/../../../include/basis_db.class.php');
 require_once(dirname(__FILE__). '/../../../include/datum.class.php');
 require_once(dirname(__FILE__). '/../../../include/dms.class.php');
+require_once(dirname(__FILE__). '/../../../include/functions.inc.php');
 
 /**
  * Description of casetime_timesheet
@@ -1252,5 +1253,133 @@ class Timesheet extends basis_db
 			$this->errormsg = 'Fehler beim Update von vorzeitig_abgeschickt';
 			return false;
 		}
+	}
+	
+	/**
+	 * Reset vorzeitig_abgeschickt to FALSE.
+	 * @param $timesheet_id
+	 */
+	public function resetVorzeitigAbgeschickt($timesheet_id)
+	{
+		$qry = '
+				UPDATE
+					addon.tbl_casetime_timesheet
+				SET
+					vorzeitig_abgeschickt = FALSE
+				WHERE
+					timesheet_id = '. $this->db_add_param($timesheet_id);
+		
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim reset von vorzeitig_abgeschickt.';
+			return false;
+		}
+		
+	}
+	
+	/**
+	 * Load all timesheets for one person
+	 *
+	 * @param string $uid
+	 * @return boolean	True on success. If true, returns object-array with all users timesheets.
+	 */
+	public function loadAllFromLastMonthVorzeitigAbgeschickt()
+	{
+		$qry = '
+			SELECT
+				timesheet_id,
+				uid,
+				datum,
+				insertamum,
+				insertvon,
+				abgeschicktamum,
+				genehmigtamum,
+				genehmigtvon,
+				kontrolliertamum,
+				kontrolliertvon,
+				kontroll_notizen,
+				vorzeitig_abgeschickt
+			FROM
+				addon.tbl_casetime_timesheet
+			WHERE
+				-- vorzeitig abgeschickt ist gesetzt
+				vorzeitig_abgeschickt
+			AND
+				-- noch nicht abgeschickt
+				abgeschicktamum IS NULL
+			AND
+				-- nur timesheets des letzten Monats
+				date_trunc(\'month\', datum) = date_trunc(\'month\', now() - interval \'1 month\')
+			ORDER BY
+				datum DESC';
+		
+		if ($this->db_query($qry))
+		{
+			while ($row = $this->db_fetch_object())
+			{
+				$obj = new stdClass();
+				
+				$obj->timesheet_id = $row->timesheet_id;
+				$obj->uid = $row->uid;
+				$obj->datum = $row->datum;
+				$obj->insertamum = $row->insertamum;
+				$obj->insertvon = $row->insertvon;
+				$obj->abgeschicktamum = $row->abgeschicktamum;
+				$obj->genehmigtamum = $row->genehmigtamum;
+				$obj->genehmigtvon = $row->genehmigtvon;
+				$obj->kontrolliertamum = $row->kontrolliertamum;
+				$obj->kontrolliertvon = $row->kontrolliertvon;
+				$obj->kontroll_notizen = $row->kontroll_notizen;
+				$obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
+				
+				$this->result[] = $obj;
+			}
+			
+			return $this->result;
+		}
+		else
+		{
+			$this->errormsg = "Fehler beim Laden der timesheets aus dem Vormonat mit flag vorzeitig_abgeschickt.";
+			return false;
+		}
+	}
+	
+	/**
+	 * Checks if there are casetime server errors that are defined as blocking errors
+	 * @param String $uid
+	 * @param String $month Timesheet month, e.g. 06
+	 * @param String $year  Timesheet year, e.g. 2021
+	 * @return bool         True, if casetime blocking errors were found.
+	 * @throws Exception
+	 */
+	public function hasCaseTimeError($uid, $month, $year)
+	{
+		$casetime_error_arr = getCaseTimeErrors($uid);
+		$blocking_error_arr = unserialize(CASETIME_BLOCKING_ERR);
+		
+		foreach ($casetime_error_arr as $casetime_error)
+		{
+			$casetime_error_date = new DateTime($casetime_error[0]);
+			$casetime_error_month = $casetime_error_date->format('m');
+			$casetime_error_year = $casetime_error_date->format('Y');
+			
+			// If casetime error exists in the given timesheet or one month before...
+			if ($casetime_error_year == $year && ($casetime_error_month == $month || $casetime_error_month == ($month-1)))
+			{
+				// ...check if it is a blocking error
+				foreach($blocking_error_arr as $blocking_err)
+				{
+					if (strpos($casetime_error[1], $blocking_err) !== false)
+					{
+						return true; // Blocking error found
+					}
+				}
+			}
+		}
+		return false; // No blocking errors found
 	}
 }
