@@ -645,12 +645,13 @@ if (isset($_POST['action']) && isset($_POST['method']))
 }
 
 // *********************************	EMAIL SENDING (and document check)
-$isCaseTimeError = false;	// boolean to flag casetime server errors which should be eliminated before timesheet sending
+$hasCaseTimeError = false;	// boolean to flag casetime server errors which should be eliminated before timesheet sending
 if (isset($_POST['submitTimesheet']))
 {
+	$timesheet = new Timesheet();
 	// Check if there are casetime server errors that are defined as blocking errors
-	$isCaseTimeError = checkCaseTimeErrors($uid, $month, $year);
-
+	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
+	
 	// Check if documents according have been uploaded to absences
 	$missing_docs = "<ul>";
 	if ($cnt_ab > $cnt_ab_doc)
@@ -678,7 +679,7 @@ if (isset($_POST['submitTimesheet']))
 	$missing_docs .= "</ul>";
 
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$isMissing_doc && !$isCaseTimeError)
+	if (!$isMissing_doc && !$hasCaseTimeError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
@@ -870,40 +871,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 	// reload page to refresh actual and all monthlist display vars
 	header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
-}
-
-// *********************************	CASETIME SERVER ERROR HANDLING
-// checks if there are casetime server errors that are defined as blocking errors
-function checkCaseTimeErrors($uid, $month, $year)
-{
-	$isCaseTimeError = false;
-	$casetime_error_arr = getCaseTimeErrors($uid);
-	$blocking_error_arr = unserialize(CASETIME_BLOCKING_ERR);
-
-	foreach ($casetime_error_arr as $casetime_error)
-	{
-		$casetime_error_date = new DateTime($casetime_error[0]);
-		$casetime_error_month = $casetime_error_date->format('m');
-		$casetime_error_year = $casetime_error_date->format('Y');
-
-		// if casetime error date matches the selected timesheet date OR one month before
-		if ($casetime_error_year == $year &&
-			(
-			$casetime_error_month == $month ||
-			$casetime_error_month == ($month-1))
-			)
-		{
-			// check if casetime error is a blocking error
-			foreach($blocking_error_arr as $blocking_err)
-			{
-				if (strpos($casetime_error[1], $blocking_err) !== false)
-				{
-					$isCaseTimeError = true;
-				}
-			}
-		}
-	}
-	return $isCaseTimeError;
 }
 
 ?>
@@ -1531,7 +1498,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php endif; ?>
 
 		<!-- IF there are casetime server errors that are defined as blocking errors -->
-		<?php if ($isCaseTimeError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
+		<?php if ($hasCaseTimeError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>

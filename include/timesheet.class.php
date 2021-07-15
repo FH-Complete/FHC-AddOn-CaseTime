@@ -1364,7 +1364,8 @@ class Timesheet extends basis_db
 			$casetime_error_year = $casetime_error_date->format('Y');
 			
 			// If casetime error exists in the given timesheet or one month before...
-			if ($casetime_error_year == $year && ($casetime_error_month == $month || $casetime_error_month == ($month-1)))
+			if ($casetime_error_year == $year
+				&& ($casetime_error_month == $month || $casetime_error_month == ($month-1)))
 			{
 				// ...check if it is a blocking error
 				foreach($blocking_error_arr as $blocking_err)
