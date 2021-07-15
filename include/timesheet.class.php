@@ -1382,4 +1382,120 @@ class Timesheet extends basis_db
 		}
 		return false; // No blocking errors found
 	}
+	
+	/**
+	 * Checks if there are missing Bestaetigungen for the reported absences.
+	 * If only uid is given, all absences of the user  will be checked against all Bestaetigunen.
+	 * If timesheet_id is given, only absences and Bestaetigungen for that timesheet period will
+	 * be checked.
+	 *
+	 * @param $uid
+	 * @param $timesheet_id
+	 * @return bool
+	 * @throws Exception
+	 */
+	public function hasMissingBestaetigung($uid, $timesheet_id = '')
+	{
+		$timesheet = new Timesheet();
+		$timesheet->load_byID($timesheet_id);
+
+		// Get all absences of given UID
+		$absences = $timesheet->getAllAbsentTimes($uid);
+		
+		// If timesheet is given, check absences only for that timesheet
+		if (is_numeric($timesheet_id))
+		{
+			foreach ($absences as $key => $absence)
+			{
+				if ($absence->timesheet_id != $timesheet_id)
+				{
+					unset($absences[$key]);
+				}
+			}
+			
+		}
+
+		if (!empty($absences))
+		{
+			// Count absences by type
+			$cnt_ab = 0;     // counter arztbesuch
+			$cnt_beh = 0;    // counter behöre
+			$cnt_kst = 0;    // counter krankenstand
+			$cnt_pfl = 0;    // counter pflegeurlaub
+			foreach ($absences as $absence) {
+				switch ($absence->abwesenheit_kurzbz) {
+					case 'Arztbesuch':
+						// each Arztbesuch-absence needs to be attested
+						$cnt_ab++;
+						continue;
+					case 'Behoerde':
+						// each Behörden-absence needs to be attested
+						$cnt_beh++;
+						continue;
+					case 'PflegeU':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+						
+						// Pflegeurlaub needs to be attested only from the 3rd day on
+						if ($von->diff($bis)->d >= 2)
+							$cnt_pfl++;
+						continue;
+					case 'Krank':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+						
+						// Krankenstand needs to be attested only from the 3rd day on
+						if ($von->diff($bis)->d >= 2)
+							$cnt_kst++;
+						continue;
+				}
+			}
+			
+			// Get all Bestaetigungen
+			unset($timesheet->result);
+			$bestaetigungen = $timesheet->loadAllBestaetigungen_byUser($uid);
+			
+			// If timesheet is given, only Bestaetigungen of that timesheets period are needed
+			if (is_numeric($timesheet_id))
+			{
+				foreach ($bestaetigungen as $key => $bestaetigung)
+				{
+					if($bestaetigung->datum != $timesheet->datum)
+					{
+						unset($bestaetigungen[$key]);
+					}
+				}
+			}
+			
+			// Count Bestaetigungen by type
+			$cnt_ab_doc = 0;	// counter arztbesuch bestätigungen
+			$cnt_beh_doc = 0;	// counter behörde bestätigungen
+			$cnt_kst_doc = 0;	// counter krankenstand bestätigungen
+			$cnt_pfl_doc = 0;	// counter pflegeurlaub bestätigungen
+			foreach ($bestaetigungen as $bestaetigung)
+			{
+				switch ($bestaetigung->dokument_kurzbz)
+				{
+					case 'bst_arzt':
+						$cnt_ab_doc++;
+						continue;
+					case 'bst_bhrd':
+						$cnt_beh_doc++;
+						continue;
+					case 'bst_pfur':
+						$cnt_pfl_doc++;
+						continue;
+					case 'bst_krnk':
+						$cnt_kst_doc++;
+						continue;
+				}
+			}
+			
+			// Check if absences have their accoring Beestaetigung. Return true if Bestaetigung is missing.
+			return $cnt_ab > $cnt_ab_doc
+				|| $cnt_beh > $cnt_beh_doc
+				|| ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)  // if one or more Pflegeurlaub, at least one Bestaetigung
+				|| ($cnt_kst >= 1 && $cnt_kst_doc == 0); // if one or more Krankenstand, at least one Bestaetigung
+		}
+	}
 }
