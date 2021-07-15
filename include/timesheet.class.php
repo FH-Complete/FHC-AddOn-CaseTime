@@ -1227,7 +1227,6 @@ class Timesheet extends basis_db
 		}
 	}
 	
-	
 	/**
 	 * Saves users if Monatsliste should be closed before the month has finnished.
 	 * @param $timesheet_id
@@ -1282,10 +1281,7 @@ class Timesheet extends basis_db
 	}
 	
 	/**
-	 * Load all timesheets for one person
-	 *
-	 * @param string $uid
-	 * @return boolean	True on success. If true, returns object-array with all users timesheets.
+	 * Loads all timesheets of the last month that are flagged as vorzeitig_abgeschickt.
 	 */
 	public function loadAllFromLastMonthVorzeitigAbgeschickt()
 	{
