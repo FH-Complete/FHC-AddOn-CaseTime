@@ -195,7 +195,6 @@ else
 $date_selected = new DateTime($year. '-'. $month);	// date obj of date selected; day and time is automatically set to first and zero
 
 $isFuture = false;	// true if date selected is in the future
-$isPast = false;	// true if date selected is in the past
 
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
@@ -408,12 +407,6 @@ if ($date_allow_new_ts < $date_selected)
 if (($date_selected > $date_actual))
 {
 	$isFuture = true;
-}
-
-// Flag if selected date is in the past (= before this actual month)
-if (($date_selected < $date_actual))
-{
-	$isPast = true;
 }
 
 // Flag if date selected is before golive
@@ -1189,8 +1182,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 					<input type="hidden" id="timesheet_id" name="timesheet_id" value="<?php echo $timesheet_id; ?>">
 					<div class="form-check pull-right">
 						<input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
-							<?php echo ($isPast || $isSent || $isDisabled_by_formerUnsentTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt)
-								? ' disabled data-toggle="tooltip" title="'. ($isPast ? 'Diese Option steht für vergangene Monate nicht zur Verfügung.' : 'Information zur Sperre weiter unten in der Messagebox.'). '"'
+							<?php echo ($isSent || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt)
+								? ' disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."'
 								: '' ?>
 						<span class="form-check-label" for="vorzeitigAbgeschickt"> Vor Monatsende abschließen</span>
 					</div>
