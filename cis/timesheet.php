@@ -196,7 +196,6 @@ $date_selected = new DateTime($year. '-'. $month);	// date obj of date selected;
 
 $isFuture = false;	// true if date selected is in the future
 $isPast = false;	// true if date selected is in the past
-$isMissing_doc = false;	// true if upload documents are missing after check against absences
 
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
@@ -411,7 +410,7 @@ if (($date_selected > $date_actual))
 	$isFuture = true;
 }
 
-// Flag if selected date is in the past
+// Flag if selected date is in the past (= before this actual month)
 if (($date_selected < $date_actual))
 {
 	$isPast = true;
@@ -484,98 +483,32 @@ if ($date_actual <= $date_selected)
 	$isAllowed_sendTimesheet = false;
 }
 
-// *********************************	ALL ABSENT TIMES
+// *********************************	FEHLZEITEN & deren BESTAETIGUNGEN
+
+// Get all absences
+$total_absences_arr = array();
 $timesheet = new Timesheet();
 $timesheet->getAllAbsentTimes($uid);
-$absent_times_arr = $timesheet->result;
+$total_absences_arr = $timesheet->result;
 
+// Get absences of timesheet selected
+$timesheet_absences_arr = array();
+$timesheet = new Timesheet();
+$timesheet->getAllAbsentTimes($uid, $timesheet_id);
+$timesheet_absences_arr = $timesheet->result;
 
-// *********************************	ACTUAL ABSENT TIMES (of month/year selected)
-$actual_absent_times_arr = array();
-foreach ($absent_times_arr as $absence)
-{
-	if ($absence->timesheet_id == $timesheet_id)
-	{
-		$actual_absent_times_arr[] = $absence;
-	}
-}
-
-// Get absences that need to be checked against document upload
-$cnt_ab = 0;	// counter arztbesuch
-$cnt_beh = 0;	// counter behöre
-$cnt_kst = 0;	// counter krankenstand
-$cnt_pfl = 0;	// counter pflegeurlaub
-foreach ($actual_absent_times_arr as $actual_absence)
-{
-	switch ($actual_absence->abwesenheit_kurzbz)
-	{
-		case 'Arztbesuch':
-			// each Arztbesuch-absence needs to be attested
-			$cnt_ab++;
-			continue;
-		case 'Behoerde':
-			// each Behörden-absence needs to be attested
-			$cnt_beh++;
-			continue;
-		case 'PflegeU':
-			$von = new DateTime($actual_absence->von);
-			$bis = new DateTime($actual_absence->bis);
-
-			// Pflegeurlaub needs to be attested only from the 3rd day on
-			if($von->diff($bis)->d >= 2)
-				$cnt_pfl++;
-			continue;
-		case 'Krank':
-			$von = new DateTime($actual_absence->von);
-			$bis = new DateTime($actual_absence->bis);
-
-			// Krankenstand needs to be attested only from the 3rd day on
-			if($von->diff($bis)->d >= 2)
-				$cnt_kst++;
-			continue;
-	}
-}
-
-// *********************************	ALL DOCUMENTS
-// Load all Bestätigungen of user
+// Get all Bestaetigungen
+$total_bestaetigungen_arr = array();
 $timesheet = new Timesheet();
 $timesheet->loadAllBestaetigungen_byUser($uid);
-$all_user_bestaetigungen = $timesheet->result;
+$total_bestaetigungen_arr = $timesheet->result;
 
-// collect all Bestätigungen of actual monthlist in an extra array
-$all_actualMonth_bestaetigungen = array();
-foreach ($all_user_bestaetigungen as $bestaetigung)
-{
-	$date_bestaetigung = new DateTime($bestaetigung->datum);
-	$date_bestaetigung->modify('first day of this month midnight');
+// Get Bestaetigungen of timesheet selected
+$timesheet_bestaetigungen_arr = array();
+$timesheet = new Timesheet();
+$timesheet->loadAllBestaetigungen_byTimesheet($timesheet_id);
+$timesheet_bestaetigungen_arr = $timesheet->result;
 
-	if($date_selected == $date_bestaetigung)
-		$all_actualMonth_bestaetigungen[] = $bestaetigung;
-}
-
-// Get document amount that need to be checked against absences
-$cnt_ab_doc = 0;	// counter arztbesuch bestätigungen
-$cnt_beh_doc = 0;	// counter behörde bestätigungen
-$cnt_kst_doc = 0;	// counter krankenstand bestätigungen
-$cnt_pfl_doc = 0;	// counter pflegeurlaub bestätigungen
-foreach ($all_actualMonth_bestaetigungen as $actual_bestaetigung)
-{
-	switch ($actual_bestaetigung->dokument_kurzbz)
-	{
-		case 'bst_arzt':
-			$cnt_ab_doc++;
-			continue;
-		case 'bst_bhrd':
-			$cnt_beh_doc++;
-			continue;
-		case 'bst_pfur':
-			$cnt_pfl_doc++;
-			continue;
-		case 'bst_krnk':
-			$cnt_kst_doc++;
-			continue;
-	}
-}
 
 // *********************************	CASETIME CHECKS
 // Check if user made any changes in Zeitaufzeichnung today concerning the month period of selected date
@@ -645,41 +578,27 @@ if (isset($_POST['action']) && isset($_POST['method']))
 }
 
 // *********************************	EMAIL SENDING (and document check)
-$hasCaseTimeError = false;	// boolean to flag casetime server errors which should be eliminated before timesheet sending
+$hasCaseTimeError = false;
+$hasMissingBestaetigung = false;
+$missing_bestaetigungen = '';
 if (isset($_POST['submitTimesheet']))
 {
 	$timesheet = new Timesheet();
-	// Check if there are casetime server errors that are defined as blocking errors
+	
+	// Check for blocking casetime errors
 	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
 	
-	// Check if documents according have been uploaded to absences
-	$missing_docs = "<ul>";
-	if ($cnt_ab > $cnt_ab_doc)
+	// Check for missing Bestaetigungen
+	$hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
+	
+	// Retrieve amount of missing Bestaetigungen by type
+	if ($hasMissingBestaetigung)
 	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>". ($cnt_ab - $cnt_ab_doc). " Arztbesuch(e)</li>";
+		$missing_bestaetigungen = $timesheet->result;
 	}
-	if ($cnt_beh > $cnt_beh_doc)
-	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>". ($cnt_beh - $cnt_beh_doc). " Behördenbesuch(e)</li>";
-	}
-	// if one or more krankenstände there need to be at least one krankenstandsbestätigung
-	if ($cnt_kst >= 1 && $cnt_kst_doc == 0)
-	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>mindestens einen Krankenstand</li>";
-	}
-	if ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)
-	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>mindestens einen Pflegeurlaub</li>";
-	}
-
-	$missing_docs .= "</ul>";
 
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$isMissing_doc && !$hasCaseTimeError)
+	if (!$hasMissingBestaetigung && !$hasCaseTimeError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
@@ -1106,7 +1025,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				<?php $counter = 0; ?>
 
 				<!--loop through absent times-->
-				<?php foreach ($actual_absent_times_arr as $absence): ?>
+				<?php foreach ($timesheet_absences_arr as $absence): ?>
 
 					<!--set absence text-->
 					<?php if ($counter == 0): ?>
@@ -1138,8 +1057,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				   onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
 
 				<!--if there are existing bestaetigungen in actual month -> display table and all bestaetigungen-->
-				<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
-				<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
+				<table class="table table-condensed pull-right" <?php echo (empty($timesheet_bestaetigungen_arr)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
+				<?php foreach($timesheet_bestaetigungen_arr as $bestaetigung): ?>
 					<tr>
 						<td><?php echo $bestaetigung->dokument_bezeichnung ?>: </td>
 						<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>" target="_blank"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a></td>
@@ -1159,7 +1078,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 					<?php $counter = 0; ?>
 
 					loop through overtimes
-					<?php foreach ($actual_absent_times_arr as $overtime): ?>
+					<?php foreach ($timesheet_absences_arr as $overtime): ?>
 
 						set absence text
 						<?php if ($counter == 0): ?>
@@ -1509,14 +1428,26 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php endif; ?>
 
 		<!-- IF document uploads are missing (after check against absences) -->
-		<?php if ($isMissing_doc): ?>
+		<?php if ($hasMissingBestaetigung): ?>
 		<div class="alert alert-danger alert-dismissible" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<div class="col-xs-offset-4">
 				<b>Die Monatsliste konnte noch nicht versendet werden!</b>&nbsp;&nbsp;
 				<a role="button" data-toggle="modal" data-target="#modalSendMonatsliste"><i class="alert-danger fa fa-question-circle-o fa-lg" aria-hidden="true"></i></a><br>
 				Es fehlen noch Bestätigungen für:
-				<?php echo $missing_docs ?>
+				<ul>
+				<?php foreach ($missing_bestaetigungen as $missing_bestaetigung => $value): ?>
+					<?php if ($missing_bestaetigung == 'arztbesuch' && $value != 0): ?>
+						<li><?php echo $value; ?> Arztbesuch(e)</li>
+					<?php elseif ($missing_bestaetigung == 'behoerdenbesuch' && $value != 0):?>
+						<li><?php echo $value; ?> Behördenbesuch(e)</li>
+					<?php elseif ($missing_bestaetigung == 'krankenstand' && $value != 0):?>
+						<li>mindestens einen Krankenstand</li>
+					<?php elseif ($missing_bestaetigung == 'pflegeurlaub' && $value != 0):?>
+						<li>mindestens einen Pflegeurlaub</li>
+					<?php endif; ?>
+				<?php endforeach; ?>
+				</ul>
 			</div>
 
 			<!--POPUP WINDOW with document upload help information-->
@@ -1743,7 +1674,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 								<!--Abwesenheit: absence reasons & times-->
 								<td>
-								<?php foreach ($absent_times_arr as $absence): ?>
+								<?php foreach ($total_absences_arr as $absence): ?>
 									<?php if ($ts->timesheet_id == $absence->timesheet_id): ?>
 										<?php echo date_format(date_create($absence->von), 'd.m.Y'). ' - '. date_format(date_create($absence->bis), 'd.m.Y'). ': '. $absence->abwesenheitsgrund. "<br>" ?>
 									<?php endif; ?>
@@ -1752,7 +1683,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 								<!--Dokumente: link to documents-->
 								<td>
-								<?php foreach ($all_user_bestaetigungen as $bestaetigung): ?>
+								<?php foreach ($total_bestaetigungen_arr as $bestaetigung): ?>
 									<?php $date_bestaetigung = new DateTime($bestaetigung->datum); ?>
 									<?php if($ts_date->format('m-Y') == $date_bestaetigung->format('m-Y')): ?>
 										<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"

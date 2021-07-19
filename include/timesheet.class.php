@@ -358,7 +358,7 @@ class Timesheet extends basis_db
 	 * @param string $uid
 	 * @return boolean	True on success. If true, returns object-array with absences.
 	 */
-	public function getAllAbsentTimes($uid)
+	public function getAllAbsentTimes($uid, $timesheet_id = '')
 	{
 		// get absence for:
 		// DIENSTVERHINDERUNG, KRANK and PFLEGEURLAUB (from tbl_zeitsperre)
@@ -433,6 +433,20 @@ class Timesheet extends basis_db
 
 					$this->result[] = $obj;
 				}
+				
+				// If timesheet is given, check absences only for that timesheet
+				if (is_numeric($timesheet_id))
+				{
+					foreach ($this->result as $key => $absence)
+					{
+						if ($absence->timesheet_id != $timesheet_id)
+						{
+							unset($this->result[$key]);
+						}
+					}
+					
+				}
+				
 				return $this->result;
 			}
 			else
@@ -589,10 +603,13 @@ class Timesheet extends basis_db
 		{
 			$qry = '
 				SELECT
+					timesheet_id,
+					datum,
 					dms_id,
 					name,
 					beschreibung,
-					dokument_kurzbz
+					dokument_kurzbz,
+					tbl_dokument.bezeichnung as dokument_bezeichnung
 				FROM
 					campus.tbl_dms_version
 				JOIN
@@ -601,8 +618,14 @@ class Timesheet extends basis_db
 				JOIN
 					campus.tbl_dms
 				USING (dms_id)
+				JOIN
+					addon.tbl_casetime_timesheet
+				USING (timesheet_id)
+				JOIN
+					public.tbl_dokument
+				USING (dokument_kurzbz)
 				WHERE
-					tbl_casetime_timesheet_dms.timesheet_id=' . $this->db_add_param($timesheet_id, FHC_INTEGER);
+					tbl_casetime_timesheet_dms.timesheet_id=' . $this->db_add_param($timesheet_id);
 
 			if ($this->db_query($qry))
 			{
@@ -610,12 +633,15 @@ class Timesheet extends basis_db
 				{
 					$obj = new stdClass();
 
+					$obj->timesheet_id = $row->timesheet_id;
+					$obj->datum = $row->datum;
 					$obj->dms_id = $row->dms_id;
 					$obj->name = $row->name;
 					$obj->beschreibung = $row->beschreibung;
 					$obj->dokument_kurzbz = $row->dokument_kurzbz;
+					$obj->dokument_bezeichnung = $row->dokument_bezeichnung;
 
-					$this->result[] = $obj;
+					$this->result[]= $obj;
 				}
 
 				return $this->result;
@@ -638,7 +664,7 @@ class Timesheet extends basis_db
 	 * @param string $uid
 	 * @return boolean True on success. If true, returns object-array with all attests of this user.
 	 */
-	public function loadAllBestaetigungen_byUser($uid)
+	public function loadAllBestaetigungen_byUser($uid, $timesheet_id = '')
 	{
 		if (isset($uid) && !empty($uid))
 		{
@@ -685,6 +711,20 @@ class Timesheet extends basis_db
 					$obj->dokument_bezeichnung = $row->dokument_bezeichnung;
 
 					$this->result[] = $obj;
+				}
+				
+				if (is_numeric($timesheet_id))
+				{
+					$timesheet = new Timesheet();
+					$timesheet->load_byID($timesheet_id);
+					
+					foreach ($this->result as $key => $bestaetigung)
+					{
+						if($bestaetigung->datum != $timesheet->datum)
+						{
+							unset($this->result[$key]);
+						}
+					}
 				}
 
 				return $this->result;
@@ -1395,22 +1435,19 @@ class Timesheet extends basis_db
 	{
 		$timesheet = new Timesheet();
 		$timesheet->load_byID($timesheet_id);
+		
+		// Array to store missing bestaetigungen
+		$missing_bestaetigung_arr = array();
+		$missing_bestaetigung_arr['arztbesuch'] = 0;
+		$missing_bestaetigung_arr['behoerdenbesuch'] = 0;
+		$missing_bestaetigung_arr['krankenstand'] = 0;
+		$missing_bestaetigung_arr['plegeurlaub'] = 0;
 
 		// Get all absences of given UID
-		$absences = $timesheet->getAllAbsentTimes($uid);
-		
 		// If timesheet is given, check absences only for that timesheet
-		if (is_numeric($timesheet_id))
-		{
-			foreach ($absences as $key => $absence)
-			{
-				if ($absence->timesheet_id != $timesheet_id)
-				{
-					unset($absences[$key]);
-				}
-			}
-			
-		}
+		$absences = is_numeric($timesheet_id)
+			? $timesheet->getAllAbsentTimes($uid, $timesheet_id)
+			: $timesheet->getAllAbsentTimes($uid);
 
 		if (!empty($absences))
 		{
@@ -1449,20 +1486,11 @@ class Timesheet extends basis_db
 			}
 			
 			// Get all Bestaetigungen
-			unset($timesheet->result);
-			$bestaetigungen = $timesheet->loadAllBestaetigungen_byUser($uid);
-			
 			// If timesheet is given, only Bestaetigungen of that timesheets period are needed
-			if (is_numeric($timesheet_id))
-			{
-				foreach ($bestaetigungen as $key => $bestaetigung)
-				{
-					if($bestaetigung->datum != $timesheet->datum)
-					{
-						unset($bestaetigungen[$key]);
-					}
-				}
-			}
+			$timesheet = new Timesheet();
+			$bestaetigungen = is_numeric($timesheet_id)
+				? $timesheet->loadAllBestaetigungen_byTimesheet($timesheet_id)
+				: $timesheet->loadAllBestaetigungen_byUser($uid);
 			
 			// Count Bestaetigungen by type
 			$cnt_ab_doc = 0;	// counter arztbesuch bestätigungen
@@ -1488,11 +1516,38 @@ class Timesheet extends basis_db
 				}
 			}
 			
-			// Check if absences have their accoring Beestaetigung. Return true if Bestaetigung is missing.
+			// Store missing bestaetigungen by type
+			if ($cnt_ab > $cnt_ab_doc)
+			{
+				$missing_bestaetigung_arr['arztbesuch'] = $cnt_ab - $cnt_ab_doc;
+			}
+			if ($cnt_beh > $cnt_beh_doc)
+			{
+				$missing_bestaetigung_arr['behoerdenbesuch'] = $cnt_beh - $cnt_beh_doc;
+			}
+			// if one or more krankenstände there need to be at least one krankenstandsbestätigung
+			if ($cnt_kst >= 1 && $cnt_kst_doc == 0)
+			{
+				$missing_bestaetigung_arr['krankenstand'] = 1; // at least 1, no matter if more
+			}
+			if ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)
+			{
+				$missing_bestaetigung_arr['plegeurlaub'] = 1; // at least 1, no matter if more
+			}
+			
+			// ...and save them as result
+			$this->result = $missing_bestaetigung_arr;
+			
+			// Check if absences have their according Bestaetigung.
+			// Return true if Bestaetigung is missing.
 			return $cnt_ab > $cnt_ab_doc
 				|| $cnt_beh > $cnt_beh_doc
 				|| ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)  // if one or more Pflegeurlaub, at least one Bestaetigung
 				|| ($cnt_kst >= 1 && $cnt_kst_doc == 0); // if one or more Krankenstand, at least one Bestaetigung
 		}
+		
+		// If not even one single absence found
+		$this->result = $missing_bestaetigung_arr;
+		return false;
 	}
 }
