@@ -909,8 +909,46 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		// Save 'Vor Monatsende abschließen' - Checkbox value
         $("#vorzeitigAbgeschickt").change(function() {
             let timesheet_id = $(this).closest('form').find('input[name=timesheet_id]').val();
+            let submitButton = $('#submitTimesheet');
             let vorzeitig_abgeschickt = this.checked;
+            let alert_vorzeitigAbgeschickt = $('#alert-vorzeitigAbgeschickt');
+			let isSent = <?php echo json_encode($isSent) ?>;
+			let isAllowed_sendTimesheet = <?php echo json_encode($isAllowed_sendTimesheet) ?>;
+			let isPersonal = <?php echo json_encode($isPersonal) ?>;
+			let isVorgesetzter_indirekt = <?php echo json_encode($isVorgesetzter_indirekt) ?>;
+			let isVorgesetzter = <?php echo json_encode($isVorgesetzter) ?>;
+			let hasVorgesetzten = <?php echo json_encode($hasVorgesetzten) ?>;
+			let hasCaseTimeChanges_today = <?php echo json_encode($hasCaseTimeChanges_today) ?>;
+			let isSyncedWithCaseTime_today = <?php echo json_encode($isSyncedWithCaseTime_today) ?>;
+			
            
+            // If passed all checks, disable submit button if vorzeitig_abgeschickt is true
+            if (vorzeitig_abgeschickt)
+            {
+                submitButton.prop('disabled', true);
+                alert_vorzeitigAbgeschickt.removeClass('hidden');
+            }
+            // Otherwise enable submit button
+            else
+            {
+                submitButton.prop('disabled', false);
+                alert_vorzeitigAbgeschickt.addClass('hidden');
+            }
+            // But: Submit button must be disabled anyway if some of these checks are met
+            if (isSent ||
+                !isAllowed_sendTimesheet ||
+                isPersonal ||
+                isVorgesetzter_indirekt ||
+                isVorgesetzter ||
+                !hasVorgesetzten ||
+                hasCaseTimeChanges_today ||
+                !isSyncedWithCaseTime_today
+            )
+            {
+                submitButton.prop('disabled', true);
+            }
+			
+           // Change vorzeitig_abgeschickt in database
             $.ajax({
                 type: 'POST',
                 dataType: 'json',
@@ -1161,9 +1199,9 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
-						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
-						name="submitTimesheet" class="btn btn-default pull-right"
+					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
+						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+						name="submitTimesheet" id="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
 				</div>
 			</form>
@@ -1174,7 +1212,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<div class="panel-body col-xs-8">
 				<b>Monatsliste vorzeitig abschließen</b><br><br>
 				Wenn Sie vor Monatsende Ihre Zeitaufzeichnung beenden wollen (zB aufgrund Urlaub/Feiertage zu Monatsende), markieren Sie die Checkbox.<br>
-				Die Monatsliste wird dann zu Beginn des Folgemonats automatisch an Ihre Vorgesetzte / Ihren Vorgesetzten versendet werden.
+				Die Monatsliste wird dann zu Beginn des Folgemonats automatisch an Ihre Vorgesetzte / Ihren Vorgesetzten versendet werden und kann NICHT mehr direkt über den Button verschickt werden.
 			</div>
 
 			<div class="panel-body col-xs-4"><br>
@@ -1419,6 +1457,13 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
 		</div>
 		<?php endif; ?>
+
+		<!-- IF Checkbox 'Vor Monatsende abschließen' is checked, the button 'Monatsliste abschicken' is blocked -->
+		<div class="alert alert-info alert-dismissible text-center <?php echo $timesheet_vorzeitig_abgeschickt == 't' ? '' : 'hidden' ?>" role="alert" id="alert-vorzeitigAbgeschickt">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			Monatslisten können nicht mehr direkt verschickt werden, wenn Sie die Checkbox 'Vor Monatsende abschließen' markiert haben.<br>
+			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> wird im kommenden Monat automatisch versendet werden</b>.
+		</div>
 
 		<!-- IF document uploads are missing (after check against absences) -->
 		<?php if ($hasMissingBestaetigung): ?>
