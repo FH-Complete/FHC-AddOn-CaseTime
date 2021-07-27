@@ -512,7 +512,7 @@ $isSyncedWithCaseTime_today = true;	// false if has deleted Zeitaufzeichnung/Zei
 if ($date_selected != $date_actual)
 {
 	$timesheet = new Timesheet();
-	$hasCaseTimeChanges_today = $timesheet->hasAbsentTimes($uid, $date_selected);
+	$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday($uid, $date_selected);
 
 	$timesheet = new Timesheet();
 	$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes($uid, $date_selected);

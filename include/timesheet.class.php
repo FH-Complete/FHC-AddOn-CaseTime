@@ -468,7 +468,7 @@ class Timesheet extends basis_db
 	 * @param DateTime $date_monthlist	Casetime entries will be checked from first to last of the dates' month.
 	 * @return boolean	True if at least one Casetime insert/update found.
 	 * **/
-	public function hasAbsentTimes($uid, $date_monthlist)
+	public function hasNewOrChangedTimesToday($uid, $date_monthlist)
 	{
 		if (isset($uid) && !empty($uid))
 		{
@@ -489,16 +489,20 @@ class Timesheet extends basis_db
 							ende,
 							insertamum,
 							updateamum
+						-- Zeitaufzeichnung entries
 						FROM
 							campus.tbl_zeitaufzeichnung
+						-- ...for the given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
+						-- ...inserted or updated today
 						AND
 						(
 							insertamum::date = NOW()::date
 						OR
 							updateamum::date = NOW()::date
 						)
+						-- ...for the given monthlist
 						AND
 							start >= '". $first_day_monthlist. "'
 						AND
@@ -511,16 +515,20 @@ class Timesheet extends basis_db
 							bisdatum,
 							insertamum,
 							updateamum
+						-- Zeitsperre entries
 						FROM
 							campus.tbl_zeitsperre
+						-- ...for the given employee
 						WHERE
 							mitarbeiter_uid =  ". $this->db_add_param($uid). "
+						-- ...inserted or updated today
 						AND
 						(
 							insertamum::date = NOW()::date
 						OR
 							updateamum::date = NOW()::date
 						)
+						-- ...for the given monthlist
 						AND
 							vondatum >= '". $first_day_monthlist. "'
 						AND
@@ -1073,7 +1081,7 @@ class Timesheet extends basis_db
 		}
 	}
 
-	/** Check if user has deleted today any times within the active timesheet month
+	/** Check if user has changed or deleted today any times within the given timesheet month
 	 *
 	 * @param string $uid User ID.
 	 * @param DateTime $date_monthlist	Casetime entries will be checked from first to last of the dates' month.
@@ -1093,7 +1101,7 @@ class Timesheet extends basis_db
 
 				$last_day_monthlist = $date_monthlist->modify('last day of this month');
 				$last_day_monthlist = $last_day_monthlist->format('Y-m-d');
-
+				
 				// Check if user has deleted or changed start/ending times in zeitaufzeichnung
 				$qry = "
 					SELECT
@@ -1105,14 +1113,20 @@ class Timesheet extends basis_db
 							datum,
 							zeit_start,
 							zeit_ende
+						-- Zeitaufzeichnung entries
 						FROM
 							addon.tbl_casetime_zeitaufzeichnung
+						-- ...from given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
 						AND
+						-- ...with type KOMMEN
 							typ = 'ko'
+						-- ...for the given monthlist
 						AND
 							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
+						-- ...where working times (earlier start or later end) are not synchronized
+						-- ...except externe Lehre, Ersatzruhe and Dienstreise
 						AND
 						(
 							tbl_casetime_zeitaufzeichnung.zeit_start !=
@@ -1168,15 +1182,19 @@ class Timesheet extends basis_db
 					(
 						SELECT
 							zeitaufzeichnung_id
+						-- Zeitaufzeichnung entries
 						FROM
 							addon.tbl_casetime_zeitaufzeichnung
+						-- ...from given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
+						-- ...for the given monthlist
 						AND
 							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
+						-- ...for all types except KOMMEN
 						AND
 							typ != 'ko'
-
+						-- ...that are not synchronized
 						AND NOT EXISTS
 						(
 							SELECT
@@ -1199,13 +1217,17 @@ class Timesheet extends basis_db
 						SELECT
 							datum,
 							typ
+						-- Zeitaufzeichnung entries
 						FROM
 							addon.tbl_casetime_zeitsperre
+						-- ...from given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
+						-- ...for the given monthlist
 						AND
 							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
-
+						-- ...that are not synchronized
+						-- ...check only DienstF, DienstV, Krank, PflegeU, Urlaub, ZA
 						AND NOT EXISTS
 						(
 							SELECT

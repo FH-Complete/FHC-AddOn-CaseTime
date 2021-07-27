@@ -81,10 +81,29 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		$timesheet_vorzeitigAbgeschickt->uid,
 		$timesheet_vorzeitigAbgeschickt->timesheet_id
 	);
-
 	
-	// If no casetime error and no Bestaetigung is missing
-	if (!$hasCaseTimeError && !$hasMissingBestaetigung)
+	// Check if Casetime inserts / updated were made today
+	$timesheet = new Timesheet();
+	$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday(
+		$timesheet_vorzeitigAbgeschickt->uid,
+		$date_last_month
+	);
+	
+	// Check if times were deleted today
+	$timesheet = new Timesheet();
+	$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes(
+		$timesheet_vorzeitigAbgeschickt->uid,
+		$date_last_month
+	);
+	
+	// If no casetime error
+	// and no Bestaetigung is missing
+	// and no Casetime Inserts or Changes were made today
+	// and is synced with Casetime
+	if (!$hasCaseTimeError
+		&& !$hasMissingBestaetigung
+		&& !$hasCaseTimeChanges_today
+		&& $isSyncedWithCaseTime_today)
 	{
 		// Get Vorgesetzte
 		$mitarbeiter = new Mitarbeiter();
@@ -136,7 +155,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		}
 	}
 	// Elseif casetime error exist or at least one Bestaetigung is missing
-	else
+	elseif ($hasCaseTimeError || $hasMissingBestaetigung)
 	{
 		// Reset vorzeitig_abgeschickt to FALSE
 		$timesheet = new Timesheet();
