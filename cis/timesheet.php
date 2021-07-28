@@ -302,7 +302,8 @@ foreach ($timesheet_arr as $ts)
 	{
 		if ($ts_date < $date_selected)
 		{
-			$isDisabled_by_formerUnsentTimesheet = true;
+			if(CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum))
+				$isDisabled_by_formerUnsentTimesheet = true;
 		}
 	}
 
@@ -363,6 +364,22 @@ $missing_timesheet_arr = array_reverse($missing_timesheet_arr);
 // Merge missing dummy timesheets with timesheet array
 $merged_timesheet_arr = array_merge($missing_timesheet_arr, $timesheet_arr);
 
+function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
+{
+	$ts_date = new DateTime('first day of '. $datum. ' midnight');
+	$startdatum = $ts_date->format('Y-m-d');
+
+	$zp = false;
+	foreach ($verwendung_arr as $bv)
+	{
+		if($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
+		{
+			$zp = true;
+		}
+	}
+	return $zp;
+}
+
 // Get data of merged timesheet array (missing and existing timesheets)
 $timesheet_year_arr = array();	// unique timesheet years to set title in "Alle Monatslisten" - panel
 $date_allow_new_ts = clone $date_actual;	// date of timesheet to be created
@@ -380,7 +397,12 @@ foreach ($merged_timesheet_arr as $ts)
 	// find first of dummy timesheets; this is the one to create the next timesheet
 	if (is_null($ts->timesheet_id))
 	{
-		$date_allow_new_ts = clone $ts_date;
+		$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum);
+
+		if($zp)
+		{
+			$date_allow_new_ts = clone $ts_date;
+		}
 	}
 }
 
@@ -395,6 +417,14 @@ if ($date_allow_new_ts < $date_selected ||
 	$date_selected < $date_earliest_ts)
 {
 	$isAllowed_createTimesheet = false;
+}
+
+if($isAllowed_createTimesheet)
+{
+	if(!CheckisZeitaufzeichnungspflichtig($verwendung_arr,$date_selected->format('Y-m-d')))
+	{
+		$isAllowed_createTimesheet = false;
+	}
 }
 
 // Flag if timesheets are missing up to selected date
@@ -1225,7 +1255,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
+					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip" ' : '';
 						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
@@ -1522,7 +1552,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 	<!--************************************		ALERTS FOR SUPERVISOR or PERSONNEL DEPARTMENT-->
 
-	<!-- IF uid is SUPERVISOR, INDIRECT SUPERVISOR or PERSONNEL MANAGER
+	<!-- IF uid is SUPERVISOR, INDIRECT SUPERVISOR or PERSONNEL MANAGER-->
 	<?php if ($isVorgesetzter || $isPersonal || $isVorgesetzter_indirekt): ?>
 		<!-- Info WHEN new timesheet was created and is NOT disabled by missing timesheets -->
 		<?php if (!$isDisabled_by_missingTimesheet): ?>
@@ -1626,27 +1656,20 @@ function checkCaseTimeErrors($uid, $month, $year)
 							<th>Abgeschickt am</th>
 							<th>Genehmigt</th>
 						</tr>
-                        <?php $merged_timesheet_arr = array_reverse($merged_timesheet_arr); ?>
 						<!--loop through all timesheets-->
 						<?php foreach ($merged_timesheet_arr as $ts): ?>
 							<?php $ts_date = new DateTime('first day of '. $ts->datum. ' midnight'); ?>
                             <?php
-                                $zp = false;
-                                foreach ($verwendung_arr as $bv)
-                                {
-                                    if($bv->inZeitaufzeichnungspflichtigPeriod($ts->datum))
-                                    {
-                                        $zp = true;
-                                    }
-                                }
+								$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum);
                             ?>
-
-							<!--if timesheet is in the looped year, then show timesheet information in this table-->
-							<?php if ($ts_date->format('Y') == $year): ?>
+							<?php
+							//if timesheet is in the looped year, then show timesheet information in this table
+							if ($ts_date->format('Y') == $year):
+							?>
 							<tr>
 								<!--Monatsliste: link to monthlist-->
 								<!--URL to existing timesheets-->
-								<?php if ($ts_date < $date_allow_new_ts || $ts_date == $date_last_timesheet && $zp): ?>
+								<?php if (($ts_date < $date_allow_new_ts || $ts_date == $date_last_timesheet) && $zp): ?>
 									<td>
 										<!--for supervisors, personnel department & timesheet manager-->
 										<?php if ($isVorgesetzter || $isPersonal || $isVorgesetzter_indirekt || $isTimesheetManager): ?>
@@ -1665,7 +1688,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 										<?php endif; ?>
 									</td>
 
-								<!--URL for missing timesheet to be created TODO!-->
+								<!--URL for missing timesheet to be created-->
 								<?php elseif($ts_date == $date_allow_new_ts && is_null($ts->timesheet_id) && $zp): ?>
 									<td>
 										<!--supervisors & personnel department: text only-->
@@ -1698,9 +1721,6 @@ function checkCaseTimeErrors($uid, $month, $year)
 								<?php elseif (!$zp): ?>
 									<td><?php echo $monatsname[$sprache_index][$ts_date->format('n') - 1]. ' '. $ts_date->format('Y') ?>
 										<span class="label pull-right text-uppercase" style="background-color: lightgrey;">nicht zeitaufzeichnungspflichtig</span>
-										<?php if ($ts_date <= $date_allow_new_ts): ?>
-                                            <?php    $date_allow_new_ts->add(new DateInterval("P1M")); ?>
-                                        <?php endif; ?>
 									</td>
 
 
@@ -1818,8 +1838,6 @@ function checkCaseTimeErrors($uid, $month, $year)
 </div><!--/.col-xs-4-->
 </div><!--/.row-->
 
-</body>
-</html>
 
 <?php
 // NOTE: Code at the END of script to recognize JS-methods
@@ -1841,3 +1859,6 @@ if (isset($_GET['saved']) && $_GET['saved'] == true)
 		'</script>';
 }
 ?>
+
+</body>
+</html>
