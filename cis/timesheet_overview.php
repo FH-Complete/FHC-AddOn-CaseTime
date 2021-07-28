@@ -827,9 +827,9 @@ function sortEmployeesName($employee1, $employee2)
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
 						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
 				</th>
-				<th data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">Urlaubstage
+				<th data-toggle="tooltip" title="Verfügbare Urlaubstage / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Aktueller Stand / Urlaubsanspruch">
+						data-toggle="tooltip" title="Verfügbare Urlaubstage / Urlaubsanspruch&#010;Diese Anzeige berücksichtigt alle freigegebenen Urlaubstage">
 					</i>
 				</th>
 				<?php echo ($isPersonal) ? '<th>Kontrolliert am</th>' : '' ?>

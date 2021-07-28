@@ -21,6 +21,7 @@
  * Initialisierung des Addons
  */
 require_once('../../../config/cis.config.inc.php');
+require_once('../config.inc.php');
 /*
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/functions.inc.php');
@@ -36,6 +37,13 @@ if($auth->isUserLoggedIn())
 else
 	$rechte = new benutzerberechtigung();
 */
+
+// Liste von benutzerdefinierten Blockierenden Zeitfehlern
+$casetime_blocking_err = array();
+if (defined('CASETIME_BLOCKING_ERR') && !empty(CASETIME_BLOCKING_ERR))
+{
+	$casetime_blocking_err = unserialize(CASETIME_BLOCKING_ERR);
+}
 ?>
 if(typeof addon =='undefined')
 	var addon=Array();
@@ -59,8 +67,20 @@ addon.push(
 				AddonCaseTimeLoadZeitsaldo(params.uid, params.exportXLS);
 				break;
 
-			case 'cis/private/profile/urlaubstool.php':
 			case 'cis/private/profile/zeitsperre_resturlaub.php':
+				AddonCaseTimeCreateDatesForFeiertage(params.uid, params.holiDays);
+				if (params.uid)
+				{
+					AddonCaseTimeShowUrlaub(params.uid);
+				}
+				break;
+			case 'cis/private/profile/urlaubstool.php':
+				AddonCaseTimeShowFeiertage(params.uid);
+				if (params.uid)
+				{
+					AddonCaseTimeShowUrlaub(params.uid);
+				}
+				break;
 			case 'cis/private/profile/urlaubsfreigabe.php':
 				if (params.uid)
 				{
@@ -73,6 +93,64 @@ addon.push(
 		}
 	}
 });
+
+function AddonCaseTimeCreateDatesForFeiertage(uid, holiDays)
+{
+	let dates = $.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid='+uid,
+		success: function (result)
+		{
+			if(Array.isArray(result))
+			{
+				let dates = result.map(x => x[0])
+
+				for (i in dates)
+				{
+					date = dates[i].split(".")
+					day = Number(date[0])
+					month = Number(date[1])
+					year = Number(date[2])
+					holiDays.push([year, month, day, ""])
+				}
+			}
+		},
+		error: function(){
+			console.log("Error Casetime Load");
+		}
+	});
+	return dates
+}
+
+function AddonCaseTimeShowFeiertage(uid)
+{
+	$.ajax({
+		type: "GET",
+		dataType: 'json',
+		url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allFeiertage.php?uid='+uid,
+		success: function (result)
+		{
+			if(Array.isArray(result))
+			{
+				let dates = result.map(x => x[0])
+				for (i in dates)
+				{
+					let found = document.getElementById(dates[i])
+					if (found !== null)
+					{
+						let parent = found.parentElement
+						parent.style.backgroundColor = "#65b3e7"
+						parent.innerHTML += "<div style=' font-size: 13px; '>Feiertag</div>"
+					}
+				}
+			}
+		},
+		error: function(){
+			console.log("Error Casetime Load");
+		}
+	});
+}
 
 /**
  * Urlaubsstand in urlaubstool.php anzeigen
@@ -182,8 +260,24 @@ function AddonCaseTimeLoadErrors(uid)
 				// Fehlermeldungen direkt beim betreffenden Tag anzeigen
 				if($('#'+tagid).length)
 				{
-					$('#'+tagid).css('color','red');
-					$('#'+tagid).append(' <img src="<?php echo APP_ROOT;?>/skin/images/exclamation.png"> '+tag+' '+message);
+                    // Config-Array mit blockierenden Fehlermeldungen holen
+                    const casetime_blocking_err = <?php echo json_encode($casetime_blocking_err) ?>;
+
+                    // Prüfen, ob Zeitfehler blockierend ist
+                    let has_blocking_error = casetime_blocking_err.some(
+                        (blocking_error) => message.includes(blocking_error)
+                    );
+
+                    // Blockierende Zeitfehler hervorheben
+                    has_blocking_error
+                        ? $('#'+tagid)
+                            .css('color', 'red')
+                            .append(' <img src="<?php echo APP_ROOT;?>/skin/images/exclamation.png"> ')
+                            .append((message).toUpperCase())
+                        : $('#'+tagid)
+                            .css('color','steelblue')
+                            .append(' <img src="<?php echo APP_ROOT;?>/skin/images/information.png"> ')
+                            .append((message).toUpperCase());
 				}
 				else
 				{

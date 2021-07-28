@@ -21,11 +21,18 @@
  * Initialisierung des Addons
  */
 require_once('../../../config/cis.config.inc.php');
+require_once('config.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../../../include/functions.inc.php');
 $uid = get_uid();
 $rechte = new benutzerberechtigung();
 $rechte->getBerechtigungen($uid);
+
+$casetime_blocking_err = array();
+if (defined('CASETIME_BLOCKING_ERR') && !empty(CASETIME_BLOCKING_ERR))
+{
+	$casetime_blocking_err = unserialize(CASETIME_BLOCKING_ERR);
+}
 
 ?>
 if(typeof addon =='undefined')
@@ -172,8 +179,24 @@ function AddonCaseTimeLoadErrors(uid)
 				// Fehlermeldungen direkt beim betreffenden Tag anzeigen
 				if($('#'+tagid).length)
 				{
-					$('#'+tagid).css('color','red');
-					$('#'+tagid).append(' <img src="<?php echo APP_ROOT;?>/skin/images/exclamation.png"> '+tag+' '+message);
+                    // Config-Array mit blockierenden Fehlermeldungen holen
+                    const casetime_blocking_err = <?php echo json_encode($casetime_blocking_err) ?>;
+
+                    // Prüfen, ob Zeitfehler blockierend ist
+                    let has_blocking_error = casetime_blocking_err.some(
+                        (blocking_error) => message.includes(blocking_error)
+                );
+
+                    // Blockierende Zeitfehler hervorheben
+                    has_blocking_error
+                        ? $('#'+tagid)
+                            .css('color', 'red')
+                            .append(' <img src="<?php echo APP_ROOT;?>/skin/images/exclamation.png"> ')
+                            .append((message).toUpperCase())
+                        : $('#'+tagid)
+                            .css('color','steelblue')
+                            .append(' <img src="<?php echo APP_ROOT;?>/skin/images/information.png"> ')
+                            .append((message).toUpperCase());
 				}
 				else
 				{
