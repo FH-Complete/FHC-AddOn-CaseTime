@@ -72,13 +72,28 @@ def get_urlaubsaldo(self, sachb):
     erg = self.sql_execute(dbconn,sql_str)
     error = erg[0]
     urlaubstage = erg[1][0][0]
-    #uzuebertrag = erg[1][0][1]
+
+    sql_str = """select sum(stunden) from ma_zeit where sachb='%(sachb)s' and lohnart = 'UZST' and buchdat >= '%(jahr)s-09-01'
+        """ % vars_dict
+    erg = self.sql_execute(dbconn,sql_str)
+    error = erg[0]
+    uzuebertrag = erg[1][0][0]
+
+    sql_str = """select sum(stunden) from ma_zeit where sachb='%(sachb)s' and lohnart = 'UZSTN' and buchdat >= '%(jahr)s-09-01'
+            """ % vars_dict
+    erg = self.sql_execute(dbconn,sql_str)
+    error = erg[0]
+    uzuebertragNegativ = erg[1][0][0]
     if not urlaubstage:
         urlaubstage = 0
-    #if not uzuebertrag:
-    #    uzuebertrag = 0
+    if not uzuebertrag:
+        uzuebertrag = 0
+    if not uzuebertragNegativ:
+        uzuebertragNegativ = 0
+
     data_dict["Urlaubsanspruch"] = urlaubstage
-    
+    data_dict["uzuebertrag"] = uzuebertrag
+    data_dict["uzuebertragNegativ"] = uzuebertragNegativ
     if len(error) > 0:
         ret_dict['STATUS']='ERR'
         ret_dict['RESULT'] = str(error[0])
