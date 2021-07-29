@@ -214,6 +214,8 @@ class casetime extends basis_db
 			ausgenommen jener User die einer OE (oder untergeordneten) zugeordnet sind die nicht übertragen werden soll
 			ausgenommen der User die explizit ausgenommen sind
 			plus User die explizit hinzugefuegt werden sollen
+
+			Es werden 3 Tage abgezogen da sonst der letzte Tag nicht uebertragen werden bei Personen die ausscheiden
 		*/
 		$qry = "SELECT
 					uid
@@ -224,7 +226,7 @@ class casetime extends basis_db
 					tbl_benutzer.aktiv
 					AND tbl_benutzerfunktion.funktion_kurzbz='oezuordnung'
 					AND (datum_von is null OR datum_von<=now()::date)
-					AND (datum_bis is null OR datum_bis>=now()::date)
+					AND (datum_bis is null OR datum_bis>=(now()-'3 days'::interval)::date)
 					AND oe_kurzbz IN(
 						WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as
 						(
@@ -248,7 +250,7 @@ class casetime extends basis_db
 							tbl_benutzer.aktiv
 							AND tbl_benutzerfunktion.funktion_kurzbz='oezuordnung'
 							AND (datum_von is null OR datum_von<=now()::date)
-							AND (datum_bis is null OR datum_bis>=now()::date)
+							AND (datum_bis is null OR datum_bis>=(now()-'3 days'::interval)::date)
 							AND oe_kurzbz IN(
 								WITH RECURSIVE oes(oe_kurzbz, oe_parent_kurzbz) as
 								(

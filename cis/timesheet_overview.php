@@ -460,7 +460,7 @@ foreach($employee_uid_arr as $employee_uid)
 
 	// Flag if user has obligation to record times
 	$isZeitaufzeichnungspflichtig = false;
-
+    $azg = false;
 	// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
 	$bisverwendung = new bisverwendung();
 	$now = new DateTime('today');
@@ -473,6 +473,10 @@ foreach($employee_uid_arr as $employee_uid)
 		{
 			$vertragsstunden = $verwendung->vertragsstunden;
 		}
+		if($verwendung->azgrelevant)
+        {
+            $azg = true;
+        }
 		if($verwendung->zeitaufzeichnungspflichtig)
 		{
 			$isZeitaufzeichnungspflichtig = true;
@@ -615,6 +619,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_date = $last_cntrl_date;
 		$obj->last_cntrl_uid = $last_cntrl_uid;
 		$obj->last_cntrl_remark = $last_cntrl_remark;
+		$obj->azg = $azg;	// boolean
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig;	// boolean
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
@@ -640,6 +645,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_date = $last_cntrl_date;	//empty
 		$obj->last_cntrl_uid = $last_cntrl_uid;	//empty
 		$obj->last_cntrl_remark = $last_cntrl_remark;	//empty
+		$obj->azg = $azg;	// boolean
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig; // boolean
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
@@ -798,6 +804,7 @@ function sortEmployeesName($employee1, $employee2)
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
 				<td></td>
 				<td></td>
+                <td></td>
 				<td colspan="2" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
@@ -807,6 +814,7 @@ function sortEmployeesName($employee1, $employee2)
 				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>
 				<th>AZG anwendbar</th>
+                <th>Zeitaufzeichnungspflichtig</th>
 				<!--<th>Status</th>-->
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
@@ -852,10 +860,16 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
+					<?php if ($employee->azg): ?>
 						<td class='text-center'>ja</td>
 					<?php else: ?>
 						<td class='text-center'>nein</td>
+					<?php endif; ?>
+
+					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
+                        <td class='text-center'>ja</td>
+					<?php else: ?>
+                        <td class='text-center'>nein</td>
 					<?php endif; ?>
 
 					<!--status-->
@@ -946,10 +960,17 @@ function sortEmployeesName($employee1, $employee2)
 						<td>
 							<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;"
 								  data-toggle="tooltip" title="Noch keine Monatsliste vorhanden. Als Timesheetmanager können sie die erste anlegen.">erstanlage</span>
-							<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=true"><?php echo $employee->nachname. ' '. $employee->vorname ?>
+							<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=false"><?php echo $employee->nachname. ' '. $employee->vorname ?>
 						</td>
 					<?php else: ?>
 						<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+					<?php endif; ?>
+
+                    <!--obligated to record times (zeitaufzeichnungspflichtig)-->
+					<?php if ($employee->azg): ?>
+                        <td class='text-center'>ja</td>
+					<?php else: ?>
+                        <td class='text-center'>nein</td>
 					<?php endif; ?>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
