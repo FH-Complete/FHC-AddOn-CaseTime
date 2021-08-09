@@ -519,6 +519,48 @@ function getCastTimeUrlaubssaldo($uid)
 }
 
 /**
+ * Sendet einen Request an den CaseTime Server um den Saldenübertrag zu Monatsbeginn und -ende abzufragen
+ * @param $uid
+ * @param $datum1   String  Date Format: d.m.Y
+ * @param $datum2   String  Date Format: d.m.Y
+ * @return bool|string
+ */
+function getCaseTimeMonatslistenSalden($uid, $datum1, $datum2)
+{
+	$ch = curl_init();
+	
+	$url = CASETIME_SERVER.'/sync/get_monatslisten_salden';
+	
+	$params = 'sachb='. $uid. '&datumt1='. $datum1.'&datumt2='. $datum2;
+	
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+	
+	$result = curl_exec($ch);
+	
+	if(curl_errno($ch))
+	{
+		return 'Curl error: ' . curl_error($ch);
+		curl_close($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+		
+		if(isset($data->STATUS) && $data->STATUS=='OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return false;
+	}
+}
+
+/**
  * Sendet einen Request an den CaseTime Server um eine Monatsliste zu generieren und am Casetime Server abzulegen
  */
 function generateCaseTimeTimesheet($uid, $month, $year, $ftype)
