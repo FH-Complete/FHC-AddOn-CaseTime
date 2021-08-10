@@ -32,6 +32,7 @@ require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/bisverwendung.class.php');
 require_once('../../../include/sancho.inc.php');
+require_once('../../../include/zeitaufzeichnung.class.php');
 require_once('../include/functions.inc.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees in timesheet_overview.php
@@ -605,6 +606,86 @@ foreach ($all_actualMonth_bestaetigungen as $actual_bestaetigung)
 	}
 }
 
+// Get Saldenuebertrag at Monatsbeginn and (up to) Monatsende of selected monatsliste
+// First day of selected monthlist
+$date_firstSaldo = clone $date_selected;
+$date_firstSaldo->modify('last day of last month');	// last day of LAST month
+
+// Last day of selected monthlist
+$date_lastSaldo = clone $date_selected;
+$date_lastSaldo->modify('last day of this month');	// last day of THIS month
+
+
+$monatslisten_salden = getCaseTimeMonatslistenSalden(
+		$uid,
+		$date_firstSaldo->format('d.m.Y'),
+		$date_lastSaldo->format('d.m.Y')
+);
+
+// Get days with > 10 working hours
+$zeitaufzeichnung = new Zeitaufzeichnung();
+$zeitaufzeichnung->getListeUserFromTo(
+		$uid,
+		$date_firstSaldo->format('Y-m-d'),
+		$date_lastSaldo->format('Y-m-d'),
+		array(
+				'Pause',
+				'LehreExtern',
+				'Ersatzruhe'
+		)	// excluded activities
+);
+
+$zeitaufzeichnung_arr = $zeitaufzeichnung->result;
+
+$work_day = '';
+$max_daily_hours = 10 * 60 * 60; // 10 hours
+$sum_daily_hours = 0;
+$overwork_arr = array();
+
+if (!empty($zeitaufzeichnung_arr))
+{
+	$length = count($zeitaufzeichnung_arr);
+	
+	for ($i = 0; $i < $length; $i++)
+	{
+		$datum = new DateTime($zeitaufzeichnung_arr[$i]->datum. ' midnight');
+		$start = new DateTime($zeitaufzeichnung_arr[$i]->start);
+		$ende = new DateTime($zeitaufzeichnung_arr[$i]->ende);
+		
+		// If datum is same day
+		if ($work_day == $datum)
+		{
+			// Add working hours
+			$sum_daily_hours += $ende->getTimestamp() - $start->getTimestamp();
+		}
+		
+		// If datum is not same day or datum is last day
+		if ($work_day != $datum || $i == ($length - 1))
+		{
+			// If employee worked more than max day limit
+			If (($sum_daily_hours - $max_daily_hours) > 0)
+			{
+				// Store date and overworking time
+				$obj = new StdClass();
+				$obj->datum = $work_day->format('d.m.Y');
+				$obj->sum_daily_hours = DateTime::createFromFormat('U', $sum_daily_hours)->format('H:i');
+				
+				$overwork_arr[]= $obj;
+			}
+		}
+		
+		// If datum is not same day or datum is first day
+		if ($work_day != $datum || $i == 0)
+		{
+			// Start summing up working hours
+			$sum_daily_hours = $ende->getTimestamp() - $start->getTimestamp();
+		}
+		
+		$work_day = $datum;
+	}
+}
+
+
 // *********************************	CASETIME CHECKS
 // Check if user made any changes in Zeitaufzeichnung today concerning the month period of selected date
 $hasCaseTimeChanges_today = false;	// true if has inserted/updated Zeitaufzeichnung today
@@ -1046,7 +1127,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php endif; ?>
 
 		<!--title-->
-		<h3>Zeitaufzeichnung - Monatslisten von <?php echo $full_name.' ('.$mitarbeiter->uid.')' ?></h3>
+		<h3>Zeitaufzeichnung - Monatslisten von <br><?php echo $full_name.' ('.$mitarbeiter->uid.')' ?></h3>
 		<br>
 
 		<!--************************************	PANEL ACTUAL TIMESHEET	 -->
@@ -1090,16 +1171,51 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 		<!--panel: DOWNLOAD timesheet-->
 		<div class="row">
-			<div class="panel-body col-xs-8">
-				<b>Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> herunterladen</b><br><br>
-				Diese Liste ist nur für Ihren Bedarf und Ihre Eigenkontrolle.<br>
-				Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
+			<div class="panel-body col-xs-12">
+				<b>Überblick <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?></b><br><br>
+				
+				<table class="table table-bordered table-condensed">
+					<tbody>
+						<tr>
+							<th colspan="4">Zeitsaldo</th>
+						</tr>
+						<tr>
+							<td>Zu Monatsbeginn</td>
+							<td><?php echo round($monatslisten_salden->saldot1, 2) ?></td>
+							<td><?php echo ($date_actual == $date_selected) ? 'Aktuell bis gestern' : 'Zu Monatsende' ?></td>
+							<td><?php echo round($monatslisten_salden->saldot2, 2) ?></td>
+						</tr>
+						<tr>
+							<th colspan="4">Tage über 10 Stunden</th>
+						</tr>
+						<?php foreach($overwork_arr as $overwork): ?>
+						<tr>
+							<td>Datum</td>
+							<td><?php echo $overwork->datum ?></td>
+							<td>Stunden</td>
+							<td><?php echo $overwork->sum_daily_hours ?></td>
+						</tr>
+						<?php endforeach; ?>
+						<?php if (empty($overwork_arr)): ?>
+							<td colspan="4">Keine Tage über 10 Stunden vorhanden.</td>
+						<?php endif; ?>
+					</tbody>
+				</table>
 			</div>
-			<div class="panel-body col-xs-4"><br>
-				<a role="button" class="btn btn-default pull-right"
-					href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
-					target="_blank">Monatsliste herunterladen
+			<div class="panel-body col-xs-12">
+				<a class="pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
+					<span class="pull-right text-uppercase"><u>Zu meiner Zeitaufzeichnung</u></span>
 				</a>
+				<span>
+					<?php if (!$isSent): ?>
+						<b>Zeitaufzeichnung prüfen & bearbeiten</b>
+					<?php else: ?>
+						<b>Zeitaufzeichnung einsehen</b>
+					<?php endif; ?>
+				</span>
+				<br><br>
+				<a href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
+				   target="_blank" class="text-muted"><small><u>(Monatsliste herunterladen)</u></small></a>
 			</div>
 		</div>
 

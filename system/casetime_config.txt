@@ -20,6 +20,10 @@ Konfiguration CaseTime
 ** Module Name: fhtw_get_all_feiertage
 ** Function Name: get_all_feiertage
 
+* fhtw_get_monatslisten_salden.py
+** Module Name: fhtw_get_monatslisten_salden
+** Function Name: get_monatslisten_salden
+
 * fhtw_get_zeitfehler.py
 ** Module Name: fhtw_get_zeitfehler
 ** Function Name: get_zeitfehler
