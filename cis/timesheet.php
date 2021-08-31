@@ -1181,9 +1181,9 @@ function checkCaseTimeErrors($uid, $month, $year)
 						</tr>
 						<tr>
 							<td>Zu Monatsbeginn</td>
-							<td><?php echo round($monatslisten_salden->saldot1, 2) ?></td>
+							<td><?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot1, 2) ?></td>
 							<td><?php echo ($date_actual == $date_selected) ? 'Aktuell bis gestern' : 'Zu Monatsende' ?></td>
-							<td><?php echo round($monatslisten_salden->saldot2, 2) ?></td>
+							<td><?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot2, 2) ?></td>
 						</tr>
 						<tr>
 							<th colspan="4">Tage über 10 Stunden</th>
