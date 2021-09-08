@@ -30,9 +30,9 @@ require_once('../include/functions.inc.php');  // casetime functions.inc
 $uid = get_uid();
 
 // generate timesheet and mail
-if(!isset($_GET['download']))
+if (!isset($_GET['download']))
 	{
-	if(isset($_GET['uid']))
+	if (isset($_GET['uid']))
 		$username = $_GET['uid'];
 
 	if (isset($_GET['monat']))
@@ -51,13 +51,17 @@ if(!isset($_GET['download']))
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 
+	$mas = new mitarbeiter();
+	$mas->getUntergebene($uid, true);
+	$untergebenen_arr = array();
+	$untergebenen_arr = $mas->untergebene;
+
 	// Wenn es nicht der eigene Eintrag ist, muss man admin sein
-	if(isset($_GET['uid']) && $username!=$uid)
+	// oder Vorgesetzter, der ausschließlich auf Files seiner MA sichtberechtigt ist
+	if (isset($_GET['uid']) && $username != $uid)
 	{
-
-		if(!$rechte->isBerechtigt('admin'))
+		if(!$rechte->isBerechtigt('admin') && !(in_array($username, $untergebenen_arr)))
 			die('Sie haben keine Berechtigung fuer diese Seite');
-
 	}
 
 	if (!$rechte->isBerechtigt('addon/casetimeGenerateXLS'))
@@ -72,8 +76,8 @@ if(!isset($_GET['download']))
 }
 
 // generate timesheet and download in browser
-if(isset($_GET['download']))
-{	
+if (isset($_GET['download']))
+{
 	if (isset($_GET['uid']) && !empty($_GET['uid']) &&
 		isset($_GET['monat']) && !empty($_GET['monat']) &&
 		isset($_GET['jahr']) && !empty($_GET['jahr']))
@@ -86,7 +90,7 @@ if(isset($_GET['download']))
 		$isPersonal = false;
 		$isVorgesetzter = false;
 		$isVorgesetzter_indirekt = false;
-		
+
 		// Check if timesheet belongs to uid
 		$isTimesheetOwner = ($uid == $timesheet_uid) ? true : false;		// bool for permission check; true if timesheet belongs to uid
 
@@ -111,23 +115,23 @@ if(isset($_GET['download']))
 			{
 				$isVorgesetzter = true;
 			}
-			
+
 			// Check if uid is a supervisor on higher oe-leve
 			$mitarbeiter = new Mitarbeiter();
 			$isVorgesetzter_indirekt = $mitarbeiter->check_isVorgesetzter_indirekt($uid, $timesheet_uid);
 		}
-		
-		
+
+
 		// Permission check
 		// * limited permission for request param timesheet_id
 		if (!$isTimesheetOwner &&
-			!$isPersonal &&	
+			!$isPersonal &&
 			!$isVorgesetzter &&
-			!$isVorgesetzter_indirekt)	
+			!$isVorgesetzter_indirekt)
 		{
 			die('Sie haben keine Berechtigung für diese Seite');
 		}
-	
+
 		// get casetime server filepath with filename
 		$sysFile = generateCaseTimeTimesheet($timesheet_uid, $month, $year, $ftype);
 
@@ -138,7 +142,6 @@ if(isset($_GET['download']))
 	{
 		echo 'UID, Monat oder Jahr nicht vorhanden oder inkorrekt.';
 	}
-		
 }
 
 ?>
