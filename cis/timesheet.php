@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  *
  * Authors:	Cristina Hainberger		<hainberg@technikum-wien.at>
+ *			Manuela Thamer			<manuela.thamer@technikum-wien.at>
  */
 require_once('../../../config/cis.config.inc.php');
 require_once('../config.inc.php');
@@ -33,6 +34,8 @@ require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/bisverwendung.class.php');
 require_once('../../../include/sancho.inc.php');
 require_once('../include/functions.inc.php');
+require_once('../../../include/zeitsperre.class.php');
+
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees in timesheet_overview.php
 
@@ -87,6 +90,14 @@ $isPersonal = false;	// true if uid has personnel departments permission
 $isVorgesetzter = false;	// true if uid is supervisor
 $isVorgesetzter_indirekt = false;	//true if uid supervisor on higher oe level (not direct supervisor of employee)
 
+//manu
+$isVorgesetzterWithZeitsperre = false; //true if supervisor has Zeitsperre
+
+//check ifsupervisor of person has zeitsperre
+echo "supervisor indirekt: " . $uid;
+echo "<br>";
+
+
 
 // If GET-REQUEST: Check if uid is supervisor, indirect supervisor, personnel- or timesheet manager
 if (isset($_GET['timesheet_id']))
@@ -116,9 +127,48 @@ if (isset($_GET['timesheet_id']))
 	$month = $timesheet_date->format('m');
 
 	// Get the uid of the timesheet_id
+	//manu
 	if ($timesheet->getUser($timesheet_id))
 	{
-		$employee_uid = $timesheet->getUser($timesheet_id);
+		echo "mitarbeiter: " . $employee_uid = $timesheet->getUser($timesheet_id);
+		echo "<br>";
+		echo "direkter Vorgesetzter: ";
+		$mitarbeiter = new Mitarbeiter();
+		$mitarbeiter->getVorgesetzte($employee_uid);
+		$chef_arr = array();
+		$chef_arr = $mitarbeiter->vorgesetzte;
+		foreach ($chef_arr as $k=>$v)
+		{
+			echo $v . "<br>";
+			$dirVor = $v;
+		}
+		//var_dump($chef_arr);
+
+		//check ob zeitsperre eingetragen (heutiger Tag)
+		$zeitsperre = new zeitsperre();
+		$zeitsperre->getZeitsperrenForZeitaufzeichnung($dirVor,'50');
+		$zeitsperren = $zeitsperre->result;
+
+		// $now = new DateTime('today');
+		// echo $now = $now->format('Y-m-d');
+
+		$now = '2021-09-09';
+
+		if (array_key_exists($now, $zeitsperren))
+		{
+			echo '<span style="color:red"><br>Zeitsperre für ' . $now . ' und ' . $dirVor . ' vorhanden</span><br>';
+			$isVorgesetzterWithZeitsperre = true;
+
+			$ben = new benutzer();
+			$ben->load($dirVor);
+		}
+		else
+		{
+			echo "Keine Zeitsperre für " . $now;
+		}
+
+
+
 	}
 	else
 	{
@@ -1064,11 +1114,23 @@ function checkCaseTimeErrors($uid, $month, $year)
 <div class="row">
 <div class="col-xs-8">
 	<!--information panel IF uid is INDIRECT SUPERVISOR-->
-	<?php if (!$isFuture && ($isVorgesetzter_indirekt  && !$isVorgesetzter)): ?>
+	<?php if (!$isFuture && ($isVorgesetzter_indirekt  && !$isVorgesetzter && !$isVorgesetzterWithZeitsperre)): ?>
 	<div class="panel panel-default">
 		<div class="panel-body text-danger">
 			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
 			<b>Sie sind INDIREKT VORGESETZT. </b>Sie können Monatlisten einsehen, aber nicht genehmigen oder retournieren.
+		</div>
+	</div>
+	<?php endif; ?>
+
+
+	<!--information panel IF uid is INDIRECT SUPERVISOR and DIRECT SUPERVISOR has ZEITSPERRE-->
+	<?php if (!$isFuture && ($isVorgesetzter_indirekt  && !$isVorgesetzter && $isVorgesetzterWithZeitsperre)): ?>
+	<div class="panel panel-default">
+		<div class="panel-body text-warning">
+			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
+			<b>VERTRETUNGSFUNKTION für <?php echo $db->convert_html_chars($ben->vorname).' '.$db->convert_html_chars($ben->nachname); ?>
+			<br>In dieser Funktion können Sie für die Dauer ihrer/seiner Zeitsperre die Monatlisten ihrer/seiner Mitarbeiter*innen nicht nur einsehen, sondern auch genehmigen und retournieren.
 		</div>
 	</div>
 	<?php endif; ?>
@@ -1266,8 +1328,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 	<br><br>
 
 	<!--************************************		VIEW for supervisors, personnel department and timesheet manager-->
-
-	<?php if ($isVorgesetzter || $isPersonal || $isTimesheetManager): ?>
+<!--manu-->
+	<?php if ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterWithZeitsperre): ?>
 	<div class="panel panel-default" style="padding-bottom: 20px;">
 		<div class="panel-heading">
 			<span class="panel-title h2">Vorgesetztensicht</span>
