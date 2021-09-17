@@ -89,7 +89,7 @@ if (isset($_GET['month']) && isset($_GET['year']))
 $isPersonal = false;	// true if uid has personnel departments permission
 $isVorgesetzter = false;	// true if uid is supervisor
 $isVorgesetzter_indirekt = false;	//true if uid supervisor on higher oe level (not direct supervisor of employee)
-$isVorgesetzterWithZeitsperre = false; //true if supervisor has Zeitsperre
+$isVorgesetzterMitVertretungsfunktion = false; //true if supervisor is direct supervisor of supervisor
 
 // If GET-REQUEST: Check if uid is supervisor, indirect supervisor, personnel- or timesheet manager
 if (isset($_GET['timesheet_id']))
@@ -119,7 +119,6 @@ if (isset($_GET['timesheet_id']))
 	$month = $timesheet_date->format('m');
 
 	// Get the uid of the timesheet_id
-
 	if ($timesheet->getUser($timesheet_id))
 	{
 		$employee_uid = $timesheet->getUser($timesheet_id);
@@ -132,21 +131,9 @@ if (isset($_GET['timesheet_id']))
 		{
 			$dirVor = $v;
 		}
-
-		//check ob zeitsperre eingetragen (heutiger Tag)
-		$zeitsperre = new zeitsperre();
-		$zeitsperre->getZeitsperrenForZeitaufzeichnung($dirVor, '10');
-		$zeitsperren = $zeitsperre->result;
-
-		$now = new DateTime('today');
-		$now = $now->format('Y-m-d');
-
-		if (array_key_exists($now, $zeitsperren))
-		{
-			$isVorgesetzterWithZeitsperre = true;
-			$ben = new benutzer();
-			$ben->load($dirVor);
-		}
+		$isVorgesetzterMitVertretungsfunktion = true;
+		$ben = new benutzer();
+		$ben->load($dirVor);
 	}
 	else
 	{
@@ -1092,7 +1079,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 <div class="row">
 <div class="col-xs-8">
 	<!--information panel IF uid is INDIRECT SUPERVISOR-->
-	<?php if (!$isFuture && ($isVorgesetzter_indirekt  && !$isVorgesetzter && !$isVorgesetzterWithZeitsperre)): ?>
+	<?php if (!$isFuture && ($isVorgesetzter_indirekt  && !$isVorgesetzter && !$isVorgesetzterMitVertretungsfunktion)): ?>
 	<div class="panel panel-default">
 		<div class="panel-body text-danger">
 			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
@@ -1103,12 +1090,12 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 
 	<!--information panel IF uid is INDIRECT SUPERVISOR and DIRECT SUPERVISOR has ZEITSPERRE-->
-	<?php if (!$isFuture && ($isVorgesetzter_indirekt && !$isVorgesetzter && $isVorgesetzterWithZeitsperre)): ?>
+	<?php if (!$isFuture && ($isVorgesetzter_indirekt && !$isVorgesetzter && $isVorgesetzterMitVertretungsfunktion)): ?>
 	<div class="panel panel-default">
-		<div class="panel-body text-warning">
+		<div class="panel-body text-danger">
 			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
-			<b>VERTRETUNGSFUNKTION für <?php echo $db->convert_html_chars($ben->vorname).' '.$db->convert_html_chars($ben->nachname); ?>
-			<br>Sie können für die Dauer der Zeitsperre die Monatlisten ihrer/seiner Mitarbeiter*innen nicht nur einsehen, sondern auch genehmigen und retournieren.
+			<b>Sie sind INDIREKT VORGESETZT.
+			<br>Sie können in Vertretung für <?php echo $db->convert_html_chars($ben->vorname).' '.$db->convert_html_chars($ben->nachname); ?> Monatlisten einsehen, genehmigen und retournieren.
 		</div>
 	</div>
 	<?php endif; ?>
@@ -1306,7 +1293,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 	<br><br>
 
 	<!--************************************		VIEW for supervisors, personnel department and timesheet manager-->
-	<?php if ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterWithZeitsperre): ?>
+	<?php if ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterMitVertretungsfunktion): ?>
 	<div class="panel panel-default" style="padding-bottom: 20px;">
 		<div class="panel-heading">
 			<span class="panel-title h2">Vorgesetztensicht</span>
@@ -1342,9 +1329,9 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<input type="hidden" name="checkbox_overtime_arr" value="" />
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit"
-					<?php if ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$isAllowed_confirmTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzterWithZeitsperre)): ?>
+					<?php if ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$isAllowed_confirmTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzterMitVertretungsfunktion)): ?>
 							disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."
-						<?php if ($isVorgesetzterWithZeitsperre): ?>
+						<?php if ($isVorgesetzterMitVertretungsfunktion): ?>
 							data-toggle="tooltip" title="Als Vertretung können Sie diese direkt genehmigen."
 						<?php else: ?>
 							data-toggle='tooltip' title=""
@@ -1367,7 +1354,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 			<form method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit"
-						<?php if ((!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) && ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterWithZeitsperre)): ?>
+						<?php if ((!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) && ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterMitVertretungsfunktion)): ?>
 							disabled
 							<?php if ($isTimesheetManager && !$isConfirmed): ?>
 								data-toggle="tooltip" title="Monatsliste wurde nicht versendet. Als Timesheet Manager können Sie diese direkt genehmigen."
