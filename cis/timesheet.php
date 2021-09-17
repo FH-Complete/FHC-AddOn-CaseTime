@@ -37,7 +37,7 @@ require_once('../include/functions.inc.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees in timesheet_overview.php
 
-$uid = get_uid();q
+$uid = get_uid();
 $db = new basis_db();
 $sprache_obj = new sprache();
 $sprache = getSprache();	// users language
