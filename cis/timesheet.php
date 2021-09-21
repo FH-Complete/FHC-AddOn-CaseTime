@@ -367,12 +367,12 @@ $merged_timesheet_arr = array_merge($missing_timesheet_arr, $timesheet_arr);
 function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 {
 	$ts_date = new DateTime('first day of '. $datum. ' midnight');
-	$startdatum = $ts_date->format('Y-m-d');
 
 	$zp = false;
 	foreach ($verwendung_arr as $bv)
 	{
-		if($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
+		$startdatum = $bv->beginn;
+		if ($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
 		{
 			$zp = true;
 		}
