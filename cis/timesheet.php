@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  *
  * Authors:	Cristina Hainberger		<hainberg@technikum-wien.at>
+ 			Manuela Thamer			<manuela.thamer@technikum-wien.at>
  */
 require_once('../../../config/cis.config.inc.php');
 require_once('../config.inc.php');
@@ -367,11 +368,18 @@ $merged_timesheet_arr = array_merge($missing_timesheet_arr, $timesheet_arr);
 function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 {
 	$ts_date = new DateTime('first day of '. $datum. ' midnight');
+	$startdatum = $ts_date->format('Y-m-d');
+	foreach ($verwendung_arr as $verwendung)
+	{
+		if ($datum < $verwendung->beginn)
+		{
+			$startdatum = $verwendung->beginn;
+		}
+	}
 
 	$zp = false;
 	foreach ($verwendung_arr as $bv)
 	{
-		$startdatum = $bv->beginn;
 		if ($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
 		{
 			$zp = true;
@@ -394,11 +402,9 @@ foreach ($merged_timesheet_arr as $ts)
 		$timesheet_year_arr[] = $ts_year;
 	}
 
-	// find first of dummy timesheets; this is the one to create the next timesheet
 	if (is_null($ts->timesheet_id))
 	{
 		$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum);
-
 		if($zp)
 		{
 			$date_allow_new_ts = clone $ts_date;
