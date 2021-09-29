@@ -391,6 +391,7 @@ function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 // Get data of merged timesheet array (missing and existing timesheets)
 $timesheet_year_arr = array();	// unique timesheet years to set title in "Alle Monatslisten" - panel
 $date_allow_new_ts = clone $date_actual;	// date of timesheet to be created
+$zp = false;
 foreach ($merged_timesheet_arr as $ts)
 {
 	$ts_date = new DateTime($ts->datum);
@@ -414,7 +415,10 @@ foreach ($merged_timesheet_arr as $ts)
 
 // Get the most earliest monthlist date of merged timesheet array
 // This could be date of an existing or a dummy timesheet
-$date_earliest_ts = new DateTime('first day of '. end($merged_timesheet_arr)->datum);
+if(count($merged_timesheet_arr)>0)
+	$date_earliest_ts = new DateTime('first day of '. end($merged_timesheet_arr)->datum);
+else
+	$date_earliest_ts = new DateTime('2999-01-01'); // Currently not allowed to create Timesheet
 
 // Flag if timesheet may not be created
 if ($date_allow_new_ts < $date_selected ||
