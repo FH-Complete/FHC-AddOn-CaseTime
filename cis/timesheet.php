@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  *
  * Authors:	Cristina Hainberger		<hainberg@technikum-wien.at>
+ 			Manuela Thamer			<manuela.thamer@technikum-wien.at>
  */
 require_once('../../../config/cis.config.inc.php');
 require_once('../config.inc.php');
@@ -368,11 +369,18 @@ function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 {
 	$ts_date = new DateTime('first day of '. $datum. ' midnight');
 	$startdatum = $ts_date->format('Y-m-d');
+	foreach ($verwendung_arr as $verwendung)
+	{
+		if ($datum < $verwendung->beginn)
+		{
+			$startdatum = $verwendung->beginn;
+		}
+	}
 
 	$zp = false;
 	foreach ($verwendung_arr as $bv)
 	{
-		if($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
+		if ($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
 		{
 			$zp = true;
 		}
@@ -383,6 +391,7 @@ function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 // Get data of merged timesheet array (missing and existing timesheets)
 $timesheet_year_arr = array();	// unique timesheet years to set title in "Alle Monatslisten" - panel
 $date_allow_new_ts = clone $date_actual;	// date of timesheet to be created
+$zp = false;
 foreach ($merged_timesheet_arr as $ts)
 {
 	$ts_date = new DateTime($ts->datum);
@@ -394,11 +403,9 @@ foreach ($merged_timesheet_arr as $ts)
 		$timesheet_year_arr[] = $ts_year;
 	}
 
-	// find first of dummy timesheets; this is the one to create the next timesheet
 	if (is_null($ts->timesheet_id))
 	{
 		$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum);
-
 		if($zp)
 		{
 			$date_allow_new_ts = clone $ts_date;
@@ -408,7 +415,10 @@ foreach ($merged_timesheet_arr as $ts)
 
 // Get the most earliest monthlist date of merged timesheet array
 // This could be date of an existing or a dummy timesheet
-$date_earliest_ts = new DateTime('first day of '. end($merged_timesheet_arr)->datum);
+if(count($merged_timesheet_arr)>0)
+	$date_earliest_ts = new DateTime('first day of '. end($merged_timesheet_arr)->datum);
+else
+	$date_earliest_ts = new DateTime('2999-01-01'); // Currently not allowed to create Timesheet
 
 // Flag if timesheet may not be created
 if ($date_allow_new_ts < $date_selected ||
