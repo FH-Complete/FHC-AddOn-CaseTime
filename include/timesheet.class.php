@@ -911,13 +911,13 @@ class Timesheet extends basis_db
 					tbl_dms_version.insertamum >= ' . $this->db_add_param($from, FHC_STRING) . '
 				AND
 					tbl_dms_version.insertamum <= ' . $this->db_add_param($to, FHC_STRING) . ')';
-			
+
 			if (is_string($dokument_kurzbz))
 			{
-				$qry .= ' 
+				$qry .= '
 				AND dokument_kurzbz LIKE ' . $this->db_add_param($dokument_kurzbz, FHC_STRING);
 			}
-					
+
 			$qry .= '
 				ORDER BY
 					insertamum DESC
@@ -1215,6 +1215,101 @@ class Timesheet extends basis_db
 		else
 		{
 			$this->errormsg = "UID muss vorhanden und nicht leer sein";
+			return false;
+		}
+	}
+
+	/** Check if there is no existing timesheet although user is zeitaufzeichnungsplichtig
+	 *
+	 * @param string $uid User ID.
+	 * @return string $beginn	Wenn vorhanden Datum der letzen Bisverwendung mit ZA-Pflicht
+	 * @return boolean	True when this constellation is the case
+	 */
+	public function getLastVerwendungZapflicht($uid)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			$qry = "
+			SELECT beginn
+			FROM bis.tbl_bisverwendung
+			WHERE mitarbeiter_uid = ". $this->db_add_param($uid). "
+			and zeitaufzeichnungspflichtig = TRUE
+			order by bisverwendung_id DESC LIMIT 1;
+			";
+
+			if ($this->db_query($qry))
+			{
+				if ($row = $this->db_fetch_object())
+				{
+					$beginn = $row->beginn;
+					return $beginn;
+				}
+				else
+				{
+					$this->errormsg = 'Fehler beim Laden der Daten';
+					return false;
+				}
+			}
+			else
+			{
+				$this->errormsg = 'Keine Bisverwendung mit ZA-Pflicht';
+				return false;
+			}
+		}
+	}
+
+	/** Check if there is an existing timesheet
+	 *
+	 * @param string $uid UserID.
+	 * @return boolean	True when there is a timesheet
+	 */
+	public function checkIfUserHasTimesheet($uid)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			$qry = "
+			SELECT *
+			FROM addon.tbl_casetime_timesheet
+			WHERE uid = ". $this->db_add_param($uid). "
+			";
+
+			if ($this->db_query($qry))
+			{
+				$num_rows = $this->db_num_rows();
+				if ($num_rows > 0)
+				{
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			else
+				return false;
+		}
+	}
+
+	/** Insert new timesheet
+	 *
+	 * @param string $uid UserID.
+	 * @param date $datum Date of Timesheet.
+	 * @return boolean	True when inserted successfully
+	 */
+	public function insertTimeSheet($uid, $datum)
+	{
+		$qry = "
+			INSERT INTO addon.tbl_casetime_timesheet (uid, datum, insertvon)
+			VALUES (". $this->db_add_param($uid). ",". $this->db_add_param($datum). ",'tsdaemon')
+		";
+
+		if ($this->db_query($qry))
+		{
+				return true;
+		}
+		else
+		{
+			$this->errormsg = 'Timesheet konnte nicht eingefügt werden';
 			return false;
 		}
 	}
