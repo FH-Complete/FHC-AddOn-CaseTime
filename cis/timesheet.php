@@ -34,6 +34,7 @@ require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/bisverwendung.class.php');
 require_once('../../../include/sancho.inc.php');
 require_once('../include/functions.inc.php');
+require_once('../../../include/datum.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees in timesheet_overview.php
 
@@ -213,6 +214,7 @@ $isMissing_doc = false;	// true if upload documents are missing after check agai
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
 $isZeitaufzeichnungspflichtig = false;
+//var_dump($date_begin_zeitaufzeichnungspflicht);
 
 // * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
 $bisverwendung = new bisverwendung();
@@ -220,6 +222,18 @@ $now = new DateTime('today');
 $bisverwendung->getVerwendung($uid);
 $verwendung_arr = $bisverwendung->result;
 $date_first_begin_verwendung = null;
+
+//check if timesheet vorhanden und zeitaufzeichnungsplichtig
+$timesheet = new Timesheet();
+$timesheetVorhanden = $timesheet->checkIfUserHasTimesheet($uid);
+$bisverwendung->getLastVerwendung($uid);
+
+//neues Timesheet einfügen mit Beginndatum letzter zeitaufzeichnungspflichtiger Bisverwendung
+if (!$timesheetVorhanden && $bisverwendung->zeitaufzeichnungspflichtig)
+{
+	$date_last_begin_verwendung = $timesheet->getLastVerwendungZapflicht($uid);
+	$timesheet->insertTimeSheet($uid, $date_last_begin_verwendung);
+}
 
 foreach($verwendung_arr as $verwendung)
 {
@@ -241,6 +255,7 @@ foreach($verwendung_arr as $verwendung)
 			if ($date_first_begin_verwendung > $date_begin_verwendung)
 			{
 				$date_first_begin_verwendung = $date_begin_verwendung;
+
 			}
 
 			// * reset begin date of time recording if earlier begin date found (but never before golive)
