@@ -32,6 +32,7 @@ require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
+require_once('../include/covidhelper.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
 
@@ -300,6 +301,8 @@ if (!empty($all_employee_uid_arr))
 }
 
 // *********************************  data for SUPERVISORS VIEW
+// covidstatus
+$covidhelper = new CovidHelper($employee_uid_arr);
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
 
@@ -856,7 +859,7 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--employee name & link to latest timesheet-->
 					<td>
-						<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
+						<?php echo $covidhelper->getIconHtml($employee->uid); ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
