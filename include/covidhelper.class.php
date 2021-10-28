@@ -76,7 +76,9 @@ EOSQL;
 		
 	protected function checkIfUdfValuesAreDefined()
 	{
-		$sql = 'SELECT count(*) AS udfdefined FROM "system"."tbl_udf" WHERE "schema" = \'public\' AND "table" = \'tbl_person\'';
+		$sql = 'SELECT count(name) AS "udfdefined" '
+			 . 'FROM "system"."tbl_udf", jsonb_to_recordset("jsons") AS items(name text) '
+			 . 'WHERE "schema" = \'public\' AND "table" = \'tbl_person\' AND "name" = \'udf_3gvalid\'';
 		if ( $this->db_query($sql) )
 		{
 			if ($row = $this->db_fetch_object())
