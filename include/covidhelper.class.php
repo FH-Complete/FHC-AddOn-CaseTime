@@ -23,7 +23,8 @@ class CovidHelper extends basis_db
 		$this->fetchCovidValidStatus();
 	}
 
-	public function getIconHtml($uid) {
+	public function getIconHtml($uid) 
+	{
 		$html = '';
 		$status = isset($this->covidstatus[$uid]) ? $this->covidstatus[$uid] : self::STATUS_NOTSET;
 		switch ($status)
@@ -44,27 +45,30 @@ class CovidHelper extends basis_db
 		return $html;
 	}	
 	
-	public function getCovidStatus() {
+	public function getCovidStatus() 
+	{
 		return $this->covidstatus;
 	}
 	
-	protected function fetchCovidValidStatus() {
-		if( !($this->checkIfUdfValuesAreDefined() && is_array($this->uids)) ) {
+	protected function fetchCovidValidStatus() 
+	{
+		if( !($this->checkIfUdfValuesAreDefined() && is_array($this->uids)) ) 
+		{
 			return;
 		}
-		$mergeduids = "'" . implode("','", $this->uids) . "'";
 		$sql = <<<EOSQL
 SELECT b.uid, CASE 
-		WHEN (p."udf_values" -> 'udf_3gvalid')::text::date >= NOW() THEN 1 
-		WHEN (p."udf_values" -> 'udf_3gvalid')::text::date < NOW() THEN 0 
+		WHEN (p."udf_values" -> 'udf_3gvalid')::text::date >= CURRENT_DATE::text::date THEN 1 
+		WHEN (p."udf_values" -> 'udf_3gvalid')::text::date < CURRENT_DATE::text::date THEN 0 
 		ELSE -1 
 	END AS covidvalid 
 	FROM tbl_person p 
-	JOIN tbl_benutzer b ON b.person_id = p.person_id AND b.uid IN ({$mergeduids})
+	JOIN tbl_benutzer b ON b.person_id = p.person_id AND b.uid IN ({$this->implode4SQL($this->uids)})
 EOSQL;
 	
 		$this->covidstatus = array();
-		if( $this->db_query($sql) ) {
+		if( $this->db_query($sql) ) 
+		{
 			while( false !== ($row = $this->db_fetch_object()) )
 			{
 				$this->covidstatus[$row->uid] = $row->covidvalid; 
