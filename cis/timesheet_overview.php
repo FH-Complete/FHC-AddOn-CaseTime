@@ -32,7 +32,7 @@ require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
-require_once('../include/covidhelper.class.php');
+require_once('../../../include/covid/covidhelper.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
 
@@ -302,7 +302,8 @@ if (!empty($all_employee_uid_arr))
 
 // *********************************  data for SUPERVISORS VIEW
 // covidstatus
-$covidhelper = new CovidHelper($employee_uid_arr);
+$covidhelper = new CovidHelper();
+$covidhelper->fetchCovidStatus($employee_uid_arr);
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
 
