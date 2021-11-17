@@ -47,6 +47,7 @@ $date_last_month = new DateTime('first day of this month midnight');
 $date_last_month->sub(new DateInterval('P1M'));
 $date_last_month->modify('last day of this month');	// date obj of last month
 
+$showcovidstatus = true; // every supervisor should see covidstatus by default
 $isPersonal = false;	// true if uid has personnel departments permission
 $isVorgesetzter = false;	// true if uid is supervisor
 $isVorgesetzter_indirekt = false;	// true if uid is indirect supervisor on higher oe level
@@ -87,6 +88,11 @@ if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 {
 	$_SESSION['casetime/submitAllMA'] = true;	// save in session to be saved after changing to timesheet.php
 	$showAllMA = true;
+
+	if( !$rechte->isBerechtigt('extension/fhtw_manual_3g', null, 'suid') )
+	{
+		$showcovidstatus = false;
+	}
 
 	$mitarbeiter->getUntergebene($uid, true);
 	$untergebenen_arr = array();
@@ -860,7 +866,7 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--employee name & link to latest timesheet-->
 					<td>
-						<?php echo $covidhelper->getIconHtml($employee->uid); ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
+						<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
@@ -964,10 +970,10 @@ function sortEmployeesName($employee1, $employee2)
 						<td>
 							<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;"
 								  data-toggle="tooltip" title="Noch keine Monatsliste vorhanden. Als Timesheetmanager können sie die erste anlegen.">erstanlage</span>
-							<?php echo $covidhelper->getIconHtml($employee->uid); ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=false"><?php echo $employee->nachname. ' '. $employee->vorname ?>
+							<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=false"><?php echo $employee->nachname. ' '. $employee->vorname ?>
 						</td>
 					<?php else: ?>
-						<td><?php echo $covidhelper->getIconHtml($employee->uid); ?><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+						<td><?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
 					<?php endif; ?>
 
                     <!--obligated to record times (zeitaufzeichnungspflichtig)-->
