@@ -89,7 +89,7 @@ if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 	$_SESSION['casetime/submitAllMA'] = true;	// save in session to be saved after changing to timesheet.php
 	$showAllMA = true;
 
-	if( !$rechte->isBerechtigt('extension/fhtw_manual_3g', null, 'suid') )
+	if( $isPersonal && !$rechte->isBerechtigt('extension/fhtw_manual_3g', null, 'suid') )
 	{
 		$showcovidstatus = false;
 	}
