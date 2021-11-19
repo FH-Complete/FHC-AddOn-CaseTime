@@ -83,6 +83,14 @@ if ($rechte->isBerechtigt('addon/casetime_manageTimesheet'))
 $mitarbeiter = new Mitarbeiter();
 $showAllMA = false;	// used to toggle between direct employees and all employees
 
+$showOnlyFixEmployees = true;
+if ((isset($_GET['onlyfix']) && $_GET['onlyfix'] == 'false') ||
+	(!isset($_GET['onlyfix']) && isset($_SESSION['casetime/onlyfix']) && $_SESSION['casetime/onlyfix'] == false))
+{
+	$showOnlyFixEmployees = false;
+}
+$_SESSION['casetime/onlyfix'] = $showOnlyFixEmployees;
+
 if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 	(!isset($_GET['submitAllMA']) && isset($_SESSION['casetime/submitAllMA']) && $_SESSION['casetime/submitAllMA'] == true))
 {
@@ -94,14 +102,14 @@ if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 		$showcovidstatus = false;
 	}
 
-	$mitarbeiter->getUntergebene($uid, true);
+	$mitarbeiter->getUntergebene($uid, true, $showOnlyFixEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
 else
 {
 	$_SESSION['casetime/submitAllMA'] = false;	// save in session to be saved after changing to timesheet.php
-	$mitarbeiter->getUntergebene($uid);
+	$mitarbeiter->getUntergebene($uid, false, $showOnlyFixEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
@@ -198,6 +206,15 @@ needs the GUI to be displayed.-->
 			$('.oe_parents').css('display', 'none');
 			$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
 		}
+	}
+
+	// show Only Fix or All Employees
+	function fixOrAllEmployees()
+	{
+		var params = new URLSearchParams(window.location.search);
+		var onlyfixemployees = $('#onlyfixemployees').is(':checked');
+		params.set('onlyfix', onlyfixemployees);
+		window.location.search = params.toString();
 	}
 
 	// trigger loading effect of progress bar
@@ -812,7 +829,12 @@ function sortEmployeesName($employee1, $employee2)
 		<thead class="text-center">
 			<tr class="table tablesorter-ignoreRow">
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
-				<td></td>
+				<td>
+					<input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
+						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?> 
+						   onchange="fixOrAllEmployees()"/>
+					<label for="onlyfixemployess">&nbsp;nur fix Angestellte</label>
+				</td>
 				<td></td>
                 <td></td>
 				<td colspan="2" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
