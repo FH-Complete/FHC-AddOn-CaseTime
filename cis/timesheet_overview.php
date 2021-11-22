@@ -988,7 +988,7 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--employee name: text only (if uid is timesheet manager, provide url to create first timesheet)-->
-					<?php if($isTimesheetManager): ?>
+					<?php if($isTimesheetManager && $employee->isZeitaufzeichnungspflichtig): ?>
 						<td>
 							<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;"
 								  data-toggle="tooltip" title="Noch keine Monatsliste vorhanden. Als Timesheetmanager können sie die erste anlegen.">erstanlage</span>
