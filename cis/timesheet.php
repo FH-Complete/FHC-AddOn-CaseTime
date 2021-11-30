@@ -1848,7 +1848,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 									$genehmigtvon = new Benutzer($ts->genehmigtvon);
 									$genehmigtvon = $genehmigtvon->getFullName();
 									?>
-									<td class='text-center' data-toggle="tooltip" title="Genehmigt am <?php echo $ts_date_genehmigt->format('d.m.Y') ?> von <?php echo $genehmigtvon ?>"><img src="../../../skin/images/ampel_gruen.png" ></td>
+									<td class='text-center' data-toggle="tooltip" title="Genehmigt am <?php echo $ts_date_genehmigt->format('d.m.Y') ?> von <?php echo $genehmigtvon ?>"><img src="../../../skin/images/tick.png" ></td>
 								<?php endif; ?>
 							</tr>
 							<?php endif; ?>
