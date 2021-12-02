@@ -472,7 +472,7 @@ if(!$result = @$db->db_query("SELECT kontrolliertamum FROM addon.tbl_casetime_ti
 	$qry = "ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontrolliertamum timestamp;
 			ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontrolliertvon varchar(32);
 			ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontroll_notizen text;
-			
+
 			ALTER TABLE addon.tbl_casetime_timesheet ADD CONSTRAINT fk_benutzer_casetime_timesheet_kontrolliertvon FOREIGN KEY (kontrolliertvon) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;";
 
 	if(!$db->db_query($qry))
@@ -481,13 +481,13 @@ if(!$result = @$db->db_query("SELECT kontrolliertamum FROM addon.tbl_casetime_ti
 		echo '<br>addon.tbl_casetime_timesheet: Spalten kontrolliertamum, kontrolliertvon, kontroll_notizen hinzugefuegt';
 }
 
-// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitaufzeichnung und SEQUENCE addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq 
+// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitaufzeichnung und SEQUENCE addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq
 if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitaufzeichnung' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
 		$qry = "GRANT SELECT ON addon.tbl_casetime_zeitaufzeichnung TO web;";
-		
+
 		if(!$db->db_query($qry))
 			echo '<strong>addon.tbl_casetime_zeitaufzeichnung Berechtigungen: '.$db->db_last_error().'</strong><br>';
 		else
@@ -495,13 +495,13 @@ if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants 
 	}
 }
 
-// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitsperre und SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq 
+// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitsperre und SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq
 if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitsperre' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
 		$qry = "GRANT SELECT ON addon.tbl_casetime_zeitsperre TO web;";
-		
+
 		if(!$db->db_query($qry))
 			echo '<strong>addon.tbl_casetime_zeitsperre Berechtigungen: '.$db->db_last_error().'</strong><br>';
 		else
@@ -519,6 +519,20 @@ if ($result = @$db->db_query("SELECT 1 FROM system.tbl_berechtigung WHERE berech
 			echo '<strong>system.tbl_berechtigung '.$db->db_last_error().'</strong><br>';
 		else
 			echo ' system.tbl_berechtigung: Added permission to manage Casetime timesheets.<br>';
+	}
+}
+
+// Add index to addon.tbl_casetime_zeitaufzeichnung.uid
+if ($result = $db->db_query("SELECT * FROM pg_class WHERE relname='idx_tbl_casetime_zeitaufzeichnung_uid'"))
+{
+	if ($db->db_num_rows($result) == 0)
+	{
+		$qry = "CREATE INDEX idx_tbl_casetime_zeitaufzeichnung_uid ON addon.tbl_casetime_zeitaufzeichnung USING btree (uid)";
+
+		if (! $db->db_query($qry))
+			echo '<strong>Indizes: ' . $db->db_last_error() . '</strong><br>';
+		else
+			echo '<br>Index fuer campus.tbl_casetime_zeitaufzeichnung.uid hinzugefuegt<br>';
 	}
 }
 

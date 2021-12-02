@@ -32,6 +32,7 @@ require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
+require_once('../../../include/covid/covidhelper.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
 
@@ -46,6 +47,7 @@ $date_last_month = new DateTime('first day of this month midnight');
 $date_last_month->sub(new DateInterval('P1M'));
 $date_last_month->modify('last day of this month');	// date obj of last month
 
+$showcovidstatus = true; // every supervisor should see covidstatus by default
 $isPersonal = false;	// true if uid has personnel departments permission
 $isVorgesetzter = false;	// true if uid is supervisor
 $isVorgesetzter_indirekt = false;	// true if uid is indirect supervisor on higher oe level
@@ -81,20 +83,33 @@ if ($rechte->isBerechtigt('addon/casetime_manageTimesheet'))
 $mitarbeiter = new Mitarbeiter();
 $showAllMA = false;	// used to toggle between direct employees and all employees
 
+$showOnlyFixEmployees = true;
+if ((isset($_GET['onlyfix']) && $_GET['onlyfix'] == 'false') ||
+	(!isset($_GET['onlyfix']) && isset($_SESSION['casetime/onlyfix']) && $_SESSION['casetime/onlyfix'] == false))
+{
+	$showOnlyFixEmployees = false;
+}
+$_SESSION['casetime/onlyfix'] = $showOnlyFixEmployees;
+
 if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 	(!isset($_GET['submitAllMA']) && isset($_SESSION['casetime/submitAllMA']) && $_SESSION['casetime/submitAllMA'] == true))
 {
 	$_SESSION['casetime/submitAllMA'] = true;	// save in session to be saved after changing to timesheet.php
 	$showAllMA = true;
 
-	$mitarbeiter->getUntergebene($uid, true);
+	if( $isPersonal && !$rechte->isBerechtigt('extension/fhtw_manual_3g', null, 'suid') )
+	{
+		$showcovidstatus = false;
+	}
+
+	$mitarbeiter->getUntergebene($uid, true, $showOnlyFixEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
 else
 {
 	$_SESSION['casetime/submitAllMA'] = false;	// save in session to be saved after changing to timesheet.php
-	$mitarbeiter->getUntergebene($uid);
+	$mitarbeiter->getUntergebene($uid, false, $showOnlyFixEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
@@ -191,6 +206,15 @@ needs the GUI to be displayed.-->
 			$('.oe_parents').css('display', 'none');
 			$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
 		}
+	}
+
+	// show Only Fix or All Employees
+	function fixOrAllEmployees()
+	{
+		var params = new URLSearchParams(window.location.search);
+		var onlyfixemployees = $('#onlyfixemployees').is(':checked');
+		params.set('onlyfix', onlyfixemployees);
+		window.location.search = params.toString();
 	}
 
 	// trigger loading effect of progress bar
@@ -300,6 +324,9 @@ if (!empty($all_employee_uid_arr))
 }
 
 // *********************************  data for SUPERVISORS VIEW
+// covidstatus
+$covidhelper = new CovidHelper();
+$covidhelper->fetchCovidStatus($employee_uid_arr);
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
 
@@ -802,7 +829,12 @@ function sortEmployeesName($employee1, $employee2)
 		<thead class="text-center">
 			<tr class="table tablesorter-ignoreRow">
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
-				<td></td>
+				<td>
+					<input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
+						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?> 
+						   onchange="fixOrAllEmployees()"/>
+					<label for="onlyfixemployess">&nbsp;nur fix Angestellte</label>
+				</td>
 				<td></td>
                 <td></td>
 				<td colspan="2" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
@@ -856,7 +888,7 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--employee name & link to latest timesheet-->
 					<td>
-						<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
+						<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
@@ -956,14 +988,14 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--employee name: text only (if uid is timesheet manager, provide url to create first timesheet)-->
-					<?php if($isTimesheetManager): ?>
+					<?php if($isTimesheetManager && $employee->isZeitaufzeichnungspflichtig): ?>
 						<td>
 							<span class="label pull-right text-uppercase" style="background-color: lightgrey; margin-left: 5px;"
 								  data-toggle="tooltip" title="Noch keine Monatsliste vorhanden. Als Timesheetmanager können sie die erste anlegen.">erstanlage</span>
-							<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=false"><?php echo $employee->nachname. ' '. $employee->vorname ?>
+							<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php' ?>?year=<?php echo $date_last_month->format('Y') ?>&month=<?php echo $date_last_month->format('m') ?>&employee_uid=<?php echo $employee->uid ?>&create=false"><?php echo $employee->nachname. ' '. $employee->vorname ?>
 						</td>
 					<?php else: ?>
-						<td><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
+						<td><?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
 					<?php endif; ?>
 
                     <!--obligated to record times (zeitaufzeichnungspflichtig)-->
