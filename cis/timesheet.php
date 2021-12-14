@@ -259,6 +259,7 @@ $isAllowed_confirmTimesheet = true;	// false if former timesheets are not confir
 $isFirstEntry = false;	// true if user enters first time monthlist site
 $date_last_timesheet = null;	// date of last existing timesheet
 $date_first_dummy_ts = null;	// date of first missing timesheet
+$isCurrentMonth = false;
 
 // If no timesheets existing (very first entry)
 if (empty($timesheet_arr))
@@ -442,6 +443,11 @@ if ($date_allow_new_ts < $date_selected)
 	$isDisabled_by_missingTimesheet = true;
 }
 
+if (($date_selected == $date_actual))
+{
+	$isCurrentMonth = true;
+}
+
 // Flag if selected date is in the future
 if (($date_selected > $date_actual))
 {
@@ -602,12 +608,12 @@ if (isset($_POST['action']) && isset($_POST['method']))
 			{
 				$result = false;
 				$timesheet = new Timesheet();
-				
+
 				if ($timesheet->saveVorzeitigAbgeschickt($_POST['timesheet_id'], $_POST['vorzeitig_abgeschickt']))
 				{
 					$result = true;
 				}
-				
+
 				// return true if update was done successfully
 				echo json_encode($result);
 				exit;
@@ -623,13 +629,13 @@ $missing_bestaetigungen = '';
 if (isset($_POST['submitTimesheet']))
 {
 	$timesheet = new Timesheet();
-	
+
 	// Check for blocking casetime errors
 	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
-	
+
 	// Check for missing Bestaetigungen
 	$hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
-	
+
 	// Retrieve amount of missing Bestaetigungen by type
 	if ($hasMissingBestaetigung)
 	{
@@ -951,7 +957,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 			$("input[name='checkbox_overtime_arr']").val(checked);
 		});
-		
+
 		// Save 'Vor Monatsende abschließen' - Checkbox value
         $("#vorzeitigAbgeschickt").change(function() {
             let timesheet_id = $(this).closest('form').find('input[name=timesheet_id]').val();
@@ -966,8 +972,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			let hasVorgesetzten = <?php echo json_encode($hasVorgesetzten) ?>;
 			let hasCaseTimeChanges_today = <?php echo json_encode($hasCaseTimeChanges_today) ?>;
 			let isSyncedWithCaseTime_today = <?php echo json_encode($isSyncedWithCaseTime_today) ?>;
-			
-           
+
+
             // If passed all checks, disable submit button if vorzeitig_abgeschickt is true
             if (vorzeitig_abgeschickt)
             {
@@ -993,7 +999,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
             {
                 submitButton.prop('disabled', true);
             }
-			
+
            // Change vorzeitig_abgeschickt in database
             $.ajax({
                 type: 'POST',
@@ -1252,7 +1258,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				</div>
 			</form>
 		</div>
-		
+
 		<!-- panel: Monatsliste vorzeitig abschließen -->
 		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
 			<div class="panel-body col-xs-8">
@@ -1266,7 +1272,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 					<input type="hidden" id="timesheet_id" name="timesheet_id" value="<?php echo $timesheet_id; ?>">
 					<div class="form-check pull-right">
 						<input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
-							<?php echo ($isSent || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt)
+							<?php echo ($isSent || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt || !$isCurrentMonth)
 								? ' disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."'
 								: '' ?>
 						<span class="form-check-label" for="vorzeitigAbgeschickt"> Vor Monatsende abschließen</span>
