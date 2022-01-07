@@ -66,6 +66,12 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
         drucken = 'J'
         auftragsposition = '62'
         stunden = zeit
+    elif art == 'krankenstandcovid':
+        lohnart = 'KC'
+        auftragsnummer = '1'
+        drucken = 'J'
+        auftragsposition = '5'
+        stunden = 0
 
     else:
         ret_dict['STATUS']='ERR'
@@ -86,7 +92,7 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
 
     sql_str_std = """select cast(GETSOLLSTUNDEN('%(sachb)s', '%(buchdat)s', 'J') as numeric)""" % vars_dict
     std = self.sql_execute(dbconn,sql_str_std)
-    if (std[1][0][0] >= 0 and (art == 'krankenstand' or art == 'zeitausgleich' or art == 'pflegeurlaub' or art == 'dienstverhinderung')):
+    if (std[1][0][0] >= 0 and (art == 'krankenstand' or art == 'zeitausgleich' or art == 'pflegeurlaub' or art == 'dienstverhinderung' or art == 'krankenstandcovid')):
         vars_dict['stunden'] = std[1][0][0]
 
     #sql_check = """select * from sachbearbeiter where sachb = '%s'""" % foo

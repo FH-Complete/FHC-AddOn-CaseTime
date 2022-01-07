@@ -238,9 +238,12 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 		case 'DienstF': $art='dienstverhinderung'; break;
 		case 'EL': $art='externelehre'; break;
 		case 'ER': $art='ersatzruhe'; break;
+		case 'CovidSB': $art='krankenstand'; break;
+		case 'CovidKS': $art='krankenstandcovid'; break;
 		default: $art=''; break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art.'&zeit='.$zeit;
+	var_dump($params);
 
 	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
@@ -249,6 +252,7 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
+	var_dump($result);
 
 	if(curl_errno($ch))
 	{
@@ -311,6 +315,8 @@ function SendDataDelete($uid, $datum, $typ)
 		case 'DienstF': $art='dienstverhinderung'; break;
 		case 'EL': $art='externelehre'; break;
 		case 'ER': $art='ersatzruhe'; break;
+		case 'CovidSB': $art='krankenstand'; break;
+		case 'CovidKS': $art='krankenstandcovid'; break;
 		default: $art=''; break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
@@ -651,12 +657,12 @@ function generateTimesheetAndMail($uid, $monat, $jahr, $ftype)
 }
 
 /** Check if uid has personnel manager permission (specific for timesheet)
- * 
+ *
  * @param string $uid
  * @return boolean	True if uid has personnel manager permission.
  */
 function check_isPersonal($uid)
-{	
+{
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 	if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
@@ -666,27 +672,27 @@ function check_isPersonal($uid)
 	else
 	{
 		return false;
-	}		
+	}
 }
 /** Check, if uid is timesheet manager
- * 
+ *
  * @param string $uid
  * @param string $employee_uid
  * @return boolean True if uid has timesheet manager permission.
  */
 function check_isTimesheetManager($uid, $employee_uid)
-{		
+{
 	// get organisational unit of employee for permission check
 	$benutzer_fkt = new Benutzerfunktion();
 	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
 	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
-	
+
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 
 	if ($rechte->isBerechtigt('addon/casetime_manageTimesheet', $employee_oe_kurzbz))
 	{
-		return true;						
+		return true;
 	}
 	else
 	{

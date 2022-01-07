@@ -186,6 +186,42 @@ WHERE
 	AND typ='Krank'
 	AND datum>=".$db->db_add_param($sync_datum_start)."
 	AND uid in(".$db->db_implode4SQL($user_arr).")
+UNION
+SELECT
+	uid, datum::date, 'CovidSB' as typ
+FROM
+	addon.tbl_casetime_zeitsperre
+WHERE
+	NOT EXISTS(
+		SELECT 1
+		FROM
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='CovidSB') a
+		WHERE
+			datum=tbl_casetime_zeitsperre.datum
+			AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
+		)
+	AND typ='CovidSB'
+	AND datum>=".$db->db_add_param($sync_datum_start)."
+	AND uid in(".$db->db_implode4SQL($user_arr).")
+UNION
+SELECT
+	uid, datum::date, 'CovidKS' as typ
+FROM
+	addon.tbl_casetime_zeitsperre
+WHERE
+	NOT EXISTS(
+		SELECT 1
+		FROM
+			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='CovidKS') a
+		WHERE
+			datum=tbl_casetime_zeitsperre.datum
+			AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
+		)
+	AND typ='CovidKS'
+	AND datum>=".$db->db_add_param($sync_datum_start)."
+	AND uid in(".$db->db_implode4SQL($user_arr).")
 ";
 
 if($result = $db->db_query($qry))
@@ -283,7 +319,28 @@ $qry = "
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='Krank')
 		AND datum>=".$db->db_add_param($sync_datum_start)."
-		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")";
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT
+		mitarbeiter_uid, datum::date, 'CovidSB' as typ
+	FROM
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='CovidSB') a
+	WHERE
+		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='CovidSB')
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT
+		mitarbeiter_uid, datum::date, 'CovidKS' as typ
+	FROM
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='CovidKS') a
+	WHERE
+		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='CovidKS')
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+		";
 
 
 
@@ -292,7 +349,7 @@ if($result = $db->db_query($qry))
 	while($row = $db->db_fetch_object($result))
 	{
 		$msglog .= "\n ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
-		if ($row->typ == 'DienstF')
+		if (($row->typ == 'DienstF') || ($row->typ == 'CovidKS')|| ($row->typ == 'CovidSB'))
 		{
 			$msglog_hr .= "\n ADD ".$row->mitarbeiter_uid.' '.$row->datum.' '.$row->typ;
 		}
@@ -330,7 +387,7 @@ if ($msglog == '')
 echo nl2br($msglog);
 
 // send mail to CaseTime-Admin
-if (CASETIME_SYNC_ADMIN_EMAIL != '')
+if (g != '')
 {
 	$mail = new mail(CASETIME_SYNC_ADMIN_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync Zeitsperren', $msglog);
 	if($mail->send())
