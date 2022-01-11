@@ -1039,7 +1039,7 @@ class Timesheet extends basis_db
 				WHERE
 					mitarbeiter_uid = '. $this->db_add_param($uid). '
 				AND
-					zeitsperretyp_kurzbz IN (\'Krank\')
+					zeitsperretyp_kurzbz IN (\'Krank\', \'CovidSB\', \'CovidKS\')
 				AND
 					(bisdatum - vondatum) > 2
 				AND
@@ -1290,7 +1290,7 @@ class Timesheet extends basis_db
 	}
 
 	/**
-	 * Saves users if Monatsliste should be closed before the month has finnished.
+	 * Saves users if Monatsliste should be closed before the month has finished.
 	 * @param $timesheet_id
 	 * @param $vorzeitig_abgeschickt
 	 * @return bool
@@ -1464,6 +1464,7 @@ class Timesheet extends basis_db
 		$missing_bestaetigung_arr['behoerdenbesuch'] = 0;
 		$missing_bestaetigung_arr['krankenstand'] = 0;
 		$missing_bestaetigung_arr['plegeurlaub'] = 0;
+		$missing_bestaetigung_arr['krankenstandcovid'] = 0;
 
 		// Get all absences of given UID
 		// If timesheet is given, check absences only for that timesheet
@@ -1478,6 +1479,8 @@ class Timesheet extends basis_db
 			$cnt_beh = 0;    // counter behörde
 			$cnt_kst = 0;    // counter krankenstand
 			$cnt_pfl = 0;    // counter pflegeurlaub
+			$cnt_covSB = 0;    // counter CovidSB
+			$cnt_covKS = 0;    // counter CovidKS
 			foreach ($absences as $absence) {
 				switch ($absence->abwesenheit_kurzbz) {
 					case 'Arztbesuch':
@@ -1504,6 +1507,18 @@ class Timesheet extends basis_db
 						if ($von->diff($bis)->d >= 2)
 							$cnt_kst++;
 						continue;
+					case 'CovidSB':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+						// each covidkrankenstand needs to be attested
+							$cnt_covSB++;
+						continue;
+					case 'CovidKS':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+						// each covidkrankenstand needs to be attested
+							$cnt_covKS++;
+						continue;
 				}
 			}
 
@@ -1519,6 +1534,7 @@ class Timesheet extends basis_db
 			$cnt_beh_doc = 0;	// counter behörde bestätigungen
 			$cnt_kst_doc = 0;	// counter krankenstand bestätigungen
 			$cnt_pfl_doc = 0;	// counter pflegeurlaub bestätigungen
+			$cnt_cov_doc = 0;	// counter covidkrankenstand bestätigungen
 			foreach ($bestaetigungen as $bestaetigung)
 			{
 				switch ($bestaetigung->dokument_kurzbz)
@@ -1534,6 +1550,9 @@ class Timesheet extends basis_db
 						continue;
 					case 'bst_krnk':
 						$cnt_kst_doc++;
+						continue;
+					case 'bst_cov':
+						$cnt_cov_doc++;
 						continue;
 				}
 			}
@@ -1555,6 +1574,14 @@ class Timesheet extends basis_db
 			if ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)
 			{
 				$missing_bestaetigung_arr['plegeurlaub'] = 1; // at least 1, no matter if more
+			}
+			if ($cnt_covSB >= 1 && $cnt_cov_doc == 0)
+			{
+				$missing_bestaetigung_arr['krankenstandcovid'] = 1; // at least 1, no matter if more
+			}
+			if ($cnt_covKS >= 1 && $cnt_cov_doc == 0)
+			{
+				$missing_bestaetigung_arr['krankenstandcovid'] = 1; // at least 1, no matter if more
 			}
 
 			// ...and save them as result

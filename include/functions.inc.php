@@ -230,20 +230,41 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 
 	switch($typ)
 	{
-		case 'Urlaub': $art='urlaub'; break;
-		case 'Krank': $art='krankenstand'; break;
-		case 'ZA': $art='zeitausgleich'; break;
-		case 'PflegeU': $art='pflegeurlaub'; break;
-		case 'DienstV': $art='dienstverhinderung'; break;
-		case 'DienstF': $art='dienstverhinderung'; break;
-		case 'EL': $art='externelehre'; break;
-		case 'ER': $art='ersatzruhe'; break;
-		case 'CovidSB': $art='krankenstand'; break;
-		case 'CovidKS': $art='krankenstandcovid'; break;
-		default: $art=''; break;
+		case 'Urlaub':
+			$art = 'urlaub';
+			break;
+		case 'Krank':
+			$art = 'krankenstand';
+			break;
+		case 'ZA':
+			$art = 'zeitausgleich';
+			break;
+		case 'PflegeU':
+			$art = 'pflegeurlaub';
+			break;
+		case 'DienstV':
+			$art = 'dienstverhinderung';
+			break;
+		case 'DienstF':
+			$art = 'dienstverhinderung';
+			break;
+		case 'EL':
+			$art = 'externelehre';
+			break;
+		case 'ER':
+			$art = 'ersatzruhe';
+			break;
+		case 'CovidSB':
+			$art = 'krankenstandcovid';
+			break;
+		case 'CovidKS':
+			$art = 'krankenstandcovid';
+			break;
+		default:
+			$art = '';
+			break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art.'&zeit='.$zeit;
-	var_dump($params);
 
 	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
@@ -252,7 +273,6 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-	var_dump($result);
 
 	if(curl_errno($ch))
 	{
@@ -307,17 +327,39 @@ function SendDataDelete($uid, $datum, $typ)
 
 	switch($typ)
 	{
-		case 'Urlaub': $art='urlaub'; break;
-		case 'Krank': $art='krankenstand'; break;
-		case 'ZA': $art='zeitausgleich'; break;
-		case 'PflegeU': $art='pflegeurlaub'; break;
-		case 'DienstV': $art='dienstverhinderung'; break;
-		case 'DienstF': $art='dienstverhinderung'; break;
-		case 'EL': $art='externelehre'; break;
-		case 'ER': $art='ersatzruhe'; break;
-		case 'CovidSB': $art='krankenstand'; break;
-		case 'CovidKS': $art='krankenstandcovid'; break;
-		default: $art=''; break;
+		case 'Urlaub':
+			$art = 'urlaub';
+			break;
+		case 'Krank':
+			$art = 'krankenstand';
+			break;
+		case 'ZA':
+			$art = 'zeitausgleich';
+			break;
+		case 'PflegeU':
+			$art = 'pflegeurlaub';
+			break;
+		case 'DienstV':
+			$art = 'dienstverhinderung';
+			break;
+		case 'DienstF':
+			$art = 'dienstverhinderung';
+			break;
+		case 'EL':
+			$art = 'externelehre';
+			break;
+		case 'ER':
+			$art = 'ersatzruhe';
+			break;
+		case 'CovidSB':
+			$art = 'krankenstandcovid';
+			break;
+		case 'CovidKS':
+			$art = 'krankenstandcovid';
+			break;
+		default:
+			$art = '';
+			break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
 
