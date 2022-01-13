@@ -387,7 +387,7 @@ if ($msglog == '')
 echo nl2br($msglog);
 
 // send mail to CaseTime-Admin
-if (g != '')
+if ('g' != '')
 {
 	$mail = new mail(CASETIME_SYNC_ADMIN_EMAIL, 'vilesci@'.DOMAIN,'CaseTime Sync Zeitsperren', $msglog);
 	if($mail->send())
