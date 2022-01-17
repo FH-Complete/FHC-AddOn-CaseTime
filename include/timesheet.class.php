@@ -8,6 +8,7 @@
 require_once(dirname(__FILE__). '/../../../include/basis_db.class.php');
 require_once(dirname(__FILE__). '/../../../include/datum.class.php');
 require_once(dirname(__FILE__). '/../../../include/dms.class.php');
+require_once(dirname(__FILE__). '/../../../include/functions.inc.php');
 
 /**
  * Description of casetime_timesheet
@@ -31,6 +32,7 @@ class Timesheet extends basis_db
 	public $kontrolliertamum;	// timestamp
 	public $kontrolliertvon;	// varchar(32)
 	public $kontroll_notizen;	// text
+	public $vorzeitig_abgeschickt; // boolean
 
 	/** Constructor
 	 *
@@ -69,7 +71,8 @@ class Timesheet extends basis_db
 					genehmigtvon,
 					kontrolliertamum,
 					kontrolliertvon,
-					kontroll_notizen
+					kontroll_notizen,
+					vorzeitig_abgeschickt
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -94,6 +97,7 @@ class Timesheet extends basis_db
 					$this->kontrolliertamum = $row->kontrolliertamum;
 					$this->kontrolliertvon = $row->kontrolliertvon;
 					$this->kontroll_notizen = $row->kontroll_notizen;
+					$this->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
 
 					$this->new = false;
 					return true;
@@ -138,7 +142,8 @@ class Timesheet extends basis_db
 					genehmigtvon,
 					kontrolliertamum,
 					kontrolliertvon,
-					kontroll_notizen
+					kontroll_notizen,
+					vorzeitig_abgeschickt
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -159,6 +164,7 @@ class Timesheet extends basis_db
 					$this->kontrolliertamum = $row->kontrolliertamum;
 					$this->kontrolliertvon = $row->kontrolliertvon;
 					$this->kontroll_notizen = $row->kontroll_notizen;
+					$this->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
 
 					return true;
 				}
@@ -202,7 +208,8 @@ class Timesheet extends basis_db
 					genehmigtvon,
 					kontrolliertamum,
 					kontrolliertvon,
-					kontroll_notizen
+					kontroll_notizen,
+					vorzeitig_abgeschickt
 				FROM
 					addon.tbl_casetime_timesheet
 				WHERE
@@ -227,6 +234,7 @@ class Timesheet extends basis_db
 					$obj->kontrolliertamum = $row->kontrolliertamum;
 					$obj->kontrolliertvon = $row->kontrolliertvon;
 					$obj->kontroll_notizen = $row->kontroll_notizen;
+					$obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
 
 					$this->result[] = $obj;
 				}
@@ -350,7 +358,7 @@ class Timesheet extends basis_db
 	 * @param string $uid
 	 * @return boolean	True on success. If true, returns object-array with absences.
 	 */
-	public function getAllAbsentTimes($uid)
+	public function getAllAbsentTimes($uid, $timesheet_id = '')
 	{
 		// get absence for:
 		// DIENSTVERHINDERUNG, KRANK and PFLEGEURLAUB (from tbl_zeitsperre)
@@ -378,7 +386,7 @@ class Timesheet extends basis_db
 				WHERE
 					uid = '. $this->db_add_param($uid). '
 				AND
-					zeitsperretyp_kurzbz IN (\'DienstV\', \'Krank\', \'PflegeU\')
+					zeitsperretyp_kurzbz IN (\'DienstV\', \'Krank\', \'PflegeU\', \'CovidSB\',  \'CovidKS\')
 				AND
 					bisdatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date
 
@@ -425,6 +433,20 @@ class Timesheet extends basis_db
 
 					$this->result[] = $obj;
 				}
+
+				// If timesheet is given, check absences only for that timesheet
+				if (is_numeric($timesheet_id))
+				{
+					foreach ($this->result as $key => $absence)
+					{
+						if ($absence->timesheet_id != $timesheet_id)
+						{
+							unset($this->result[$key]);
+						}
+					}
+
+				}
+
 				return $this->result;
 			}
 			else
@@ -446,7 +468,7 @@ class Timesheet extends basis_db
 	 * @param DateTime $date_monthlist	Casetime entries will be checked from first to last of the dates' month.
 	 * @return boolean	True if at least one Casetime insert/update found.
 	 * **/
-	public function hasAbsentTimes($uid, $date_monthlist)
+	public function hasNewOrChangedTimesToday($uid, $date_monthlist)
 	{
 		if (isset($uid) && !empty($uid))
 		{
@@ -467,16 +489,20 @@ class Timesheet extends basis_db
 							ende,
 							insertamum,
 							updateamum
+						-- Zeitaufzeichnung entries
 						FROM
 							campus.tbl_zeitaufzeichnung
+						-- ...for the given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
+						-- ...inserted or updated today
 						AND
 						(
 							insertamum::date = NOW()::date
 						OR
 							updateamum::date = NOW()::date
 						)
+						-- ...for the given monthlist
 						AND
 							start >= '". $first_day_monthlist. "'
 						AND
@@ -489,16 +515,20 @@ class Timesheet extends basis_db
 							bisdatum,
 							insertamum,
 							updateamum
+						-- Zeitsperre entries
 						FROM
 							campus.tbl_zeitsperre
+						-- ...for the given employee
 						WHERE
 							mitarbeiter_uid =  ". $this->db_add_param($uid). "
+						-- ...inserted or updated today
 						AND
 						(
 							insertamum::date = NOW()::date
 						OR
 							updateamum::date = NOW()::date
 						)
+						-- ...for the given monthlist
 						AND
 							vondatum >= '". $first_day_monthlist. "'
 						AND
@@ -581,10 +611,13 @@ class Timesheet extends basis_db
 		{
 			$qry = '
 				SELECT
+					timesheet_id,
+					datum,
 					dms_id,
 					name,
 					beschreibung,
-					dokument_kurzbz
+					dokument_kurzbz,
+					tbl_dokument.bezeichnung as dokument_bezeichnung
 				FROM
 					campus.tbl_dms_version
 				JOIN
@@ -593,8 +626,14 @@ class Timesheet extends basis_db
 				JOIN
 					campus.tbl_dms
 				USING (dms_id)
+				JOIN
+					addon.tbl_casetime_timesheet
+				USING (timesheet_id)
+				JOIN
+					public.tbl_dokument
+				USING (dokument_kurzbz)
 				WHERE
-					tbl_casetime_timesheet_dms.timesheet_id=' . $this->db_add_param($timesheet_id, FHC_INTEGER);
+					tbl_casetime_timesheet_dms.timesheet_id=' . $this->db_add_param($timesheet_id);
 
 			if ($this->db_query($qry))
 			{
@@ -602,12 +641,15 @@ class Timesheet extends basis_db
 				{
 					$obj = new stdClass();
 
+					$obj->timesheet_id = $row->timesheet_id;
+					$obj->datum = $row->datum;
 					$obj->dms_id = $row->dms_id;
 					$obj->name = $row->name;
 					$obj->beschreibung = $row->beschreibung;
 					$obj->dokument_kurzbz = $row->dokument_kurzbz;
+					$obj->dokument_bezeichnung = $row->dokument_bezeichnung;
 
-					$this->result[] = $obj;
+					$this->result[]= $obj;
 				}
 
 				return $this->result;
@@ -630,7 +672,7 @@ class Timesheet extends basis_db
 	 * @param string $uid
 	 * @return boolean True on success. If true, returns object-array with all attests of this user.
 	 */
-	public function loadAllBestaetigungen_byUser($uid)
+	public function loadAllBestaetigungen_byUser($uid, $timesheet_id = '')
 	{
 		if (isset($uid) && !empty($uid))
 		{
@@ -677,6 +719,20 @@ class Timesheet extends basis_db
 					$obj->dokument_bezeichnung = $row->dokument_bezeichnung;
 
 					$this->result[] = $obj;
+				}
+
+				if (is_numeric($timesheet_id))
+				{
+					$timesheet = new Timesheet();
+					$timesheet->load_byID($timesheet_id);
+
+					foreach ($this->result as $key => $bestaetigung)
+					{
+						if($bestaetigung->datum != $timesheet->datum)
+						{
+							unset($this->result[$key]);
+						}
+					}
 				}
 
 				return $this->result;
@@ -983,7 +1039,7 @@ class Timesheet extends basis_db
 				WHERE
 					mitarbeiter_uid = '. $this->db_add_param($uid). '
 				AND
-					zeitsperretyp_kurzbz IN (\'Krank\')
+					zeitsperretyp_kurzbz IN (\'Krank\', \'CovidSB\', \'CovidKS\')
 				AND
 					(bisdatum - vondatum) > 2
 				AND
@@ -1025,7 +1081,7 @@ class Timesheet extends basis_db
 		}
 	}
 
-	/** Check if user has deleted today any times within the active timesheet month
+	/** Check if user has changed or deleted today any times within the given timesheet month
 	 *
 	 * @param string $uid User ID.
 	 * @param DateTime $date_monthlist	Casetime entries will be checked from first to last of the dates' month.
@@ -1057,14 +1113,20 @@ class Timesheet extends basis_db
 							datum,
 							zeit_start,
 							zeit_ende
+						-- Zeitaufzeichnung entries
 						FROM
 							addon.tbl_casetime_zeitaufzeichnung
+						-- ...from given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
 						AND
+						-- ...with type KOMMEN
 							typ = 'ko'
+						-- ...for the given monthlist
 						AND
 							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
+						-- ...where working times (earlier start or later end) are not synchronized
+						-- ...except externe Lehre, Ersatzruhe and Dienstreise
 						AND
 						(
 							tbl_casetime_zeitaufzeichnung.zeit_start !=
@@ -1120,15 +1182,19 @@ class Timesheet extends basis_db
 					(
 						SELECT
 							zeitaufzeichnung_id
+						-- Zeitaufzeichnung entries
 						FROM
 							addon.tbl_casetime_zeitaufzeichnung
+						-- ...from given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
+						-- ...for the given monthlist
 						AND
 							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
+						-- ...for all types except KOMMEN
 						AND
 							typ != 'ko'
-
+						-- ...that are not synchronized
 						AND NOT EXISTS
 						(
 							SELECT
@@ -1151,13 +1217,17 @@ class Timesheet extends basis_db
 						SELECT
 							datum,
 							typ
+						-- Zeitaufzeichnung entries
 						FROM
 							addon.tbl_casetime_zeitsperre
+						-- ...from given employee
 						WHERE
 							uid = ". $this->db_add_param($uid). "
+						-- ...for the given monthlist
 						AND
 							(datum >= '". $first_day_monthlist."' AND datum <= '". $last_day_monthlist."')
-
+						-- ...that are not synchronized
+						-- ...check only DienstF, DienstV, Krank, PflegeU, Urlaub, ZA
 						AND NOT EXISTS
 						(
 							SELECT
@@ -1183,7 +1253,7 @@ class Timesheet extends basis_db
 								datum = tbl_casetime_zeitsperre.datum
 							AND
 								/* only the following types are considered in sync table */
-								typ IN ('DienstF', 'DienstV', 'Krank', 'PflegeU', 'Urlaub', 'ZA')
+								typ IN ('DienstF', 'DienstV', 'Krank', 'PflegeU', 'Urlaub', 'ZA','CovidSB','CovidKS')
 						)
 					) AS check3;";
 
@@ -1312,5 +1382,316 @@ class Timesheet extends basis_db
 			$this->errormsg = 'Timesheet konnte nicht eingefügt werden';
 			return false;
 		}
+	}
+
+	/**
+	 * Saves users if Monatsliste should be closed before the month has finished.
+	 * @param $timesheet_id
+	 * @param $vorzeitig_abgeschickt
+	 * @return bool
+	 */
+	public function saveVorzeitigAbgeschickt($timesheet_id, $vorzeitig_abgeschickt)
+	{
+		$qry = '
+				UPDATE
+					addon.tbl_casetime_timesheet
+				SET
+					vorzeitig_abgeschickt = '. $this->db_add_param($this->db_escape($vorzeitig_abgeschickt)). '
+				WHERE
+					timesheet_id = '. $this->db_add_param($timesheet_id);
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim Update von vorzeitig_abgeschickt';
+			return false;
+		}
+	}
+
+	/**
+	 * Reset vorzeitig_abgeschickt to FALSE.
+	 * @param $timesheet_id
+	 */
+	public function resetVorzeitigAbgeschickt($timesheet_id)
+	{
+		$qry = '
+				UPDATE
+					addon.tbl_casetime_timesheet
+				SET
+					vorzeitig_abgeschickt = FALSE
+				WHERE
+					timesheet_id = '. $this->db_add_param($timesheet_id);
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler beim reset von vorzeitig_abgeschickt.';
+			return false;
+		}
+
+	}
+
+	/**
+	 * Loads all timesheets of the last month that are flagged as vorzeitig_abgeschickt.
+	 */
+	public function loadAllFromLastMonthVorzeitigAbgeschickt()
+	{
+		$qry = '
+			SELECT
+				timesheet_id,
+				uid,
+				datum,
+				insertamum,
+				insertvon,
+				abgeschicktamum,
+				genehmigtamum,
+				genehmigtvon,
+				kontrolliertamum,
+				kontrolliertvon,
+				kontroll_notizen,
+				vorzeitig_abgeschickt
+			FROM
+				addon.tbl_casetime_timesheet
+			WHERE
+				-- vorzeitig abgeschickt ist gesetzt
+				vorzeitig_abgeschickt
+			AND
+				-- noch nicht abgeschickt
+				abgeschicktamum IS NULL
+			AND
+				-- nur timesheets des letzten Monats
+				date_trunc(\'month\', datum) = date_trunc(\'month\', now() - interval \'1 month\')
+			ORDER BY
+				datum DESC';
+
+		if ($this->db_query($qry))
+		{
+			while ($row = $this->db_fetch_object())
+			{
+				$obj = new stdClass();
+
+				$obj->timesheet_id = $row->timesheet_id;
+				$obj->uid = $row->uid;
+				$obj->datum = $row->datum;
+				$obj->insertamum = $row->insertamum;
+				$obj->insertvon = $row->insertvon;
+				$obj->abgeschicktamum = $row->abgeschicktamum;
+				$obj->genehmigtamum = $row->genehmigtamum;
+				$obj->genehmigtvon = $row->genehmigtvon;
+				$obj->kontrolliertamum = $row->kontrolliertamum;
+				$obj->kontrolliertvon = $row->kontrolliertvon;
+				$obj->kontroll_notizen = $row->kontroll_notizen;
+				$obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
+
+				$this->result[] = $obj;
+			}
+
+			return $this->result;
+		}
+		else
+		{
+			$this->errormsg = "Fehler beim Laden der timesheets aus dem Vormonat mit flag vorzeitig_abgeschickt.";
+			return false;
+		}
+	}
+
+	/**
+	 * Checks if there are casetime server errors that are defined as blocking errors
+	 * @param String $uid
+	 * @param String $month Timesheet month, e.g. 06
+	 * @param String $year  Timesheet year, e.g. 2021
+	 * @return bool         True, if casetime blocking errors were found.
+	 * @throws Exception
+	 */
+	public function hasCaseTimeError($uid, $month, $year)
+	{
+		$casetime_error_arr = getCaseTimeErrors($uid);
+		$blocking_error_arr = unserialize(CASETIME_BLOCKING_ERR);
+
+		foreach ($casetime_error_arr as $casetime_error)
+		{
+			$casetime_error_date = new DateTime($casetime_error[0]);
+			$casetime_error_month = $casetime_error_date->format('m');
+			$casetime_error_year = $casetime_error_date->format('Y');
+
+			// If casetime error exists in the given timesheet or one month before...
+			if ($casetime_error_year == $year
+				&& ($casetime_error_month == $month || $casetime_error_month == ($month-1)))
+			{
+				// ...check if it is a blocking error
+				foreach($blocking_error_arr as $blocking_err)
+				{
+					if (strpos($casetime_error[1], $blocking_err) !== false)
+					{
+						return true; // Blocking error found
+					}
+				}
+			}
+		}
+		return false; // No blocking errors found
+	}
+
+	/**
+	 * Checks if there are missing Bestaetigungen for the reported absences.
+	 * If only uid is given, all absences of the user  will be checked against all Bestaetigunen.
+	 * If timesheet_id is given, only absences and Bestaetigungen for that timesheet period will
+	 * be checked.
+	 *
+	 * @param $uid
+	 * @param $timesheet_id
+	 * @return bool
+	 * @throws Exception
+	 */
+	public function hasMissingBestaetigung($uid, $timesheet_id = '')
+	{
+		$timesheet = new Timesheet();
+		$timesheet->load_byID($timesheet_id);
+
+		// Array to store missing bestaetigungen
+		$missing_bestaetigung_arr = array();
+		$missing_bestaetigung_arr['arztbesuch'] = 0;
+		$missing_bestaetigung_arr['behoerdenbesuch'] = 0;
+		$missing_bestaetigung_arr['krankenstand'] = 0;
+		$missing_bestaetigung_arr['plegeurlaub'] = 0;
+		$missing_bestaetigung_arr['krankenstandcovid'] = 0;
+
+		// Get all absences of given UID
+		// If timesheet is given, check absences only for that timesheet
+		$absences = is_numeric($timesheet_id)
+			? $timesheet->getAllAbsentTimes($uid, $timesheet_id)
+			: $timesheet->getAllAbsentTimes($uid);
+
+		if (!empty($absences))
+		{
+			// Count absences by type
+			$cnt_ab = 0;     // counter arztbesuch
+			$cnt_beh = 0;    // counter behörde
+			$cnt_kst = 0;    // counter krankenstand
+			$cnt_pfl = 0;    // counter pflegeurlaub
+			$cnt_covSB = 0;    // counter CovidSB
+			$cnt_covKS = 0;    // counter CovidKS
+			foreach ($absences as $absence) {
+				switch ($absence->abwesenheit_kurzbz) {
+					case 'Arztbesuch':
+						// each Arztbesuch-absence needs to be attested
+						$cnt_ab++;
+						continue;
+					case 'Behoerde':
+						// each Behörden-absence needs to be attested
+						$cnt_beh++;
+						continue;
+					case 'PflegeU':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+
+						// Pflegeurlaub needs to be attested only from the 3rd day on
+						if ($von->diff($bis)->d >= 2)
+							$cnt_pfl++;
+						continue;
+					case 'Krank':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+
+						// Krankenstand needs to be attested only from the 3rd day on
+						if ($von->diff($bis)->d >= 2)
+							$cnt_kst++;
+						continue;
+					case 'CovidSB':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+						// each covidkrankenstand needs to be attested
+							$cnt_covSB++;
+						continue;
+					case 'CovidKS':
+						$von = new DateTime($absence->von);
+						$bis = new DateTime($absence->bis);
+						// each covidkrankenstand needs to be attested
+							$cnt_covKS++;
+						continue;
+				}
+			}
+
+			// Get all Bestaetigungen
+			// If timesheet is given, only Bestaetigungen of that timesheets period are needed
+			$timesheet = new Timesheet();
+			$bestaetigungen = is_numeric($timesheet_id)
+				? $timesheet->loadAllBestaetigungen_byTimesheet($timesheet_id)
+				: $timesheet->loadAllBestaetigungen_byUser($uid);
+
+			// Count Bestaetigungen by type
+			$cnt_ab_doc = 0;	// counter arztbesuch bestätigungen
+			$cnt_beh_doc = 0;	// counter behörde bestätigungen
+			$cnt_kst_doc = 0;	// counter krankenstand bestätigungen
+			$cnt_pfl_doc = 0;	// counter pflegeurlaub bestätigungen
+			$cnt_cov_doc = 0;	// counter covidkrankenstand bestätigungen
+			foreach ($bestaetigungen as $bestaetigung)
+			{
+				switch ($bestaetigung->dokument_kurzbz)
+				{
+					case 'bst_arzt':
+						$cnt_ab_doc++;
+						continue;
+					case 'bst_bhrd':
+						$cnt_beh_doc++;
+						continue;
+					case 'bst_pfur':
+						$cnt_pfl_doc++;
+						continue;
+					case 'bst_krnk':
+						$cnt_kst_doc++;
+						continue;
+					case 'bst_cov':
+						$cnt_cov_doc++;
+						continue;
+				}
+			}
+
+			// Store missing bestaetigungen by type
+			if ($cnt_ab > $cnt_ab_doc)
+			{
+				$missing_bestaetigung_arr['arztbesuch'] = $cnt_ab - $cnt_ab_doc;
+			}
+			if ($cnt_beh > $cnt_beh_doc)
+			{
+				$missing_bestaetigung_arr['behoerdenbesuch'] = $cnt_beh - $cnt_beh_doc;
+			}
+			// if one or more krankenstände there need to be at least one krankenstandsbestätigung
+			if ($cnt_kst >= 1 && $cnt_kst_doc == 0)
+			{
+				$missing_bestaetigung_arr['krankenstand'] = 1; // at least 1, no matter if more
+			}
+			if ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)
+			{
+				$missing_bestaetigung_arr['plegeurlaub'] = 1; // at least 1, no matter if more
+			}
+			if ($cnt_covSB >= 1 && $cnt_cov_doc == 0)
+			{
+				$missing_bestaetigung_arr['krankenstandcovid'] = 1; // at least 1, no matter if more
+			}
+			if ($cnt_covKS >= 1 && $cnt_cov_doc == 0)
+			{
+				$missing_bestaetigung_arr['krankenstandcovid'] = 1; // at least 1, no matter if more
+			}
+
+			// ...and save them as result
+			$this->result = $missing_bestaetigung_arr;
+
+			// Check if absences have their according Bestaetigung.
+			// Return true if Bestaetigung is missing.
+			return $cnt_ab > $cnt_ab_doc
+				|| $cnt_beh > $cnt_beh_doc
+				|| ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)  // if one or more Pflegeurlaub, at least one Bestaetigung
+				|| ($cnt_kst >= 1 && $cnt_kst_doc == 0); // if one or more Krankenstand, at least one Bestaetigung
+		}
+
+		// If not even one single absence found
+		$this->result = $missing_bestaetigung_arr;
+		return false;
 	}
 }
