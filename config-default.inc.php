@@ -46,4 +46,7 @@ define ('CASETIME_MSGLOG_HR_INCLUDE_USERS', serialize(
 			'UID2'
   )));
 
+// HR Mail address for timesheet eMails
+define('CASETIME_TIMESHEET_HR_EMAIL', '');
+
 ?>
