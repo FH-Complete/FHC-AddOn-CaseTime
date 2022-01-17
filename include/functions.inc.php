@@ -230,15 +230,39 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 
 	switch($typ)
 	{
-		case 'Urlaub': $art='urlaub'; break;
-		case 'Krank': $art='krankenstand'; break;
-		case 'ZA': $art='zeitausgleich'; break;
-		case 'PflegeU': $art='pflegeurlaub'; break;
-		case 'DienstV': $art='dienstverhinderung'; break;
-		case 'DienstF': $art='dienstverhinderung'; break;
-		case 'EL': $art='externelehre'; break;
-		case 'ER': $art='ersatzruhe'; break;
-		default: $art=''; break;
+		case 'Urlaub':
+			$art = 'urlaub';
+			break;
+		case 'Krank':
+			$art = 'krankenstand';
+			break;
+		case 'ZA':
+			$art = 'zeitausgleich';
+			break;
+		case 'PflegeU':
+			$art = 'pflegeurlaub';
+			break;
+		case 'DienstV':
+			$art = 'dienstverhinderung';
+			break;
+		case 'DienstF':
+			$art = 'dienstverhinderung';
+			break;
+		case 'EL':
+			$art = 'externelehre';
+			break;
+		case 'ER':
+			$art = 'ersatzruhe';
+			break;
+		case 'CovidSB':
+			$art = 'krankenstandcovid';
+			break;
+		case 'CovidKS':
+			$art = 'krankenstandcovid';
+			break;
+		default:
+			$art = '';
+			break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art.'&zeit='.$zeit;
 
@@ -303,15 +327,39 @@ function SendDataDelete($uid, $datum, $typ)
 
 	switch($typ)
 	{
-		case 'Urlaub': $art='urlaub'; break;
-		case 'Krank': $art='krankenstand'; break;
-		case 'ZA': $art='zeitausgleich'; break;
-		case 'PflegeU': $art='pflegeurlaub'; break;
-		case 'DienstV': $art='dienstverhinderung'; break;
-		case 'DienstF': $art='dienstverhinderung'; break;
-		case 'EL': $art='externelehre'; break;
-		case 'ER': $art='ersatzruhe'; break;
-		default: $art=''; break;
+		case 'Urlaub':
+			$art = 'urlaub';
+			break;
+		case 'Krank':
+			$art = 'krankenstand';
+			break;
+		case 'ZA':
+			$art = 'zeitausgleich';
+			break;
+		case 'PflegeU':
+			$art = 'pflegeurlaub';
+			break;
+		case 'DienstV':
+			$art = 'dienstverhinderung';
+			break;
+		case 'DienstF':
+			$art = 'dienstverhinderung';
+			break;
+		case 'EL':
+			$art = 'externelehre';
+			break;
+		case 'ER':
+			$art = 'ersatzruhe';
+			break;
+		case 'CovidSB':
+			$art = 'krankenstandcovid';
+			break;
+		case 'CovidKS':
+			$art = 'krankenstandcovid';
+			break;
+		default:
+			$art = '';
+			break;
 	}
 	$params = 'sachb='.$uid.'&buchdat='.$datum.'&art='.$art;
 
@@ -651,12 +699,12 @@ function generateTimesheetAndMail($uid, $monat, $jahr, $ftype)
 }
 
 /** Check if uid has personnel manager permission (specific for timesheet)
- * 
+ *
  * @param string $uid
  * @return boolean	True if uid has personnel manager permission.
  */
 function check_isPersonal($uid)
-{	
+{
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 	if ($rechte->isBerechtigt('mitarbeiter/zeitsperre'))
@@ -666,27 +714,27 @@ function check_isPersonal($uid)
 	else
 	{
 		return false;
-	}		
+	}
 }
 /** Check, if uid is timesheet manager
- * 
+ *
  * @param string $uid
  * @param string $employee_uid
  * @return boolean True if uid has timesheet manager permission.
  */
 function check_isTimesheetManager($uid, $employee_uid)
-{		
+{
 	// get organisational unit of employee for permission check
 	$benutzer_fkt = new Benutzerfunktion();
 	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
 	$employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
-	
+
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 
 	if ($rechte->isBerechtigt('addon/casetime_manageTimesheet', $employee_oe_kurzbz))
 	{
-		return true;						
+		return true;
 	}
 	else
 	{
