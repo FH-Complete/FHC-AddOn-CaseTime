@@ -265,6 +265,16 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet"))
 		echo ' addon.tbl_casetime_timesheet: Tabelle addon.tbl_casetime_timesheet hinzugefuegt!<br>';
 }
 
+//Spalte vorzeitig_abgeschickt in addon.tbl_casetime_timesheet
+if(!$result = @$db->db_query("SELECT vorzeitig_abgeschickt FROM addon.tbl_casetime_timesheet LIMIT 1"))
+{
+	$qry = "ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN vorzeitig_abgeschickt BOOLEAN NOT NULL DEFAULT FALSE;";
+	
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_timesheet: '.$db->db_last_error().'</strong><br>';
+	else
+		echo '<br>addon.tbl_casetime_timesheet: Spalte vorzeitig_abgeschickt hinzugefuegt';
+}
 
 // Tabelle für die DMS Dokumenten IDs, die zu den monatlich zu genehmigenden Timesheets angehängt werden müssen (Krankenstände etc)
 if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet_dms"))
@@ -462,7 +472,7 @@ if(!$result = @$db->db_query("SELECT kontrolliertamum FROM addon.tbl_casetime_ti
 	$qry = "ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontrolliertamum timestamp;
 			ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontrolliertvon varchar(32);
 			ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN kontroll_notizen text;
-			
+
 			ALTER TABLE addon.tbl_casetime_timesheet ADD CONSTRAINT fk_benutzer_casetime_timesheet_kontrolliertvon FOREIGN KEY (kontrolliertvon) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;";
 
 	if(!$db->db_query($qry))
@@ -471,13 +481,13 @@ if(!$result = @$db->db_query("SELECT kontrolliertamum FROM addon.tbl_casetime_ti
 		echo '<br>addon.tbl_casetime_timesheet: Spalten kontrolliertamum, kontrolliertvon, kontroll_notizen hinzugefuegt';
 }
 
-// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitaufzeichnung und SEQUENCE addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq 
+// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitaufzeichnung und SEQUENCE addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq
 if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitaufzeichnung' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
 		$qry = "GRANT SELECT ON addon.tbl_casetime_zeitaufzeichnung TO web;";
-		
+
 		if(!$db->db_query($qry))
 			echo '<strong>addon.tbl_casetime_zeitaufzeichnung Berechtigungen: '.$db->db_last_error().'</strong><br>';
 		else
@@ -485,13 +495,13 @@ if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants 
 	}
 }
 
-// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitsperre und SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq 
+// INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitsperre und SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq
 if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitsperre' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
 		$qry = "GRANT SELECT ON addon.tbl_casetime_zeitsperre TO web;";
-		
+
 		if(!$db->db_query($qry))
 			echo '<strong>addon.tbl_casetime_zeitsperre Berechtigungen: '.$db->db_last_error().'</strong><br>';
 		else
@@ -512,6 +522,20 @@ if ($result = @$db->db_query("SELECT 1 FROM system.tbl_berechtigung WHERE berech
 	}
 }
 
+// Add index to addon.tbl_casetime_zeitaufzeichnung.uid
+if ($result = $db->db_query("SELECT * FROM pg_class WHERE relname='idx_tbl_casetime_zeitaufzeichnung_uid'"))
+{
+	if ($db->db_num_rows($result) == 0)
+	{
+		$qry = "CREATE INDEX idx_tbl_casetime_zeitaufzeichnung_uid ON addon.tbl_casetime_zeitaufzeichnung USING btree (uid)";
+
+		if (! $db->db_query($qry))
+			echo '<strong>Indizes: ' . $db->db_last_error() . '</strong><br>';
+		else
+			echo '<br>Index fuer campus.tbl_casetime_zeitaufzeichnung.uid hinzugefuegt<br>';
+	}
+}
+
 echo '<br>Aktualisierung abgeschlossen<br><br>';
 echo '<h2>Gegenprüfung</h2>';
 
@@ -521,7 +545,7 @@ $tabellen=array(
 	"addon.tbl_casetime_gruppen"  => array("casetime_gruppen_id","oe_kurzbz","uid","sync"),
 	"addon.tbl_casetime_zeitsperre"  => array("casetime_zeitsperre_id","uid","datum","typ"),
 	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id", "datum_bis"),
-	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon", "kontrolliertamum", "kontrolliertvon", "kontroll_notizen"),
+	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon", "kontrolliertamum", "kontrolliertvon", "kontroll_notizen", "vorzeitig_abgeschickt"),
 	"addon.tbl_casetime_timesheet_dms"  => array("timesheet_dms_id","timesheet_id","dms_id","insertamum", "insertvon"),
 );
 

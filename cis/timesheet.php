@@ -16,6 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  *
  * Authors:	Cristina Hainberger		<hainberg@technikum-wien.at>
+ 			Manuela Thamer			<manuela.thamer@technikum-wien.at>
  */
 require_once('../../../config/cis.config.inc.php');
 require_once('../config.inc.php');
@@ -196,7 +197,6 @@ else
 $date_selected = new DateTime($year. '-'. $month);	// date obj of date selected; day and time is automatically set to first and zero
 
 $isFuture = false;	// true if date selected is in the future
-$isMissing_doc = false;	// true if upload documents are missing after check against absences
 
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
@@ -260,6 +260,7 @@ $isAllowed_confirmTimesheet = true;	// false if former timesheets are not confir
 $isFirstEntry = false;	// true if user enters first time monthlist site
 $date_last_timesheet = null;	// date of last existing timesheet
 $date_first_dummy_ts = null;	// date of first missing timesheet
+$isCurrentMonth = false;
 
 // If no timesheets existing (very first entry)
 if (empty($timesheet_arr))
@@ -369,11 +370,18 @@ function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 {
 	$ts_date = new DateTime('first day of '. $datum. ' midnight');
 	$startdatum = $ts_date->format('Y-m-d');
+	foreach ($verwendung_arr as $verwendung)
+	{
+		if ($datum < $verwendung->beginn)
+		{
+			$startdatum = $verwendung->beginn;
+		}
+	}
 
 	$zp = false;
 	foreach ($verwendung_arr as $bv)
 	{
-		if($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
+		if ($bv->inZeitaufzeichnungspflichtigPeriod($startdatum, $datum))
 		{
 			$zp = true;
 		}
@@ -384,6 +392,7 @@ function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 // Get data of merged timesheet array (missing and existing timesheets)
 $timesheet_year_arr = array();	// unique timesheet years to set title in "Alle Monatslisten" - panel
 $date_allow_new_ts = clone $date_actual;	// date of timesheet to be created
+$zp = false;
 foreach ($merged_timesheet_arr as $ts)
 {
 	$ts_date = new DateTime($ts->datum);
@@ -395,11 +404,9 @@ foreach ($merged_timesheet_arr as $ts)
 		$timesheet_year_arr[] = $ts_year;
 	}
 
-	// find first of dummy timesheets; this is the one to create the next timesheet
 	if (is_null($ts->timesheet_id))
 	{
 		$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum);
-
 		if($zp)
 		{
 			$date_allow_new_ts = clone $ts_date;
@@ -409,7 +416,10 @@ foreach ($merged_timesheet_arr as $ts)
 
 // Get the most earliest monthlist date of merged timesheet array
 // This could be date of an existing or a dummy timesheet
-$date_earliest_ts = new DateTime('first day of '. end($merged_timesheet_arr)->datum);
+if(count($merged_timesheet_arr)>0)
+	$date_earliest_ts = new DateTime('first day of '. end($merged_timesheet_arr)->datum);
+else
+	$date_earliest_ts = new DateTime('2999-01-01'); // Currently not allowed to create Timesheet
 
 // Flag if timesheet may not be created
 if ($date_allow_new_ts < $date_selected ||
@@ -432,6 +442,11 @@ if($isAllowed_createTimesheet)
 if ($date_allow_new_ts < $date_selected)
 {
 	$isDisabled_by_missingTimesheet = true;
+}
+
+if (($date_selected == $date_actual))
+{
+	$isCurrentMonth = true;
 }
 
 // Flag if selected date is in the future
@@ -457,6 +472,7 @@ if (isset($_GET['create']))
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
 $timesheet->new = (is_null($timesheet_id) ? true : false);
+$timesheet_vorzeitig_abgeschickt = $timesheet->vorzeitig_abgeschickt;
 $timesheet_cntrl_date = (!is_null($timesheet->kontrolliertamum)) ? new DateTime($timesheet->kontrolliertamum) : '';
 $timesheet_cntrl_uid = (!is_null($timesheet->kontrolliertvon)) ? $timesheet->kontrolliertvon : '';
 $timesheet_cntrl_remark = (!is_null($timesheet->kontroll_notizen)) ? $timesheet->kontroll_notizen : '';
@@ -513,98 +529,32 @@ if ($date_actual <= $date_selected)
 	$isAllowed_sendTimesheet = false;
 }
 
-// *********************************	ALL ABSENT TIMES
+// *********************************	FEHLZEITEN & deren BESTAETIGUNGEN
+
+// Get all absences
+$total_absences_arr = array();
 $timesheet = new Timesheet();
 $timesheet->getAllAbsentTimes($uid);
-$absent_times_arr = $timesheet->result;
+$total_absences_arr = $timesheet->result;
 
+// Get absences of timesheet selected
+$timesheet_absences_arr = array();
+$timesheet = new Timesheet();
+$timesheet->getAllAbsentTimes($uid, $timesheet_id);
+$timesheet_absences_arr = $timesheet->result;
 
-// *********************************	ACTUAL ABSENT TIMES (of month/year selected)
-$actual_absent_times_arr = array();
-foreach ($absent_times_arr as $absence)
-{
-	if ($absence->timesheet_id == $timesheet_id)
-	{
-		$actual_absent_times_arr[] = $absence;
-	}
-}
-
-// Get absences that need to be checked against document upload
-$cnt_ab = 0;	// counter arztbesuch
-$cnt_beh = 0;	// counter behöre
-$cnt_kst = 0;	// counter krankenstand
-$cnt_pfl = 0;	// counter pflegeurlaub
-foreach ($actual_absent_times_arr as $actual_absence)
-{
-	switch ($actual_absence->abwesenheit_kurzbz)
-	{
-		case 'Arztbesuch':
-			// each Arztbesuch-absence needs to be attested
-			$cnt_ab++;
-			continue;
-		case 'Behoerde':
-			// each Behörden-absence needs to be attested
-			$cnt_beh++;
-			continue;
-		case 'PflegeU':
-			$von = new DateTime($actual_absence->von);
-			$bis = new DateTime($actual_absence->bis);
-
-			// Pflegeurlaub needs to be attested only from the 3rd day on
-			if($von->diff($bis)->d >= 2)
-				$cnt_pfl++;
-			continue;
-		case 'Krank':
-			$von = new DateTime($actual_absence->von);
-			$bis = new DateTime($actual_absence->bis);
-
-			// Krankenstand needs to be attested only from the 3rd day on
-			if($von->diff($bis)->d >= 2)
-				$cnt_kst++;
-			continue;
-	}
-}
-
-// *********************************	ALL DOCUMENTS
-// Load all Bestätigungen of user
+// Get all Bestaetigungen
+$total_bestaetigungen_arr = array();
 $timesheet = new Timesheet();
 $timesheet->loadAllBestaetigungen_byUser($uid);
-$all_user_bestaetigungen = $timesheet->result;
+$total_bestaetigungen_arr = $timesheet->result;
 
-// collect all Bestätigungen of actual monthlist in an extra array
-$all_actualMonth_bestaetigungen = array();
-foreach ($all_user_bestaetigungen as $bestaetigung)
-{
-	$date_bestaetigung = new DateTime($bestaetigung->datum);
-	$date_bestaetigung->modify('first day of this month midnight');
+// Get Bestaetigungen of timesheet selected
+$timesheet_bestaetigungen_arr = array();
+$timesheet = new Timesheet();
+$timesheet->loadAllBestaetigungen_byTimesheet($timesheet_id);
+$timesheet_bestaetigungen_arr = $timesheet->result;
 
-	if($date_selected == $date_bestaetigung)
-		$all_actualMonth_bestaetigungen[] = $bestaetigung;
-}
-
-// Get document amount that need to be checked against absences
-$cnt_ab_doc = 0;	// counter arztbesuch bestätigungen
-$cnt_beh_doc = 0;	// counter behörde bestätigungen
-$cnt_kst_doc = 0;	// counter krankenstand bestätigungen
-$cnt_pfl_doc = 0;	// counter pflegeurlaub bestätigungen
-foreach ($all_actualMonth_bestaetigungen as $actual_bestaetigung)
-{
-	switch ($actual_bestaetigung->dokument_kurzbz)
-	{
-		case 'bst_arzt':
-			$cnt_ab_doc++;
-			continue;
-		case 'bst_bhrd':
-			$cnt_beh_doc++;
-			continue;
-		case 'bst_pfur':
-			$cnt_pfl_doc++;
-			continue;
-		case 'bst_krnk':
-			$cnt_kst_doc++;
-			continue;
-	}
-}
 
 // Get Saldenuebertrag at Monatsbeginn and (up to) Monatsende of selected monatsliste
 // First day of selected monthlist
@@ -695,7 +645,7 @@ $isSyncedWithCaseTime_today = true;	// false if has deleted Zeitaufzeichnung/Zei
 if ($date_selected != $date_actual)
 {
 	$timesheet = new Timesheet();
-	$hasCaseTimeChanges_today = $timesheet->hasAbsentTimes($uid, $date_selected);
+	$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday($uid, $date_selected);
 
 	$timesheet = new Timesheet();
 	$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes($uid, $date_selected);
@@ -729,41 +679,52 @@ if (isset($_POST['action']) && isset($_POST['method']))
 	}
 }
 
+if (isset($_POST['action']) && isset($_POST['method']))
+{
+	if ($_POST['action'] == 'ajax' && $_POST['method'] == 'saveVorzeitigAbgeschickt')
+	{
+		if (isset($_POST['timesheet_id']) && is_numeric($_POST['timesheet_id']))
+		{
+			if (isset($_POST['vorzeitig_abgeschickt']) && is_string($_POST['vorzeitig_abgeschickt']))
+			{
+				$result = false;
+				$timesheet = new Timesheet();
+
+				if ($timesheet->saveVorzeitigAbgeschickt($_POST['timesheet_id'], $_POST['vorzeitig_abgeschickt']))
+				{
+					$result = true;
+				}
+
+				// return true if update was done successfully
+				echo json_encode($result);
+				exit;
+			}
+		}
+	}
+}
+
 // *********************************	EMAIL SENDING (and document check)
-$isCaseTimeError = false;	// boolean to flag casetime server errors which should be eliminated before timesheet sending
+$hasCaseTimeError = false;
+$hasMissingBestaetigung = false;
+$missing_bestaetigungen = '';
 if (isset($_POST['submitTimesheet']))
 {
-	// Check if there are casetime server errors that are defined as blocking errors
-	$isCaseTimeError = checkCaseTimeErrors($uid, $month, $year);
+	$timesheet = new Timesheet();
 
-	// Check if documents according have been uploaded to absences
-	$missing_docs = "<ul>";
-	if ($cnt_ab > $cnt_ab_doc)
-	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>". ($cnt_ab - $cnt_ab_doc). " Arztbesuch(e)</li>";
-	}
-	if ($cnt_beh > $cnt_beh_doc)
-	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>". ($cnt_beh - $cnt_beh_doc). " Behördenbesuch(e)</li>";
-	}
-	// if one or more krankenstände there need to be at least one krankenstandsbestätigung
-	if ($cnt_kst >= 1 && $cnt_kst_doc == 0)
-	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>mindestens einen Krankenstand</li>";
-	}
-	if ($cnt_pfl >= 1 && $cnt_pfl_doc == 0)
-	{
-		$isMissing_doc = true;
-		$missing_docs .= "<li>mindestens einen Pflegeurlaub</li>";
-	}
+	// Check for blocking casetime errors
+	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
 
-	$missing_docs .= "</ul>";
+	// Check for missing Bestaetigungen
+	$hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
+
+	// Retrieve amount of missing Bestaetigungen by type
+	if ($hasMissingBestaetigung)
+	{
+		$missing_bestaetigungen = $timesheet->result;
+	}
 
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$isMissing_doc && !$isCaseTimeError)
+	if (!$hasMissingBestaetigung && !$hasCaseTimeError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
@@ -957,50 +918,20 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
 }
 
-// *********************************	CASETIME SERVER ERROR HANDLING
-// checks if there are casetime server errors that are defined as blocking errors
-function checkCaseTimeErrors($uid, $month, $year)
-{
-	$isCaseTimeError = false;
-	$casetime_error_arr = getCaseTimeErrors($uid);
-	$blocking_error_arr = unserialize(CASETIME_BLOCKING_ERR);
-
-	foreach ($casetime_error_arr as $casetime_error)
-	{
-		$casetime_error_date = new DateTime($casetime_error[0]);
-		$casetime_error_month = $casetime_error_date->format('m');
-		$casetime_error_year = $casetime_error_date->format('Y');
-
-		// if casetime error date matches the selected timesheet date OR one month before
-		if ($casetime_error_year == $year &&
-			(
-			$casetime_error_month == $month ||
-			$casetime_error_month == ($month-1))
-			)
-		{
-			// check if casetime error is a blocking error
-			foreach($blocking_error_arr as $blocking_err)
-			{
-				if (strpos($casetime_error[1], $blocking_err) !== false)
-				{
-					$isCaseTimeError = true;
-				}
-			}
-		}
-	}
-	return $isCaseTimeError;
-}
-
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<link rel="stylesheet" type="text/css" href="../../../vendor/components/jqueryui/themes/base/jquery-ui.min.css">
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
-	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
+	<link rel="stylesheet" type="text/css" href="../../../vendor/components/font-awesome/css/font-awesome.min.css">
+	<link rel="stylesheet" type="text/css" href="../../../public/css/DialogLib.css">
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
+	<script type="text/javascript" src="../../../public/js/DialogLib.js"></script>
 	<title>Timesheet</title>
 	<style>
 		.row {
@@ -1107,6 +1038,71 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 			$("input[name='checkbox_overtime_arr']").val(checked);
 		});
+
+		// Save 'Vor Monatsende abschließen' - Checkbox value
+        $("#vorzeitigAbgeschickt").change(function() {
+            let timesheet_id = $(this).closest('form').find('input[name=timesheet_id]').val();
+            let submitButton = $('#submitTimesheet');
+            let vorzeitig_abgeschickt = this.checked;
+            let alert_vorzeitigAbgeschickt = $('#alert-vorzeitigAbgeschickt');
+			let isSent = <?php echo json_encode($isSent) ?>;
+			let isAllowed_sendTimesheet = <?php echo json_encode($isAllowed_sendTimesheet) ?>;
+			let isPersonal = <?php echo json_encode($isPersonal) ?>;
+			let isVorgesetzter_indirekt = <?php echo json_encode($isVorgesetzter_indirekt) ?>;
+			let isVorgesetzter = <?php echo json_encode($isVorgesetzter) ?>;
+			let hasVorgesetzten = <?php echo json_encode($hasVorgesetzten) ?>;
+			let hasCaseTimeChanges_today = <?php echo json_encode($hasCaseTimeChanges_today) ?>;
+			let isSyncedWithCaseTime_today = <?php echo json_encode($isSyncedWithCaseTime_today) ?>;
+
+
+            // If passed all checks, disable submit button if vorzeitig_abgeschickt is true
+            if (vorzeitig_abgeschickt)
+            {
+                submitButton.prop('disabled', true);
+                alert_vorzeitigAbgeschickt.removeClass('hidden');
+            }
+            // Otherwise enable submit button
+            else
+            {
+                submitButton.prop('disabled', false);
+                alert_vorzeitigAbgeschickt.addClass('hidden');
+            }
+            // But: Submit button must be disabled anyway if some of these checks are met
+            if (isSent ||
+                !isAllowed_sendTimesheet ||
+                isPersonal ||
+                isVorgesetzter_indirekt ||
+                isVorgesetzter ||
+                !hasVorgesetzten ||
+                hasCaseTimeChanges_today ||
+                !isSyncedWithCaseTime_today
+            )
+            {
+                submitButton.prop('disabled', true);
+            }
+
+           // Change vorzeitig_abgeschickt in database
+            $.ajax({
+                type: 'POST',
+                dataType: 'json',
+                cache: false,
+                data: {
+                    action: 'ajax',
+                    method: 'saveVorzeitigAbgeschickt',
+                    timesheet_id: timesheet_id,
+					vorzeitig_abgeschickt: vorzeitig_abgeschickt
+                },
+                success: function (result) {
+                    if (result) {
+                        FHC_DialogLib.alertSuccess('Gespeichert');
+                    }
+                    else
+					{
+					    FHC_DialogLib.alertError('Fehler beim Speichern')
+					}
+                }
+            })
+        })
 	});
 	</script>
 </head>
@@ -1228,7 +1224,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 				<?php $counter = 0; ?>
 
 				<!--loop through absent times-->
-				<?php foreach ($actual_absent_times_arr as $absence): ?>
+				<?php foreach ($timesheet_absences_arr as $absence): ?>
 
 					<!--set absence text-->
 					<?php if ($counter == 0): ?>
@@ -1260,8 +1256,8 @@ function checkCaseTimeErrors($uid, $month, $year)
 				   onclick="FensterOeffnen(this.href); return false;">Dokumente hochladen</a><br><br><br>
 
 				<!--if there are existing bestaetigungen in actual month -> display table and all bestaetigungen-->
-				<table class="table table-condensed pull-right" <?php echo (empty($all_actualMonth_bestaetigungen)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
-				<?php foreach($all_actualMonth_bestaetigungen as $bestaetigung): ?>
+				<table class="table table-condensed pull-right" <?php echo (empty($timesheet_bestaetigungen_arr)) ? 'style="display: none;"' : '' ?> id="tbl_all_actualMonth_bestaetigungen">
+				<?php foreach($timesheet_bestaetigungen_arr as $bestaetigung): ?>
 					<tr>
 						<td><?php echo $bestaetigung->dokument_bezeichnung ?>: </td>
 						<td><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>" target="_blank"><?php echo $db->convert_html_chars($bestaetigung->name) ?></a></td>
@@ -1281,7 +1277,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 					<?php $counter = 0; ?>
 
 					loop through overtimes
-					<?php foreach ($actual_absent_times_arr as $overtime): ?>
+					<?php foreach ($timesheet_absences_arr as $overtime): ?>
 
 						set absence text
 						<?php if ($counter == 0): ?>
@@ -1371,12 +1367,35 @@ function checkCaseTimeErrors($uid, $month, $year)
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip" ' : '';
-						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
-						name="submitTimesheet" class="btn btn-default pull-right"
+					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
+						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+						name="submitTimesheet" id="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
 				</div>
 			</form>
+		</div>
+
+		<!-- panel: Monatsliste vorzeitig abschließen -->
+		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
+			<div class="panel-body col-xs-8">
+				<b>Monatsliste vorzeitig abschließen</b><br><br>
+				Wenn Sie vor Monatsende Ihre Zeitaufzeichnung beenden wollen (zB aufgrund Urlaub/Feiertage zu Monatsende), markieren Sie die Checkbox.<br>
+				Die Monatsliste wird dann zu Beginn des Folgemonats automatisch an Ihre Vorgesetzte / Ihren Vorgesetzten versendet werden und kann NICHT mehr direkt über den Button verschickt werden.
+			</div>
+
+			<div class="panel-body col-xs-4"><br>
+				<form id="form-vorzeitigAbgeschickt" class="pull-right">
+					<input type="hidden" id="timesheet_id" name="timesheet_id" value="<?php echo $timesheet_id; ?>">
+					<div class="form-check pull-right">
+						<input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
+							<?php echo ($isSent || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt || !$isCurrentMonth)
+								? ' disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."'
+								: '' ?>
+						<span class="form-check-label" for="vorzeitigAbgeschickt"> Vor Monatsende abschließen</span>
+					</div>
+				</form>
+			</div>
+
 		</div>
 	</div><!--/.panel-->
 	<br><br>
@@ -1597,7 +1616,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 		<?php endif; ?>
 
 		<!-- IF there are casetime server errors that are defined as blocking errors -->
-		<?php if ($isCaseTimeError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
+		<?php if ($hasCaseTimeError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>
@@ -1607,15 +1626,34 @@ function checkCaseTimeErrors($uid, $month, $year)
 		</div>
 		<?php endif; ?>
 
+		<!-- IF Checkbox 'Vor Monatsende abschließen' is checked, the button 'Monatsliste abschicken' is blocked -->
+		<div class="alert alert-info alert-dismissible text-center <?php echo $timesheet_vorzeitig_abgeschickt == 't' ? '' : 'hidden' ?>" role="alert" id="alert-vorzeitigAbgeschickt">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			Monatslisten können nicht mehr direkt verschickt werden, wenn Sie die Checkbox 'Vor Monatsende abschließen' markiert haben.<br>
+			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> wird im kommenden Monat automatisch versendet werden</b>.
+		</div>
+
 		<!-- IF document uploads are missing (after check against absences) -->
-		<?php if ($isMissing_doc): ?>
+		<?php if ($hasMissingBestaetigung): ?>
 		<div class="alert alert-danger alert-dismissible" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<div class="col-xs-offset-4">
 				<b>Die Monatsliste konnte noch nicht versendet werden!</b>&nbsp;&nbsp;
 				<a role="button" data-toggle="modal" data-target="#modalSendMonatsliste"><i class="alert-danger fa fa-question-circle-o fa-lg" aria-hidden="true"></i></a><br>
 				Es fehlen noch Bestätigungen für:
-				<?php echo $missing_docs ?>
+				<ul>
+				<?php foreach ($missing_bestaetigungen as $missing_bestaetigung => $value): ?>
+					<?php if ($missing_bestaetigung == 'arztbesuch' && $value != 0): ?>
+						<li><?php echo $value; ?> Arztbesuch(e)</li>
+					<?php elseif ($missing_bestaetigung == 'behoerdenbesuch' && $value != 0):?>
+						<li><?php echo $value; ?> Behördenbesuch(e)</li>
+					<?php elseif ($missing_bestaetigung == 'krankenstand' && $value != 0):?>
+						<li>mindestens einen Krankenstand</li>
+					<?php elseif ($missing_bestaetigung == 'pflegeurlaub' && $value != 0):?>
+						<li>mindestens einen Pflegeurlaub</li>
+					<?php endif; ?>
+				<?php endforeach; ?>
+				</ul>
 			</div>
 
 			<!--POPUP WINDOW with document upload help information-->
@@ -1851,7 +1889,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 								<!--Abwesenheit: absence reasons & times-->
 								<td>
-								<?php foreach ($absent_times_arr as $absence): ?>
+								<?php foreach ($total_absences_arr as $absence): ?>
 									<?php if ($ts->timesheet_id == $absence->timesheet_id): ?>
 										<?php echo date_format(date_create($absence->von), 'd.m.Y'). ' - '. date_format(date_create($absence->bis), 'd.m.Y'). ': '. $absence->abwesenheitsgrund. "<br>" ?>
 									<?php endif; ?>
@@ -1860,7 +1898,7 @@ function checkCaseTimeErrors($uid, $month, $year)
 
 								<!--Dokumente: link to documents-->
 								<td>
-								<?php foreach ($all_user_bestaetigungen as $bestaetigung): ?>
+								<?php foreach ($total_bestaetigungen_arr as $bestaetigung): ?>
 									<?php $date_bestaetigung = new DateTime($bestaetigung->datum); ?>
 									<?php if($ts_date->format('m-Y') == $date_bestaetigung->format('m-Y')): ?>
 										<a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet_dmsdownload.php?dms_id='. $bestaetigung->dms_id ?>"
