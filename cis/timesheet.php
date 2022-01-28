@@ -1099,6 +1099,50 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			</div>
 		</div>
 
+		<!--panel: Anzeige Homeoffice Tage-->
+		<div class="row panel-top-cstm">
+			<div class="panel-body col-xs-8">
+				<b>Tage im Homeoffice </b><br><br>
+				<details>
+					<summary><b>Hier erweitern, </b>
+						um alle Tage einzusehen, welche ganztägig im Homeoffice stattgefunden haben.
+					</summary>
+					<?php
+					$datumVon = $year. "-". $month. "-01";
+					$datumBis =  date("Y-m-d", strtotime("+1 month", strtotime($datumVon)));
+					echo "<br>";
+					$mitarbeiter = new Mitarbeiter();
+					$mitarbeiter->getHomeofficeTage($uid, $datumVon, $datumBis);
+					$homeofficetage =  $mitarbeiter->result;
+					$countTage = 0;
+
+					echo '<table class= "table"><tr>';
+					foreach ($homeofficetage as $k)
+					{
+						$k = new DateTime($k);
+						echo '<td>';
+						echo $k = $k->format('d.m.Y');
+						echo '</td>';
+						$countTage++;
+						if ($countTage % 3 == 0)
+						{
+							echo '</tr>';
+							echo '<tr>';
+						}
+					}
+					?>
+					</tr></table>
+				</details>
+
+			</div>
+
+			<div class="panel-body col-xs-4 text-right">
+				<br><br>
+				<?php echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>"; ?>
+			</div>
+
+		</div>
+
 		<!--panel: UPLOAD documents-->
 		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
 			<div class="panel-body col-xs-8">
