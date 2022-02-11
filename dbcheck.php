@@ -537,10 +537,10 @@ if ($result = $db->db_query("SELECT * FROM pg_class WHERE relname='idx_tbl_caset
 }
 
 // CREATE OR REPLACE VIEW campus.vw_homeoffice_ma and grants privileges
-if (!$result = @$db->db_query("SELECT * FROM campus.vw_homeoffice_ma LIMIT 1"))
+if (!$result = @$db->db_query("SELECT * FROM addon.vw_homeoffice_ma LIMIT 1"))
 {
 	$qry = "
-		CREATE OR REPLACE VIEW campus.vw_homeoffice_ma AS (
+		CREATE OR REPLACE VIEW addon.vw_homeoffice_ma AS (
 			select za.uid,  p.vorname, p.nachname, p.svnr, DATE (za.start) AS 'homeofficetag'
 			FROM campus.tbl_zeitaufzeichnung za
 			JOIN public.tbl_benutzer b on za.uid = b.uid
@@ -549,15 +549,15 @@ if (!$result = @$db->db_query("SELECT * FROM campus.vw_homeoffice_ma LIMIT 1"))
 			GROUP BY za.uid,  p.vorname, p.nachname, p.svnr, DATE(za.start)
 			having sum (CASE when za.homeoffice = false THEN 1 ELSE NULL END) is NULL
 			)
-			GRANT SELECT ON campus.vw_homeoffice_ma TO admin;
-			GRANT SELECT ON campus.vw_homeoffice_ma TO vilesci;
-			GRANT SELECT ON campus.vw_homeoffice_ma TO web;
+			GRANT SELECT ON addon.vw_homeoffice_ma TO admin;
+			GRANT SELECT ON addon.vw_homeoffice_ma TO vilesci;
+			GRANT SELECT ON addon.vw_homeoffice_ma TO web;
 		";
 
 	if(!$db->db_query($qry))
-		echo '<strong>campus.vw_homeoffice_ma: '.$db->db_last_error().'</strong><br>';
+		echo '<strong>addon.vw_homeoffice_ma: '.$db->db_last_error().'</strong><br>';
 	else
-		echo '<br>campus.homeoffice_ma view created';
+		echo '<br>addon.homeoffice_ma view created';
 }
 
 echo '<br>Aktualisierung abgeschlossen<br><br>';

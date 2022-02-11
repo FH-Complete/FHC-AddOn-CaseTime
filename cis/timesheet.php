@@ -898,6 +898,16 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		}
 	}
 
+	//Homeofficetage Ein- und Ausblenden
+	function showHomeofficeTage()
+	{
+		if (!$("#homeofficeTage").is(":visible"))
+			$("#homeofficeTage").show();
+		else {
+			$("#homeofficeTage").hide();
+		}
+	}
+
 	// Delete documents and refresh view
 	function deleteBestaetigung(dms_id)
 	{
@@ -1102,45 +1112,39 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<!--panel: Anzeige Homeoffice Tage-->
 		<div class="row panel-top-cstm">
 			<div class="panel-body col-xs-8">
-				<b>Tage im Homeoffice </b><br><br>
-				<details>
-					<summary><b>Hier erweitern, </b>
-						um alle Tage einzusehen, welche ganztägig im Homeoffice stattgefunden haben.
-					</summary>
+				<b>Homeoffice </b><br><br>
+
 					<?php
 					$datumVon = $year. "-". $month. "-01";
 					$datumBis =  date("Y-m-d", strtotime("+1 month", strtotime($datumVon)));
-					echo "<br>";
-					$mitarbeiter = new Mitarbeiter();
-					$mitarbeiter->getHomeofficeTage($uid, $datumVon, $datumBis);
-					$homeofficetage =  $mitarbeiter->result;
+					$homeofficetage = getHomeofficeTage($uid, $datumVon, $datumBis);
 					$countTage = 0;
 
-					echo '<table class= "table"><tr>';
-					foreach ($homeofficetage as $k)
+					if ($homeofficetage)
 					{
-						$k = new DateTime($k);
-						echo '<td>';
-						echo $k = $k->format('d.m.Y');
-						echo '</td>';
-						$countTage++;
-						if ($countTage % 3 == 0)
+						echo '<div id = "homeofficeTage" style="display:none" >';
+						$tage = array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
+						foreach ($homeofficetage as $k)
 						{
-							echo '</tr>';
-							echo '<tr>';
+							$k = new DateTime($k);
+							$tag = $k->format("w");
+							echo $tage[$tag] . ", ". $k->format('d.m.Y');
+							echo '<br>';
+							$countTage++;
 						}
+						echo '<br></div>';
 					}
+				echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>";
 					?>
-					</tr></table>
-				</details>
-
 			</div>
-
 			<div class="panel-body col-xs-4 text-right">
 				<br><br>
-				<?php echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>"; ?>
+				<tr>
+					<a role="button"
+					   class="btn btn-default pull-right"
+					   onclick="showHomeofficeTage();">Homeofficetage anzeigen</a><br><br><br>
+				</tr>
 			</div>
-
 		</div>
 
 		<!--panel: UPLOAD documents-->
