@@ -234,7 +234,7 @@ if($result = $db->db_query($qry))
 $qry = "
 	SELECT * FROM (
 		SELECT
-			start::date as datum, min(start::time) as startzeit, max(ende::time) as endzeit, uid
+			start::date as datum, min(start::time) as startzeit, max(ende::time)+'59 seconds'::interval as endzeit, uid
 		FROM
 			campus.tbl_zeitaufzeichnung
 		WHERE
@@ -326,18 +326,12 @@ if($result = $db->db_query($qry))
 
 		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern' && $row->aktivitaet_kurzbz != 'Ersatzruhe' && $row->aktivitaet_kurzbz != 'DienstreiseMT')
 		{
-			$start_for_casetime = date('H:i:s', strtotime('+1 minutes', strtotime($row->start_full)));
-			$end_for_casetime = date('H:i:s', strtotime('-1 minutes', strtotime($row->ende_full)));
+			$start_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->start_full)));
+			$end_for_casetime = $row->endzeit;
 
 		}
-		/*
-		else if ($row->aktivitaet_kurzbz != 'Pause')
+		else
 		{
-			$start_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->start_full)));
-			$end_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->ende_full)));
-		}
-		*/
-		else {
 			$start_for_casetime = $row->startzeit;
 			$end_for_casetime = $row->endzeit;
 		}
