@@ -32,6 +32,7 @@ require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/bisverwendung.class.php');
+require_once('../../../include/zeitaufzeichnung.class.php');
 require_once('../../../include/sancho.inc.php');
 require_once('../include/functions.inc.php');
 
@@ -625,6 +626,7 @@ if (isset($_POST['action']) && isset($_POST['method']))
 // *********************************	EMAIL SENDING (and document check)
 $hasCaseTimeError = false;
 $hasMissingBestaetigung = false;
+$hasBlockingPauseError = false;
 $missing_bestaetigungen = '';
 if (isset($_POST['submitTimesheet']))
 {
@@ -642,8 +644,11 @@ if (isset($_POST['submitTimesheet']))
 		$missing_bestaetigungen = $timesheet->result;
 	}
 
+	// Check for blocking Pause Errors
+	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
+
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError)
+	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
