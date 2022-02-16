@@ -132,7 +132,7 @@ WHERE
 	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung
 					WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or  aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	OR
-	zeit_ende<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
+	date_trunc('minute',zeit_ende)<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
 				WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
