@@ -1122,19 +1122,20 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 					if ($homeofficetage)
 					{
-						echo '<div id = "homeofficeTage" style="display:none" >';
+						$tagesliste = '<div id = "homeofficeTage" style="display:none; margin-top: 1em" >';
 						$tage = array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
 						foreach ($homeofficetage as $k)
 						{
 							$k = new DateTime($k);
 							$tag = $k->format("w");
-							echo $tage[$tag] . ", ". $k->format('d.m.Y');
-							echo '<br>';
+							$tagesliste .= $tage[$tag] . ", ". $k->format('d.m.Y');
+							$tagesliste .= '<br>';
 							$countTage++;
 						}
-						echo '<br></div>';
+						$tagesliste .= '</div>';
 					}
 				echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>";
+				echo $tagesliste;
 					?>
 			</div>
 			<div class="panel-body col-xs-4 text-right">
