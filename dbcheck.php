@@ -541,14 +541,14 @@ if (!$result = @$db->db_query("SELECT * FROM addon.vw_homeoffice_ma LIMIT 1"))
 {
 	$qry = "
 		CREATE OR REPLACE VIEW addon.vw_homeoffice_ma AS (
-			select za.uid,  p.vorname, p.nachname, p.svnr, DATE (za.start) AS 'homeofficetag'
+			select za.uid,  p.vorname, p.nachname, p.svnr, DATE (za.start) AS homeofficetag
 			FROM campus.tbl_zeitaufzeichnung za
 			JOIN public.tbl_benutzer b on za.uid = b.uid
 			JOIN public.tbl_person p on p.person_id =b.person_id
 			WHERE aktivitaet_kurzbz not in ('Pause', 'Dienstreise', 'DienstreiseMT', 'Arztbesuch', 'Ersatzruhe', 'Behoerde')
 			GROUP BY za.uid,  p.vorname, p.nachname, p.svnr, DATE(za.start)
 			having sum (CASE when za.homeoffice = false THEN 1 ELSE NULL END) is NULL
-			)
+		);
 			GRANT SELECT ON addon.vw_homeoffice_ma TO admin;
 			GRANT SELECT ON addon.vw_homeoffice_ma TO vilesci;
 			GRANT SELECT ON addon.vw_homeoffice_ma TO web;
