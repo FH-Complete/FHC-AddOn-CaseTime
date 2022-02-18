@@ -1120,6 +1120,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 					$homeofficetage = getHomeofficeTage($uid, $datumVon, $datumBis);
 					$countTage = 0;
 
+					$tagesliste = '';
 					if ($homeofficetage)
 					{
 						$tagesliste = '<div id = "homeofficeTage" style="display:none; margin-top: 1em" >';
