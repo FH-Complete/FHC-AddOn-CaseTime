@@ -1444,10 +1444,10 @@ class Timesheet extends basis_db
 
 	/**
 	 * Checks if there are blocking Pausen errors
-	 * @param String $uid
-	 * @param String $start first of month in format 'Year - month - 01'
-	 * @return bool         True, if blocking pause errors were found.
-	 * @throws Exception
+	 * @param string $uid Mitarbeiter_uid.
+	 * @param string $month Timesheet month, e.g. 06.
+	 * @param string $year  Timesheet year, e.g. 2021.
+	 * @return bool false if no blocking pause errors were found, else the day of the error.
 	 */
 	public function hasBlockingErrorPause($uid, $month, $year)
 	{
@@ -1468,8 +1468,7 @@ class Timesheet extends basis_db
 				{
 					if ($v->azgrelevant)
 					{
-						echo "Blockierender Pausenfehler am " . $day;
-						return true; //blocking Pausenfehler found
+						return $day; // Blocking error found
 					}
 				}
 			}

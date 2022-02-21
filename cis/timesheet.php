@@ -1515,6 +1515,22 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		</div>
 		<?php endif; ?>
 
+		<!-- IF there are blocking Pause errors -->
+		<?php if ($hasBlockingPauseError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today):  ?>
+			<div class="alert alert-danger alert-dismissible text-center" role="alert">
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<b>
+					Pausenfehler!
+				</b>
+				<br><br>Bitte korrigieren Sie den Pausenfehler vom
+					<?php
+					$day = new DateTime($hasBlockingPauseError);
+					echo $day->format('d.m.Y');
+					?>!<br><br>
+				<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
+			</div>
+		<?php endif; ?>
+
 		<!-- IF Checkbox 'Vor Monatsende abschließen' is checked, the button 'Monatsliste abschicken' is blocked -->
 		<div class="alert alert-info alert-dismissible text-center <?php echo $timesheet_vorzeitig_abgeschickt == 't' ? '' : 'hidden' ?>" role="alert" id="alert-vorzeitigAbgeschickt">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
