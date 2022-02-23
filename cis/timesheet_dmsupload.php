@@ -262,7 +262,7 @@ if (!empty($timesheet_id))
 		<div class="form-group">
 			<label for="typ" class="col-xs-2 control-label">Typ</label>
 			<select id="typ" name='dokument_kurzbz' class="form-control" style='width:300px'>
-
+            <option value="Default" selected>Bitte w&auml;hlen...</option>
 			<?php foreach ($dokument->result as $dok): ?>	
 				<option value="<?php echo $dok->dokument_kurzbz ?>" 
 						<?php echo (isset($_POST['dokument_kurzbz']) && $_POST['dokument_kurzbz'] == $dok->dokument_kurzbz) ? 'selected' : ''; ?>>
