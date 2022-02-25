@@ -9,6 +9,8 @@ require_once(dirname(__FILE__). '/../../../include/basis_db.class.php');
 require_once(dirname(__FILE__). '/../../../include/datum.class.php');
 require_once(dirname(__FILE__). '/../../../include/dms.class.php');
 require_once(dirname(__FILE__). '/../../../include/functions.inc.php');
+require_once(dirname(__FILE__). '/../../../include/bisverwendung.class.php');
+require_once(dirname(__FILE__). '/../../../include/zeitaufzeichnung.class.php');
 
 /**
  * Description of casetime_timesheet
