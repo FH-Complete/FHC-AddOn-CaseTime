@@ -32,6 +32,7 @@ require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/bisverwendung.class.php');
+require_once('../../../include/zeitaufzeichnung.class.php');
 require_once('../../../include/sancho.inc.php');
 require_once('../include/functions.inc.php');
 require_once('../../../include/datum.class.php');
@@ -652,6 +653,7 @@ if (isset($_POST['action']) && isset($_POST['method']))
 // *********************************	EMAIL SENDING (and document check)
 $hasCaseTimeError = false;
 $hasMissingBestaetigung = false;
+$hasBlockingPauseError = false;
 $missing_bestaetigungen = '';
 if (isset($_POST['submitTimesheet']))
 {
@@ -669,8 +671,11 @@ if (isset($_POST['submitTimesheet']))
 		$missing_bestaetigungen = $timesheet->result;
 	}
 
+	// Check for blocking Pause Errors
+	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
+
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError)
+	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
@@ -1622,6 +1627,22 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			Bitte überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
 		</div>
+		<?php endif; ?>
+
+		<!-- IF there are blocking Pause errors -->
+		<?php if ($hasBlockingPauseError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today):  ?>
+			<div class="alert alert-danger alert-dismissible text-center" role="alert">
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<b>
+					Pausenfehler!
+				</b>
+				<br><br>Bitte korrigieren Sie den Pausenfehler vom
+					<?php
+					$day = new DateTime($hasBlockingPauseError);
+					echo $day->format('d.m.Y');
+					?>!<br><br>
+				<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
+			</div>
 		<?php endif; ?>
 
 		<!-- IF Checkbox 'Vor Monatsende abschließen' is checked, the button 'Monatsliste abschicken' is blocked -->

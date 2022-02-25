@@ -1538,6 +1538,41 @@ class Timesheet extends basis_db
 	}
 
 	/**
+	 * Checks if there are blocking Pausen errors
+	 * @param string $uid Mitarbeiter_uid.
+	 * @param string $month Timesheet month, e.g. 06.
+	 * @param string $year  Timesheet year, e.g. 2021.
+	 * @return bool false if no blocking pause errors were found, else the day of the error.
+	 */
+	public function hasBlockingErrorPause($uid, $month, $year)
+	{
+		$verwendung = new bisverwendung();
+		$datum = new datum();
+
+		//aktuelles Monat nach Pausenfehler checken
+		$start = $year. "-". $month. "-01";
+		$stamp = strtotime($start);
+		while (date("n", $stamp) == $month)
+		{
+			$day = date("Y-m-d", $stamp);
+			$za = new zeitaufzeichnung();
+			if ($za->checkPausenErrors($uid, $day))
+			{
+				$verwendung->getVerwendungDatum($uid, $day);
+				foreach ($verwendung->result as $v)
+				{
+					if ($v->azgrelevant)
+					{
+						return $day; // Blocking error found
+					}
+				}
+			}
+			$stamp = strtotime("+1 day", $stamp);
+		}
+		return false; // no blocking Pausenfehler found
+	}
+
+	/**
 	 * Checks if there are missing Bestaetigungen for the reported absences.
 	 * If only uid is given, all absences of the user  will be checked against all Bestaetigunen.
 	 * If timesheet_id is given, only absences and Bestaetigungen for that timesheet period will
