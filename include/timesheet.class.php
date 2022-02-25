@@ -1150,7 +1150,7 @@ class Timesheet extends basis_db
 
 							OR
 
-							tbl_casetime_zeitaufzeichnung.zeit_ende !=
+							date_trunc('minutes',tbl_casetime_zeitaufzeichnung.zeit_ende) !=
 							(
 								SELECT
 									max(ende::time)

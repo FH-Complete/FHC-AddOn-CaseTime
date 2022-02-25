@@ -269,7 +269,7 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_timesheet"))
 if(!$result = @$db->db_query("SELECT vorzeitig_abgeschickt FROM addon.tbl_casetime_timesheet LIMIT 1"))
 {
 	$qry = "ALTER TABLE addon.tbl_casetime_timesheet ADD COLUMN vorzeitig_abgeschickt BOOLEAN NOT NULL DEFAULT FALSE;";
-	
+
 	if(!$db->db_query($qry))
 		echo '<strong>addon.tbl_casetime_timesheet: '.$db->db_last_error().'</strong><br>';
 	else
@@ -534,6 +534,30 @@ if ($result = $db->db_query("SELECT * FROM pg_class WHERE relname='idx_tbl_caset
 		else
 			echo '<br>Index fuer campus.tbl_casetime_zeitaufzeichnung.uid hinzugefuegt<br>';
 	}
+}
+
+// CREATE OR REPLACE VIEW campus.vw_homeoffice_ma and grants privileges
+if (!$result = @$db->db_query("SELECT * FROM addon.vw_homeoffice_ma LIMIT 1"))
+{
+	$qry = "
+		CREATE OR REPLACE VIEW addon.vw_homeoffice_ma AS (
+			select za.uid,  p.vorname, p.nachname, p.svnr, DATE (za.start) AS homeofficetag
+			FROM campus.tbl_zeitaufzeichnung za
+			JOIN public.tbl_benutzer b on za.uid = b.uid
+			JOIN public.tbl_person p on p.person_id =b.person_id
+			WHERE aktivitaet_kurzbz not in ('Pause', 'Dienstreise', 'DienstreiseMT', 'Arztbesuch', 'Ersatzruhe', 'Behoerde')
+			GROUP BY za.uid,  p.vorname, p.nachname, p.svnr, DATE(za.start)
+			having sum (CASE when za.homeoffice = false THEN 1 ELSE NULL END) is NULL
+		);
+			GRANT SELECT ON addon.vw_homeoffice_ma TO admin;
+			GRANT SELECT ON addon.vw_homeoffice_ma TO vilesci;
+			GRANT SELECT ON addon.vw_homeoffice_ma TO web;
+		";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.vw_homeoffice_ma: '.$db->db_last_error().'</strong><br>';
+	else
+		echo '<br>addon.homeoffice_ma view created';
 }
 
 echo '<br>Aktualisierung abgeschlossen<br><br>';

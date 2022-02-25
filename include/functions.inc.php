@@ -20,6 +20,8 @@
  */
 require_once(dirname(__FILE__).'/../../../include/benutzerberechtigung.class.php');
 
+
+
 /**
  * Sendet einen Request an den CaseTime Server um die Daten eines Mitarbeiters und Tages zu entfernen
  */
@@ -741,4 +743,38 @@ function check_isTimesheetManager($uid, $employee_uid)
 		return false;
 	}
 }
+
+/**
+	 * Laedt alle Homeofficetage eines bestimmten Mitarbeiters für einen bestimmten Zeitraum
+	 * @param string $mitarbeiter_uid Uid des Mitarbeiters.
+	 * @param date $vondatum Startdatum im Format 'YYYY-MM-DD'.
+	 * @param date $bisdatum Bisdatum im Format 'YYYY-MM-DD'.
+	 * @return true wenn ok, false wenn Fehler
+	 */
+	function getHomeofficeTage($mitarbeiter_uid, $vondatum, $bisdatum)
+	{
+		$db = new basis_db();
+		$qry = "SELECT uid, homeofficetag FROM addon.vw_homeoffice_ma
+				WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
+				AND homeofficetag >=". $db->db_add_param($vondatum)."
+				AND homeofficetag <= ". $db->db_add_param($bisdatum);
+
+
+		if ($result = $db->db_query($qry))
+		{
+			$db->result = '';
+			while ($row = $db->db_fetch_object($result))
+			{
+				$db->result[] = $row->homeofficetag;
+
+			}
+			return $db->result;
+		}
+		else
+		{
+			return false;
+		}
+
+	}
+
 ?>
