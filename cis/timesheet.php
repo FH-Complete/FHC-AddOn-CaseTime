@@ -1116,7 +1116,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 					<?php
 					$datumVon = $year. "-". $month. "-01";
-					$datumBis =  date("Y-m-d", strtotime("+1 month", strtotime($datumVon)));
+					$datumBis =  date("Y-m-d", strtotime("last day of this month", strtotime($datumVon)));
 					$homeofficetage = getHomeofficeTage($uid, $datumVon, $datumBis);
 					$countTage = 0;
 
