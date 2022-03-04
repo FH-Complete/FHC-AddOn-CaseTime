@@ -55,11 +55,11 @@ $benutzer_fkt = new Benutzerfunktion();
 $benutzer_fkt->getBenutzerFunktionByUid($uid_of_timesheet_id, 'oezuordnung', date('Y-m-d'));
 $employee_oe_kurzbz = (!empty($benutzer_fkt->result)) ? $benutzer_fkt->result[0]->oe_kurzbz : '';	// string oe
 
-// * flag timesheet manager 
+// * flag timesheet manager
 $isTimesheetManager = false;
 if ($rechte->isBerechtigt('addon/casetime_manageTimesheet', $employee_oe_kurzbz))
 {
-	$isTimesheetManager = true;						
+	$isTimesheetManager = true;
 }
 
 // * permission check
@@ -89,8 +89,15 @@ if (isset($_POST['submitBestaetigung']))
 {
 	$error = false;
 
+	if(!isset($_POST['dokument_kurzbz']) || $_POST['dokument_kurzbz'] == '')
+	{
+		$isError = true;
+		$err_msg = 'Fehler - Bitte wählen Sie einen Typ aus.';
+		$error = true;
+	}
+
 	// Save document in DMS
-	if (isset($_POST['fileupload']))
+	if (isset($_POST['fileupload']) && !$error)
 	{
 		if (isset($_FILES))
 		{
@@ -99,7 +106,7 @@ if (isset($_POST['submitBestaetigung']))
 			{
 				$_FILES['file']['name'] = $db->convert_html_chars($_FILES['file']['name']);
 			}
-			
+
 			// prepare upload target
 			$ext = pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION);
 			$filename = uniqid();
@@ -113,7 +120,7 @@ if (isset($_POST['submitBestaetigung']))
 			{
 				// upload files
 				if (move_uploaded_file($_FILES['file']['tmp_name'], $upload_target))
-				{		
+				{
 					$kategorie_kurzbz = isset($_POST['kategorie_kurzbz']) ? $_POST['kategorie_kurzbz'] : '';
 					$dokument_kurzbz = isset($_POST['dokument_kurzbz']) ? $_POST['dokument_kurzbz'] : '';
 
@@ -139,7 +146,7 @@ if (isset($_POST['submitBestaetigung']))
 						echo 'Fehler beim Speichern der Daten';
 						$error = true;
 					}
-				}		
+				}
 				else
 				{
 					$isError = true;
@@ -193,7 +200,7 @@ if (!empty($timesheet_id))
 
 <!DOCTYPE html>
 <html>
-<head>	
+<head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
 	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
@@ -212,7 +219,7 @@ if (!empty($timesheet_id))
 		{
 			<?php if ($isTimesheetManager): ?>
 				window.opener.location = 'timesheet.php?timesheet_id=<?php echo $timesheet_id ?>&uploadRefresh=true';
-			<?php else: ?>		
+			<?php else: ?>
 				window.opener.location = 'timesheet.php?year=<?php echo $year ?>&month=<?php echo $month ?>&uploadRefresh=true';
 			<?php endif; ?>
 		}
@@ -220,12 +227,12 @@ if (!empty($timesheet_id))
 </head>
 
 <body class="container">
-	
-	<h3>Dokumente hochladen</h3><br><br>	
+
+	<h3>Dokumente hochladen</h3><br><br>
 	Bitte wählen Sie für jede Ihrer Abwesenheiten den entsprechenden Bestätigungstyp im Dropdown aus und laden die jeweils zugehörige Bestätigung hoch.
 	<a role="button" data-toggle="modal" data-target="#modalUploadDocuments"><i class="fa fa-question-circle-o fa-lg" aria-hidden="true"></i></a><br><br>
 	<i>Format: PDF oder JPG, max. <?php echo $max_upload_mb ?> MB</i><br><br><br>
-	
+
 	<!--POPUP WINDOW with document upload help information-->
 		<div class="modal fade text-muted" tabindex="-1" role="dialog" id="modalUploadDocuments">
 			<div class="modal-dialog" role="document">
@@ -255,23 +262,23 @@ if (!empty($timesheet_id))
 				</div><!-- /.modal-content -->
 			</div><!-- /.modal-dialog -->
 		</div><!-- /.modal -->
-		
+
 	<form class="form-horizontal" method="POST" enctype="multipart/form-data" action="<?php echo $_SERVER['PHP_SELF']?>?timesheet_id=<?php echo $timesheet_id ?>">
-		<input type='hidden' name='kategorie_kurzbz' id='kategorie_kurzbz' value='casetime'> 
+		<input type='hidden' name='kategorie_kurzbz' id='kategorie_kurzbz' value='casetime'>
 		<input type='hidden' name='fileupload' id='fileupload'>
 		<div class="form-group">
 			<label for="typ" class="col-xs-2 control-label">Typ</label>
 			<select id="typ" name='dokument_kurzbz' class="form-control" style='width:300px'>
-
-			<?php foreach ($dokument->result as $dok): ?>	
-				<option value="<?php echo $dok->dokument_kurzbz ?>" 
+            <option value="" selected>Bitte w&auml;hlen...</option>
+			<?php foreach ($dokument->result as $dok): ?>
+				<option value="<?php echo $dok->dokument_kurzbz ?>"
 						<?php echo (isset($_POST['dokument_kurzbz']) && $_POST['dokument_kurzbz'] == $dok->dokument_kurzbz) ? 'selected' : ''; ?>>
 						<?php echo $dok->bezeichnung ?>
 				</option>
 			<?php endforeach; ?>
 
-			</select>				
-		</div>		
+			</select>
+		</div>
 		<div class="form-group">
 			<label for="file" class="col-xs-2 control-label">Bestätigung</label>
 			<input type="file" id="file" name="file" class="col-xs-10">
@@ -282,14 +289,14 @@ if (!empty($timesheet_id))
 			</div>
 		</div>
 	</form>
-	
+
 	<!-- success alert (e.g. on upload success) -->
 	<?php if ($isSuccess): ?>
 	<div class="alert alert-success text-center" role="alert">
 		<?php echo $msg ?>
 	</div>
 	<?php endif; ?>
-	
+
 	<!-- error alert -->
 	<?php if ($isError): ?>
 	<div class="alert alert-danger text-center" role="alert">
@@ -302,4 +309,3 @@ if (!empty($timesheet_id))
 
 <?php
 } // END if
-
