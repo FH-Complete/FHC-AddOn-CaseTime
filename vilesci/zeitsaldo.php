@@ -22,21 +22,29 @@
 require_once('../config.inc.php');
 require_once('../../../config/vilesci.config.inc.php');
 require_once('../include/functions.inc.php');
-require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../include/casetime.class.php');
+require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/mitarbeiter.class.php');
 
 $uid = get_uid();
 
 $username = $_GET['uid'];
 
 // Wenn es nicht der eigene Eintrag ist, muss man admin sein
-if($username!=$uid)
+// oder Vorgesetzter, der ausschließlich auf Files seiner MA sichtberechtigt ist
+if ($username != $uid)
 {
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
 
-	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid'))
-		die('Sie haben keine Berechtigung fuer diese Seite');	
+	$ma = new mitarbeiter();
+	$ma->getUntergebene($uid, true);
+	$untergebenen_arr = array();
+	$untergebenen_arr = $ma->untergebene;
+
+	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') &&
+	!in_array($username, $untergebenen_arr))
+		die('Sie haben keine Berechtigung fuer diese Seite');
 }
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern

@@ -81,6 +81,13 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		$timesheet_vorzeitigAbgeschickt->timesheet_id
 	);
 
+	// Check for blocking PausenError
+	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause(
+		$timesheet_vorzeitigAbgeschickt->uid,
+		$date_last_month->format('m'),
+		$date_last_month->format('Y')
+	);
+
 	// Check if Casetime inserts / updated were made today
 	$timesheet = new Timesheet();
 	$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday(
@@ -96,10 +103,12 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 	);
 
 	// If no casetime error
+	// and no Pausenfehler
 	// and no Bestaetigung is missing
 	// and no Casetime Inserts or Changes were made today
 	// and is synced with Casetime
 	if (!$hasCaseTimeError
+		&& !$hasBlockingPauseError
 		&& !$hasMissingBestaetigung
 		&& !$hasCaseTimeChanges_today
 		&& $isSyncedWithCaseTime_today)
@@ -153,8 +162,8 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 			}
 		}
 	}
-	// Elseif casetime error exist or at least one Bestaetigung is missing
-	elseif ($hasCaseTimeError || $hasMissingBestaetigung)
+	// Elseif casetime error or Pausenerror exist or at least one Bestaetigung is missing
+	elseif ($hasCaseTimeError || $hasBlockingPauseError || $hasMissingBestaetigung)
 	{
 		// Reset vorzeitig_abgeschickt to FALSE
 		$timesheet = new Timesheet();
