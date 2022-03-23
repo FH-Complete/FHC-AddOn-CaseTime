@@ -911,6 +911,11 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			border-left: solid 2px #31708f;
 			border-right: solid 2px #31708f;
 		}
+		.highlight{
+		background-color: blue;
+		color: blue;
+		}
+
 		<?php if($isVorgesetzter): ?>
 		#table-overtime tbody tr:last-child td:last-child{
 			border-bottom: solid 2px #31708f;
@@ -939,6 +944,38 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			$("#homeofficeTage").hide();
 		}
 	}
+
+$(function()
+{
+		var enableDays = JSON.parse($("#hoDays").val());
+		var minDate = $("#startMonth").val();
+		var maxDate = $("#endMonth").val();
+
+	  function enableAllTheseDays(date)
+		{
+		    var fDate = $.datepicker.formatDate('yy-mm-dd', date);
+		    var result = [false, ""];
+		    $.each(enableDays, function(k, d)
+				{
+		      if (fDate === d)
+					{
+		        result = [true, "highlight"];
+		      }
+		    });
+		    return result;
+	  }
+
+	  $("#datepicker").datepicker(
+			{
+		    dateFormat: "yy-mm-dd",
+		    beforeShowDay: enableAllTheseDays,
+				minDate: minDate,
+				maxDate: maxDate,
+				monthNames: ['Januar','Februar','März','April','Mai','Juni',
+					'Juli','August','September','Oktober','November','Dezember'],
+					dayNamesMin: ['So','Mo','Di','Mi','Do','Fr','Sa']
+	  });
+	});
 
 	// Delete documents and refresh view
 	function deleteBestaetigung(dms_id)
@@ -1177,7 +1214,13 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 							$tagesliste .= '<br>';
 							$countTage++;
 						}
+
+						$tagesliste .= "<br><div id='datepicker'></div><br>";
 						$tagesliste .= '</div>';
+						echo "<input type ='hidden' value='$datumVon'id=startMonth>";
+						echo "<input type ='hidden' value='$datumBis'id=endMonth>";
+					  $homeofficetage = json_encode($homeofficetage);
+						echo "<input type ='hidden' value='$homeofficetage'id=hoDays>";
 					}
 				echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>";
 				echo $tagesliste;
