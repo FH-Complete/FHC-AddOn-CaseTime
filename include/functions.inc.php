@@ -477,6 +477,7 @@ function getCaseTimeZeitsaldo($uid)
 	{
 		curl_close($ch);
 		$data = json_decode($result);
+			//var_dump($result);
 
 		if(isset($data->STATUS) && $data->STATUS=='OK')
 		{
@@ -745,36 +746,87 @@ function check_isTimesheetManager($uid, $employee_uid)
 }
 
 /**
-	 * Laedt alle Homeofficetage eines bestimmten Mitarbeiters für einen bestimmten Zeitraum
-	 * @param string $mitarbeiter_uid Uid des Mitarbeiters.
-	 * @param date $vondatum Startdatum im Format 'YYYY-MM-DD'.
-	 * @param date $bisdatum Bisdatum im Format 'YYYY-MM-DD'.
-	 * @return true wenn ok, false wenn Fehler
-	 */
-	function getHomeofficeTage($mitarbeiter_uid, $vondatum, $bisdatum)
+ * Laedt alle Homeofficetage eines bestimmten Mitarbeiters für einen bestimmten Zeitraum
+ * @param string $mitarbeiter_uid Uid des Mitarbeiters.
+ * @param date $vondatum Startdatum im Format 'YYYY-MM-DD'.
+ * @param date $bisdatum Bisdatum im Format 'YYYY-MM-DD'.
+ * @return true wenn ok, false wenn Fehler
+ */
+function getHomeofficeTage($mitarbeiter_uid, $vondatum, $bisdatum)
+{
+	$db = new basis_db();
+	$qry = "SELECT uid, homeofficetag FROM addon.vw_homeoffice_ma
+			WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
+			AND homeofficetag >=". $db->db_add_param($vondatum)."
+			AND homeofficetag <= ". $db->db_add_param($bisdatum);
+
+
+	if ($result = $db->db_query($qry))
 	{
-		$db = new basis_db();
-		$qry = "SELECT uid, homeofficetag FROM addon.vw_homeoffice_ma
-				WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
-				AND homeofficetag >=". $db->db_add_param($vondatum)."
-				AND homeofficetag <= ". $db->db_add_param($bisdatum);
-
-
-		if ($result = $db->db_query($qry))
+		$db->result = '';
+		while ($row = $db->db_fetch_object($result))
 		{
-			$db->result = '';
-			while ($row = $db->db_fetch_object($result))
-			{
-				$db->result[] = $row->homeofficetag;
+			$db->result[] = $row->homeofficetag;
+		}
+		return $db->result;
+	}
+	else
+	{
+		return false;
+	}
+}
 
-			}
-			return $db->result;
+/**
+ * Sendet einen Request an den CaseTime Server um den Zeitsaldo SALUE1 abzufragen
+ * @param string $uid Mitarbeiter-Uid Uid des Mitarbeiters.
+ * @return false, wenn kein Result, sonst result im JSON format:
+ * zum Bsp: {"STATUS": "OK", "RESULT": {"sachb": "MA0100", "salue1sum": 55.2}}
+ */
+function getCaseTimeSaldoAllIn($uid)
+{
+	$ch = curl_init();
+	//for testing
+	//$url = 'http://10.129.0.18:8080/sync/get_allin_salue1_sum';
+	$url = CASETIME_SERVER.'/sync/get_allin_salue1_sum';
+
+	//heutiges Datum
+	$datumt2 = new DateTime('today');
+	$datumt2 = $datumt2->format('d.m.Y');
+	if ((substr($datumt2, 3, 2)) >= 9)
+		$year = substr($datumt2, 6, 4);
+	else {
+		$year = intval(substr($datumt2, 6, 4)) - 1;
+	}
+
+	//Start Geschäftsjahr
+	$datumt1 = '01.09.'. $year;
+	$params = 'sachb='. $uid.'&datumt1='.$datumt1.'&datumt2='.$datumt2;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT, "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+
+	if (curl_errno($ch))
+	{
+		curl_close($ch);
+		return 'Curl error: '. curl_error($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if (isset($data->STATUS) && $data->STATUS == 'OK')
+		{
+			return $data->RESULT;
 		}
 		else
-		{
 			return false;
-		}
-
 	}
+}
 
 ?>
