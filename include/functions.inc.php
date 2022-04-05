@@ -262,6 +262,9 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 		case 'CovidKS':
 			$art = 'krankenstandcovid';
 			break;
+		case 'Mutter':
+			$art = 'mutterschutz';
+			break;
 		default:
 			$art = '';
 			break;
@@ -358,6 +361,9 @@ function SendDataDelete($uid, $datum, $typ)
 			break;
 		case 'CovidKS':
 			$art = 'krankenstandcovid';
+			break;
+		case 'Mutter':
+			$art = 'mutterschutz';
 			break;
 		default:
 			$art = '';

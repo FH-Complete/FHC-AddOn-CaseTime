@@ -72,6 +72,12 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
         drucken = 'J'
         auftragsposition = '5'
         stunden = 0
+    elif art == 'mutterschutz':
+        lohnart = 'MUTT'
+        auftragsnummer = '1'
+        drucken = 'J'
+        auftragsposition = '69'
+        stunden = 1
 
     else:
         ret_dict['STATUS']='ERR'

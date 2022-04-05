@@ -183,12 +183,13 @@ WHERE
 			datum=tbl_casetime_zeitsperre.datum
 			AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
 		)
+
 	AND typ='Krank'
 	AND datum>=".$db->db_add_param($sync_datum_start)."
 	AND uid in(".$db->db_implode4SQL($user_arr).")
 UNION
 SELECT
-	uid, datum::date, 'CovidSB' as typ
+	uid, datum::date, 'Mutter' as typ
 FROM
 	addon.tbl_casetime_zeitsperre
 WHERE
@@ -196,11 +197,29 @@ WHERE
 		SELECT 1
 		FROM
 			(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
-			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='CovidSB') a
+			FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Mutter') a
 		WHERE
 			datum=tbl_casetime_zeitsperre.datum
 			AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
 		)
+		AND typ='Mutter'
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT
+		uid, datum::date, 'CovidSB' as typ
+	FROM
+		addon.tbl_casetime_zeitsperre
+	WHERE
+		NOT EXISTS(
+			SELECT 1
+			FROM
+				(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+				FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='CovidSB') a
+			WHERE
+				datum=tbl_casetime_zeitsperre.datum
+				AND mitarbeiter_uid = tbl_casetime_zeitsperre.uid
+			)
 	AND typ='CovidSB'
 	AND datum>=".$db->db_add_param($sync_datum_start)."
 	AND uid in(".$db->db_implode4SQL($user_arr).")
@@ -318,6 +337,16 @@ $qry = "
 		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Krank') a
 	WHERE
 		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='Krank')
+		AND datum>=".$db->db_add_param($sync_datum_start)."
+		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
+	UNION
+	SELECT
+		mitarbeiter_uid, datum::date, 'Mutter' as typ
+	FROM
+		(SELECT generate_series(vondatum::timestamp, bisdatum::timestamp, '1 day') as datum, mitarbeiter_uid
+		FROM campus.tbl_zeitsperre WHERE zeitsperretyp_kurzbz='Mutter') a
+	WHERE
+		NOT EXISTS (SELECT 1 FROM addon.tbl_casetime_zeitsperre WHERE uid=a.mitarbeiter_uid AND datum=a.datum AND typ='Mutter')
 		AND datum>=".$db->db_add_param($sync_datum_start)."
 		AND mitarbeiter_uid in(".$db->db_implode4SQL($user_arr).")
 	UNION

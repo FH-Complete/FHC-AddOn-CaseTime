@@ -72,6 +72,12 @@ def delete_zeitsperre(self, sachb, buchdat, art):
         drucken = 'J'
         auftragsposition = '5'
         stunden = 1
+    elif art == 'mutterschutz':
+        lohnart = 'MUTT'
+        auftragsnummer = '1'
+        drucken = 'J'
+        auftragsposition = '69'
+        stunden = 1
 
     else:
         ret_dict['STATUS']='ERR'
