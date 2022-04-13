@@ -477,7 +477,6 @@ function getCaseTimeZeitsaldo($uid)
 	{
 		curl_close($ch);
 		$data = json_decode($result);
-			//var_dump($result);
 
 		if(isset($data->STATUS) && $data->STATUS=='OK')
 		{
@@ -785,18 +784,16 @@ function getHomeofficeTage($mitarbeiter_uid, $vondatum, $bisdatum)
 function getCaseTimeSaldoAllIn($uid)
 {
 	$ch = curl_init();
-	//for testing
-	//$url = 'http://10.129.0.18:8080/sync/get_allin_salue1_sum';
 	$url = CASETIME_SERVER.'/sync/get_allin_salue1_sum';
 
 	//heutiges Datum
-	$datumt2 = new DateTime('today');
-	$datumt2 = $datumt2->format('d.m.Y');
-	if ((substr($datumt2, 3, 2)) >= 9)
-		$year = substr($datumt2, 6, 4);
-	else {
-		$year = intval(substr($datumt2, 6, 4)) - 1;
-	}
+        $tz  = new DateTimezone('Europe/Vienna');
+	$dt2 = new DateTime('today', $tz);
+
+	$datumt2  = $dt2->format('d.m.Y');
+        $curmonth = intval($dt2->format('m'));
+        $curyear  = intval($dt2->format('Y'));
+        $year = ($curmonth >= 9) ? $curyear : ($curyear - 1);
 
 	//Start Geschäftsjahr
 	$datumt1 = '01.09.'. $year;
