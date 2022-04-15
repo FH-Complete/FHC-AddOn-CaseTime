@@ -232,7 +232,8 @@ $bisverwendung->getLastVerwendung($uid);
 if (!$timesheetVorhanden && $bisverwendung->zeitaufzeichnungspflichtig)
 {
 	$date_last_begin_verwendung = $timesheet->getLastVerwendungZapflicht($uid);
-	$timesheet->insertTimeSheet($uid, $date_last_begin_verwendung);
+	$date_last_beginn_lastdayofmonth = new DateTime('last day of '. $date_last_begin_verwendung. ' midnight');
+	$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
 }
 
 foreach($verwendung_arr as $verwendung)
