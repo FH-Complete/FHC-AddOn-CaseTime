@@ -398,14 +398,6 @@ function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 {
 	$ts_date = new DateTime('first day of '. $datum. ' midnight');
 	$startdatum = $ts_date->format('Y-m-d');
-	foreach ($verwendung_arr as $verwendung)
-	{
-		if ($datum < $verwendung->beginn)
-		{
-			$startdatum = $verwendung->beginn;
-		}
-	}
-
 	$zp = false;
 	foreach ($verwendung_arr as $bv)
 	{
