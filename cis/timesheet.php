@@ -652,8 +652,16 @@ if (isset($_POST['submitTimesheet']))
 {
 	$timesheet = new Timesheet();
 
+	$casetimeservererror = false;
 	// Check for blocking casetime errors
-	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
+	try
+	{
+	  $hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
+	}
+	catch (Exception $ex)
+	{
+		$casetimeservererror = true;
+	}
 
 	// Check for missing Bestaetigungen
 	$hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
@@ -665,10 +673,11 @@ if (isset($_POST['submitTimesheet']))
 	}
 
 	// Check for blocking Pause Errors
+
 	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
 
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
+	if (!$casetimeservererror && !$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
@@ -1619,6 +1628,15 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			Die Zeiterfassung für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> oder den Monat davor ist nicht vollständig oder inkorrekt.<br>
 			Bitte überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
+		</div>
+		<?php endif; ?>
+
+		<?php if ( $casetimeservererror ): ?>
+		<div class="alert alert-warning alert-dismissible text-center" role="alert">
+			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>
+			Der Zeitaufzeichnungsserver ist derzeit nicht erreichbar oder hat mit einem Fehler geantwortet.<br>
+			Bitte versuchen Sie es zu einem späteren Zeitpunkt noch einmal.
 		</div>
 		<?php endif; ?>
 
