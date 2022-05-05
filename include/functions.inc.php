@@ -432,14 +432,8 @@ function getCaseTimeErrors($uid)
 
 	if(curl_errno($ch))
 	{
-		$msg = 'Curl error: ' . curl_error($ch);
+		return 'Curl error: ' . curl_error($ch);
 		curl_close($ch);
-		throw new Exception($msg);
-	}
-	else if( ($respcode = curl_getinfo($ch,  CURLINFO_HTTP_CODE)) !== 200 )
-	{
-		curl_close($ch);
-		throw new Exception('HTTP Request failed with Response Code ' . $respcode);
 	}
 	else
 	{
