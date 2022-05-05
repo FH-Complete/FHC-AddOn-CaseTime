@@ -912,8 +912,12 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			border-right: solid 2px #31708f;
 		}
 		.highlight{
-		background-color: blue;
-		color: blue;
+		background-color: yellow;
+		color: yellow;
+		}
+
+		.ui-widget-content{
+			background: #92a7c8;;
 		}
 
 		<?php if($isVorgesetzter): ?>
