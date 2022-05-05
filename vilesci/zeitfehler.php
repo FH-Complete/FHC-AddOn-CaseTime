@@ -49,7 +49,16 @@ if ($username != $uid)
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
  */
-$retval = getCaseTimeErrors($username);
+ try
+ {
+ 	$retval = getCaseTimeErrors($username);
+ }
+ catch (exception $ex )
+ {
+ 	http_response_code(500);
+ 	echo json_encode(array("error" => $ex->getMessage()));
+ 	exit();
+ }
 
 //echo '[["14.01.2015", "Zeitfehler 1"], ["14.01.2015", "Zeitfehler 2"],["01.01.2014","Zeitfehler ausserhalb der Range"]]';
 echo json_encode($retval);

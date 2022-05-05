@@ -420,6 +420,8 @@ function getCaseTimeErrors($uid)
 
 	$url = CASETIME_SERVER.'/sync/get_zeitfehler';
 
+	$url = 'https://c3p0.ma0068.technikum-wien.at/fhcomplete/addons/casetime/cis/error500.php';
+
 	$params = 'sachb='.$uid;
 
 	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
@@ -432,8 +434,15 @@ function getCaseTimeErrors($uid)
 
 	if(curl_errno($ch))
 	{
-		return 'Curl error: ' . curl_error($ch);
+		echo $msg = 'Curl error: ' . curl_error($ch);
 		curl_close($ch);
+		throw new Exception($msg);
+	}
+	else if( ($respcode = curl_getinfo($ch,  CURLINFO_HTTP_CODE)) !== 200 )
+	{
+		//print_r($respcode);
+		curl_close($ch);
+		throw new Exception('HTTP Request failed with Response Code ' . $respcode);
 	}
 	else
 	{

@@ -656,12 +656,21 @@ $hasCaseTimeError = false;
 $hasMissingBestaetigung = false;
 $hasBlockingPauseError = false;
 $missing_bestaetigungen = '';
+$casetimeservererror = false;
+
 if (isset($_POST['submitTimesheet']))
 {
 	$timesheet = new Timesheet();
 
 	// Check for blocking casetime errors
-	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
+	try
+	{
+		$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
+	}
+	catch (Exception $ex)
+	{
+		$casetimeservererror = true;
+	}
 
 	// Check for missing Bestaetigungen
 	$hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
@@ -676,7 +685,7 @@ if (isset($_POST['submitTimesheet']))
 	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
 
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
+	if (!$casetimeservererror && !$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
@@ -1629,6 +1638,15 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
 		</div>
 		<?php endif; ?>
+
+		<?php if ($casetimeservererror): ?>
+	<div class="alert alert-warning alert-dismissible text-center" role="alert">
+		<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+		<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>
+		Der Zeitaufzeichnungsserver ist derzeit nicht erreichbar oder hat mit einem Fehler geantwortet.<br>
+		Bitte versuchen Sie es zu einem späteren Zeitpunkt nocheinmal.
+	</div>
+	<?php endif; ?>
 
 		<!-- IF there are blocking Pause errors -->
 		<?php if ($hasBlockingPauseError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today):  ?>
