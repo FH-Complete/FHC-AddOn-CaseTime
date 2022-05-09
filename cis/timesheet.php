@@ -911,14 +911,18 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			border-left: solid 2px #31708f;
 			border-right: solid 2px #31708f;
 		}
-		.highlight{
-		background-color: yellow;
-		color: yellow;
+
+		.ui-datepicker td.highlight a
+		{
+			background: none #FFEBAF;
+			border: 1px solid #BF5A0C;
 		}
 
-		.ui-widget-content{
-			background: #92a7c8;;
+		.ui-widget-content .ui-state-active
+		{
+			color: black;
 		}
+
 
 		<?php if($isVorgesetzter): ?>
 		#table-overtime tbody tr:last-child td:last-child{
@@ -1209,25 +1213,18 @@ $(function()
 					if ($homeofficetage)
 					{
 						$tagesliste = '<div id = "homeofficeTage" style="display:none; margin-top: 1em" >';
-						$tage = array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
 						foreach ($homeofficetage as $k)
-						{
-							$k = new DateTime($k);
-							$tag = $k->format("w");
-							$tagesliste .= $tage[$tag] . ", ". $k->format('d.m.Y');
-							$tagesliste .= '<br>';
 							$countTage++;
-						}
 
-						$tagesliste .= "<br><div id='datepicker'></div><br>";
+						$tagesliste .= "<div id='datepicker'></div>";
 						$tagesliste .= '</div>';
 						echo "<input type ='hidden' value='$datumVon'id=startMonth>";
 						echo "<input type ='hidden' value='$datumBis'id=endMonth>";
 					  $homeofficetage = json_encode($homeofficetage);
 						echo "<input type ='hidden' value='$homeofficetage'id=hoDays>";
 					}
-				echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>";
-				echo $tagesliste;
+					echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>";
+					echo $tagesliste;
 					?>
 			</div>
 			<div class="panel-body col-xs-4 text-right">
