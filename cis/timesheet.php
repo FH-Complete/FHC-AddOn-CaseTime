@@ -981,7 +981,7 @@ $(function()
 				maxDate: maxDate,
 				monthNames: ['Januar','Februar','März','April','Mai','Juni',
 					'Juli','August','September','Oktober','November','Dezember'],
-					dayNamesMin: ['So','Mo','Di','Mi','Do','Fr','Sa']
+					dayNamesMin: ['Mo','Di','Mi','Do','Fr','Sa','So']
 	  });
 	});
 
