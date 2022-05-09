@@ -49,8 +49,18 @@ if ($username != $uid)
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
  */
-$retval = getCaseTimeZeitsaldo($username);
-//echo "-18.66";
+
+try
+{
+ $retval = getCaseTimeZeitsaldo($username);
+}
+catch (exception $ex )
+{
+ http_response_code(500);
+ echo json_encode(array("error" => $ex->getMessage()));
+ exit();
+}
+
 echo json_encode($retval);
 
 ?>

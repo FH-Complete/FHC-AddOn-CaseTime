@@ -461,7 +461,6 @@ function getCaseTimeErrors($uid)
 function getCaseTimeZeitsaldo($uid)
 {
 	$ch = curl_init();
-
 	$url = CASETIME_SERVER.'/sync/get_zeitsaldo';
 
 	$params = 'sachb='.$uid;
@@ -476,8 +475,14 @@ function getCaseTimeZeitsaldo($uid)
 
 	if(curl_errno($ch))
 	{
-		return 'Curl error: ' . curl_error($ch);
+		echo $msg = 'Curl error: ' . curl_error($ch);
 		curl_close($ch);
+		//throw new Exception($msg);
+	}
+	else if( ($respcode = curl_getinfo($ch,  CURLINFO_HTTP_CODE)) !== 200 )
+	{
+		curl_close($ch);
+		//throw new Exception('HTTP Request failed with Response Code ' . $respcode);
 	}
 	else
 	{

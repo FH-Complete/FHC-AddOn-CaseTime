@@ -238,7 +238,7 @@ function AddonCaseTimeLoadFeiertage(uid)
 			}
         },
 		error: function(){
-			alert("Error Casetime Load");
+			alert("Case Time Server nicht erreichbar");
 		}
     });
 }
@@ -291,7 +291,7 @@ function AddonCaseTimeLoadErrors(uid)
 			}
         },
 		error: function(){
-			alert("Error Casetime Load");
+			alert("Case Time Server nicht erreichbar");
 		}
     });
 }
@@ -350,10 +350,13 @@ function AddonCaseTimeLoadZeitsaldo(uid,exportXLS)
 				min = Math.round(min);
 				var std_anzeigealt = std+'h:'+min+'m';
 
-
-
 				$('#zeitsaldo').css('margin-left','50px');
-				$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+result+'</span> Stunden ('+std_anzeigealt+')');
+
+				if (isNaN(result))
+					$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">derzeit nicht verfügbar</span> ');
+				else
+					$('#zeitsaldo').html('Aktueller Zeitsaldo: <span style="color:'+color+'">'+ result+'</span> Stunden ('+std_anzeigealt+')');
+
 				$('#monatsliste').css('margin-left','50px');
 
 				moli_dd = '';
@@ -387,7 +390,8 @@ function AddonCaseTimeLoadZeitsaldo(uid,exportXLS)
 			}
       },
 		error: function(){
-			alert("Error Casetime Load");
+			alert("Case Time Server nicht erreichbar");
+
 		}
     });
 }
