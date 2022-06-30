@@ -76,7 +76,7 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
         lohnart = 'MUTT'
         auftragsnummer = '1'
         drucken = 'J'
-        auftragsposition = '69'
+        auftragsposition = '71'
         stunden = 1
 
     else:

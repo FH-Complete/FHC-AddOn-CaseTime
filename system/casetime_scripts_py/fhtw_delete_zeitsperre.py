@@ -76,7 +76,7 @@ def delete_zeitsperre(self, sachb, buchdat, art):
         lohnart = 'MUTT'
         auftragsnummer = '1'
         drucken = 'J'
-        auftragsposition = '69'
+        auftragsposition = '71'
         stunden = 1
 
     else:
