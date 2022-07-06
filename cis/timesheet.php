@@ -182,9 +182,11 @@ $first_name = $benutzer->vorname;
 $mitarbeiter = new Mitarbeiter($uid);
 $vorgesetzte_uid_arr = array();	// array with uid of one or more supervisors
 $vorgesetzte_full_name_arr = array();	// array of supervisor(s) full name
-$hasVorgesetzten = true;
+$hasVorgesetzten = false;
 
-if ($mitarbeiter->getVorgesetzte($uid))
+$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
+
+if ($mitarbeiter->getVorgesetzteMonatTimesheet($uid,$dateTimesheet->format('Y-m-d')))
 {
 	$vorgesetzte_uid_arr = $mitarbeiter->vorgesetzte;
 
@@ -194,7 +196,9 @@ if ($mitarbeiter->getVorgesetzte($uid))
 		{
 			$benutzer = new Benutzer($vorgesetzten_uid);
 			$vorgesetzte_full_name_arr []= $benutzer->getFullName();	// string full name of supervisor
+
 		}
+		$hasVorgesetzten = true;
 	}
 	else
 	{
@@ -214,7 +218,6 @@ $isFuture = false;	// true if date selected is in the future
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
 $isZeitaufzeichnungspflichtig = false;
-//var_dump($date_begin_zeitaufzeichnungspflicht);
 
 // * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
 $bisverwendung = new bisverwendung();
