@@ -499,9 +499,15 @@ foreach($employee_uid_arr as $employee_uid)
 	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
 	$verwendung_arr = $bisverwendung->result;
 	$vertragsstunden = 0;
+	$arrEchterDV= [103,110];
+	if (defined('DEFAULT_ECHTER_DIENSTVERTRAG') && DEFAULT_ECHTER_DIENSTVERTRAG != '')
+	{
+		$arrEchterDV = DEFAULT_ECHTER_DIENSTVERTRAG;
+	}
+
 	foreach($verwendung_arr as $verwendung)
 	{
-		if ($verwendung->ba1code == 103)
+		if(in_array($verwendung->ba1code, $arrEchterDV))
 		{
 			$vertragsstunden = $verwendung->vertragsstunden;
 		}
@@ -836,7 +842,7 @@ function sortEmployeesName($employee1, $employee2)
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
 				<td>
 					<input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
-						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?> 
+						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?>
 						   onchange="fixOrAllEmployees()"/>
 					<label for="onlyfixemployess">&nbsp;nur fix Angestellte</label>
 				</td>
