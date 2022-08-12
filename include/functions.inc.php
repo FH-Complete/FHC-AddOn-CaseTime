@@ -19,6 +19,7 @@
  * 			Gerald Raab <gerald.raab@technikum-wien.at>
  */
 require_once(dirname(__FILE__).'/../../../include/benutzerberechtigung.class.php');
+require_once(dirname(__FILE__).'/../config.inc.php');
 
 
 
