@@ -878,7 +878,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<link rel="stylesheet" type="text/css" href="../../../vendor/components/jqueryui/themes/base/jquery-ui.min.css">
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
-	<link rel="stylesheet" type="text/css" href="../../../vendor/components/font-awesome/css/font-awesome.min.css">
+	<link rel="stylesheet" type="text/css" href="../../../vendor/fortawesome/font-awesome4/css/font-awesome.min.css">
 	<link rel="stylesheet" type="text/css" href="../../../public/css/DialogLib.css">
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>

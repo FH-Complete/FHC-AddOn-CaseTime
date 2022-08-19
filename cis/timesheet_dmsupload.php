@@ -203,7 +203,7 @@ if (!empty($timesheet_id))
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
-	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
+	<link href="../../../vendor/fortawesome/font-awesome4/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
 	<title>Upload von Abwesenheitsdokumenten</title>

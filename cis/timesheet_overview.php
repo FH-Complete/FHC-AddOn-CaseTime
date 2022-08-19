@@ -147,7 +147,7 @@ needs the GUI to be displayed.-->
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
-	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
+	<link href="../../../vendor/fortawesome/font-awesome4/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
 	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
 	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">
 	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">
@@ -701,7 +701,7 @@ function sortEmployeesName($employee1, $employee2)
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
-	<link href="../../../vendor/components/font-awesome/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
+	<link href="../../../vendor/fortawesome/font-awesome4/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
 	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
 	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">
 	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">
