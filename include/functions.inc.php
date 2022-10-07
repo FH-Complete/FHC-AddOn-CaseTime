@@ -774,7 +774,37 @@ function check_isTimesheetManager($uid, $employee_uid)
 		{
 			return false;
 		}
+	}
 
+/**
+	 * Überprüft, ob im Zeitraum einer Zeitsperre eine abgeschickte Monatsliste vorhanden ist
+	 * @param string $mitarbeiter_uid Uid des Mitarbeiters.
+	 * @param date $vondatum Startdatum Zeitsperre im Format 'YYYY-MM-DD'.
+	 * @param date $bisdatum Bisdatum Zeitsperre im Format 'YYYY-MM-DD'.
+	 * @return date Monatslistendatum, wenn status Monatsliste abgeschickt, ansonsten false
+	 */
+	function checkStatusMonatsliste($mitarbeiter_uid, $vondatum, $bisdatum)
+	{
+		$db = new basis_db();
+		$qry = "SELECT ts.datum FROM addon.tbl_casetime_timesheet ts
+				WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
+				and (((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum
+				or ((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum)";
+
+		if ($result = $db->db_query($qry))
+		{
+			$db->result = '';
+			while ($row = $db->db_fetch_object($result))
+			{
+				$db->result[] = $row->datum;
+
+			}
+			return $db->result;
+		}
+		else
+		{
+			return false;
+		}
 	}
 
 ?>
