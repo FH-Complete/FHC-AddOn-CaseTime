@@ -858,4 +858,24 @@ function getCaseTimeSaldoAllIn($uid)
 	}
 }
 
+/**
+	 * Formatiert Zahl aus Zeitsaldo in Format h: min
+	 * @param float $zeitsaldo Zeitsaldo in Minuten (zBsp: -1.93)
+	 * @return string Zeitsaldo im Format hh:mm, (zBsp:- 1h:56m)
+	 */
+	function formatZeitsaldo($zeitsaldo)
+	{
+		if ($zeitsaldo >= 0)
+		{
+			$stunden = floor($zeitsaldo);
+			$minuten = floor(($zeitsaldo - $stunden) * 60);
+		}
+		else if ($zeitsaldo < 0 )
+		{
+			$stunden = ceil($zeitsaldo);
+			$minuten = floor(($zeitsaldo - $stunden) * (-60));
+		}
+		return $stunden . "h:" . $minuten . "m";
+	}
+
 ?>
