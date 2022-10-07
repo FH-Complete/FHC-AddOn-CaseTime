@@ -46,6 +46,7 @@ if ($username != $uid)
 		die('Sie haben keine Berechtigung fuer diese Seite');
 }
 
+header('Content-Type: application/json');
 /**
  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
  */
