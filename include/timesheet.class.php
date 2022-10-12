@@ -1618,11 +1618,11 @@ class Timesheet extends basis_db
 					case 'Arztbesuch':
 						// each Arztbesuch-absence needs to be attested
 						$cnt_ab++;
-						continue;
+						break;
 					case 'Behoerde':
 						// each Behörden-absence needs to be attested
 						$cnt_beh++;
-						continue;
+						break;
 					case 'PflegeU':
 						$von = new DateTime($absence->von);
 						$bis = new DateTime($absence->bis);
@@ -1630,7 +1630,7 @@ class Timesheet extends basis_db
 						// Pflegeurlaub needs to be attested only from the 3rd day on
 						if ($von->diff($bis)->d >= 2)
 							$cnt_pfl++;
-						continue;
+						break;
 					case 'Krank':
 						$von = new DateTime($absence->von);
 						$bis = new DateTime($absence->bis);
@@ -1638,19 +1638,19 @@ class Timesheet extends basis_db
 						// Krankenstand needs to be attested only from the 3rd day on
 						if ($von->diff($bis)->d >= 2)
 							$cnt_kst++;
-						continue;
+						break;
 					case 'CovidSB':
 						$von = new DateTime($absence->von);
 						$bis = new DateTime($absence->bis);
 						// each covidkrankenstand needs to be attested
 							$cnt_covSB++;
-						continue;
+						break;
 					case 'CovidKS':
 						$von = new DateTime($absence->von);
 						$bis = new DateTime($absence->bis);
 						// each covidkrankenstand needs to be attested
 							$cnt_covKS++;
-						continue;
+						break;
 				}
 			}
 
@@ -1673,19 +1673,19 @@ class Timesheet extends basis_db
 				{
 					case 'bst_arzt':
 						$cnt_ab_doc++;
-						continue;
+						break;
 					case 'bst_bhrd':
 						$cnt_beh_doc++;
-						continue;
+						break;
 					case 'bst_pfur':
 						$cnt_pfl_doc++;
-						continue;
+						break;
 					case 'bst_krnk':
 						$cnt_kst_doc++;
-						continue;
+						break;
 					case 'bst_cov':
 						$cnt_cov_doc++;
-						continue;
+						break;
 				}
 			}
 
