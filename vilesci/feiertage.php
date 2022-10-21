@@ -23,6 +23,7 @@ require_once('../config.inc.php');
 require_once('../../../config/vilesci.config.inc.php');
 require_once('../../../include/functions.inc.php');
 require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/casetime.class.php');
 
 $uid = get_uid();
@@ -32,13 +33,19 @@ $username = $_GET['uid'];
 
 
 // Wenn es nicht der eigene Eintrag ist, muss man admin sein
-if($username!=$uid)
+// oder Vorgesetzter, der ausschließlich sichtberechtigt auf Files seiner MA ist
+if ($username != $uid)
 {
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
+	$mas = new mitarbeiter();
+	$mas->getUntergebene($uid, true);
+	$untergebenen_arr = array();
+	$untergebenen_arr = $mas->untergebene;
 
-	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid'))
-		die('Sie haben keine Berechtigung fuer diese Seite');	
+	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') &&
+	!(in_array($username, $untergebenen_arr)))
+		die('Sie haben keine Berechtigung fuer diese Seite');
 }
 
 $retval = SendData($username);
@@ -54,7 +61,7 @@ function SendData($uid)
 	$datum_obj = new datum();
 	$heute = date('Ymd');
 	$angezeigte_tage = 180;
-	
+
 	$ch = curl_init();
 
 	$url = CASETIME_SERVER.'/sync/get_feiertage';
@@ -65,15 +72,15 @@ function SendData($uid)
 
 	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params ); //Url together with parameters
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
-	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT , 7); //Timeout after 7 seconds
-	curl_setopt($ch, CURLOPT_USERAGENT , "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT, "FH-Complete CaseTime Addon");
 	curl_setopt($ch, CURLOPT_HEADER, 0);
 
 	$result = curl_exec($ch);
-    
-	if(curl_errno($ch))
+
+	if (curl_errno($ch))
 	{
-		return 'Curl error: ' . curl_error($ch);
+		return 'Curl error: '. curl_error($ch);
 		curl_close($ch);
 	}
 	else
@@ -81,12 +88,12 @@ function SendData($uid)
 		curl_close($ch);
 		$data = json_decode($result);
 
-		if(isset($data->STATUS) && $data->STATUS=='OK')
+		if (isset($data->STATUS) && $data->STATUS == 'OK')
 		{
 			return $data->RESULT;
 		}
 		else
 			return false;
-	}	
+	}
 }
 ?>
