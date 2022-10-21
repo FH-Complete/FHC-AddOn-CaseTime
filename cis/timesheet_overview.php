@@ -114,6 +114,11 @@ else
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
 
+if( defined('CIS_SHOW_COVID_STATUS') && !CIS_SHOW_COVID_STATUS )
+{
+	$showcovidstatus = false;
+}
+
 // Check if uid is a supervisor
 if (!empty($untergebenen_arr))
 {

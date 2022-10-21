@@ -16,7 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  *
  * Authors:	Cristina Hainberger		<hainberg@technikum-wien.at>
- 			Manuela Thamer			<manuela.thamer@technikum-wien.at>
+ *			Manuela Thamer			<manuela.thamer@technikum-wien.at>
  */
 require_once('../../../config/cis.config.inc.php');
 require_once('../config.inc.php');
@@ -32,9 +32,11 @@ require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../../../include/bisverwendung.class.php');
+require_once('../../../include/zeitaufzeichnung.class.php');
 require_once('../../../include/sancho.inc.php');
 require_once('../../../include/zeitaufzeichnung.class.php');
 require_once('../include/functions.inc.php');
+require_once('../../../include/datum.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees in timesheet_overview.php
 
@@ -88,7 +90,7 @@ if (isset($_GET['month']) && isset($_GET['year']))
 $isPersonal = false;	// true if uid has personnel departments permission
 $isVorgesetzter = false;	// true if uid is supervisor
 $isVorgesetzter_indirekt = false;	//true if uid supervisor on higher oe level (not direct supervisor of employee)
-
+$isVorgesetzterMitVertretungsfunktion = false; //true if supervisor is direct supervisor of supervisor
 
 // If GET-REQUEST: Check if uid is supervisor, indirect supervisor, personnel- or timesheet manager
 if (isset($_GET['timesheet_id']))
@@ -121,6 +123,18 @@ if (isset($_GET['timesheet_id']))
 	if ($timesheet->getUser($timesheet_id))
 	{
 		$employee_uid = $timesheet->getUser($timesheet_id);
+
+		$mitarbeiter = new Mitarbeiter();
+		$mitarbeiter->getVorgesetzte($employee_uid);
+		$chef_arr = array();
+		$chef_arr = $mitarbeiter->vorgesetzte;
+		foreach ($chef_arr as $k => $v)
+		{
+			$dirVor = $v;
+		}
+		$isVorgesetzterMitVertretungsfunktion = true;
+		$ben = new benutzer();
+		$ben->load($dirVor);
 	}
 	else
 	{
@@ -201,6 +215,7 @@ $isFuture = false;	// true if date selected is in the future
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
 $isZeitaufzeichnungspflichtig = false;
+//var_dump($date_begin_zeitaufzeichnungspflicht);
 
 // * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
 $bisverwendung = new bisverwendung();
@@ -208,6 +223,19 @@ $now = new DateTime('today');
 $bisverwendung->getVerwendung($uid);
 $verwendung_arr = $bisverwendung->result;
 $date_first_begin_verwendung = null;
+
+//check if timesheet vorhanden und zeitaufzeichnungsplichtig
+$timesheet = new Timesheet();
+$timesheetVorhanden = $timesheet->checkIfUserHasTimesheet($uid);
+$bisverwendung->getLastVerwendung($uid);
+
+//neues Timesheet einfügen mit Beginndatum letzter zeitaufzeichnungspflichtiger Bisverwendung
+if (!$timesheetVorhanden && $bisverwendung->zeitaufzeichnungspflichtig)
+{
+	$date_last_begin_verwendung = $timesheet->getLastVerwendungZapflicht($uid);
+	$date_last_beginn_lastdayofmonth = new DateTime('last day of '. $date_last_begin_verwendung. ' midnight');
+	$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
+}
 
 foreach($verwendung_arr as $verwendung)
 {
@@ -229,6 +257,7 @@ foreach($verwendung_arr as $verwendung)
 			if ($date_first_begin_verwendung > $date_begin_verwendung)
 			{
 				$date_first_begin_verwendung = $date_begin_verwendung;
+
 			}
 
 			// * reset begin date of time recording if earlier begin date found (but never before golive)
@@ -706,6 +735,7 @@ if (isset($_POST['action']) && isset($_POST['method']))
 // *********************************	EMAIL SENDING (and document check)
 $hasCaseTimeError = false;
 $hasMissingBestaetigung = false;
+$hasBlockingPauseError = false;
 $missing_bestaetigungen = '';
 if (isset($_POST['submitTimesheet']))
 {
@@ -723,8 +753,11 @@ if (isset($_POST['submitTimesheet']))
 		$missing_bestaetigungen = $timesheet->result;
 	}
 
+	// Check for blocking Pause Errors
+	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
+
 	// if document $ casetime server error check ok, prepare for email sending
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError)
+	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
 	{
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
 		{
@@ -979,6 +1012,16 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		}
 	}
 
+	//Homeofficetage Ein- und Ausblenden
+	function showHomeofficeTage()
+	{
+		if (!$("#homeofficeTage").is(":visible"))
+			$("#homeofficeTage").show();
+		else {
+			$("#homeofficeTage").hide();
+		}
+	}
+
 	// Delete documents and refresh view
 	function deleteBestaetigung(dms_id)
 	{
@@ -1141,11 +1184,23 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 <div class="row">
 <div class="col-xs-8">
 	<!--information panel IF uid is INDIRECT SUPERVISOR-->
-	<?php if (!$isFuture && ($isVorgesetzter_indirekt  && !$isVorgesetzter)): ?>
+	<?php if (!$isFuture && ($isVorgesetzter_indirekt  && !$isVorgesetzter && !$isVorgesetzterMitVertretungsfunktion)): ?>
 	<div class="panel panel-default">
 		<div class="panel-body text-danger">
 			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
 			<b>Sie sind INDIREKT VORGESETZT. </b>Sie können Monatlisten einsehen, aber nicht genehmigen oder retournieren.
+		</div>
+	</div>
+	<?php endif; ?>
+
+
+	<!--information panel IF uid is INDIRECT SUPERVISOR and DIRECT SUPERVISOR has ZEITSPERRE-->
+	<?php if (!$isFuture && ($isVorgesetzter_indirekt && !$isVorgesetzter && $isVorgesetzterMitVertretungsfunktion)): ?>
+	<div class="panel panel-default">
+		<div class="panel-body text-danger">
+			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
+			<b>Sie sind INDIREKT VORGESETZT.
+			<br>Sie können in Vertretung für <?php echo $db->convert_html_chars($ben->vorname).' '.$db->convert_html_chars($ben->nachname); ?> Monatlisten einsehen, genehmigen und retournieren.
 		</div>
 	</div>
 	<?php endif; ?>
@@ -1212,6 +1267,46 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				<br><br>
 				<a href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
 				   target="_blank" class="text-muted"><small><u>(Monatsliste herunterladen)</u></small></a>
+			</div>
+		</div>
+
+		<!--panel: Anzeige Homeoffice Tage-->
+		<div class="row panel-top-cstm">
+			<div class="panel-body col-xs-8">
+				<b>Homeoffice </b><br><br>
+
+					<?php
+					$datumVon = $year. "-". $month. "-01";
+					$datumBis =  date("Y-m-d", strtotime("last day of this month", strtotime($datumVon)));
+					$homeofficetage = getHomeofficeTage($uid, $datumVon, $datumBis);
+					$countTage = 0;
+
+					$tagesliste = '';
+					if ($homeofficetage)
+					{
+						$tagesliste = '<div id = "homeofficeTage" style="display:none; margin-top: 1em" >';
+						$tage = array("Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag");
+						foreach ($homeofficetage as $k)
+						{
+							$k = new DateTime($k);
+							$tag = $k->format("w");
+							$tagesliste .= $tage[$tag] . ", ". $k->format('d.m.Y');
+							$tagesliste .= '<br>';
+							$countTage++;
+						}
+						$tagesliste .= '</div>';
+					}
+				echo "Anzahl Tage im Homeoffice:  <b>". $countTage. "</b>";
+				echo $tagesliste;
+					?>
+			</div>
+			<div class="panel-body col-xs-4 text-right">
+				<br><br>
+				<tr>
+					<a role="button"
+					   class="btn btn-default pull-right"
+					   onclick="showHomeofficeTage();">Homeofficetage anzeigen</a><br><br><br>
+				</tr>
 			</div>
 		</div>
 
@@ -1401,14 +1496,31 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<br><br>
 
 	<!--************************************		VIEW for supervisors, personnel department and timesheet manager-->
-
-	<?php if ($isVorgesetzter || $isPersonal || $isTimesheetManager): ?>
+	<?php if ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterMitVertretungsfunktion): ?>
 	<div class="panel panel-default" style="padding-bottom: 20px;">
 		<div class="panel-heading">
 			<span class="panel-title h2">Vorgesetztensicht</span>
 		</div>
 
 		<!--panel: CONFIRM timesheet-->
+		<!-- <div class="row">
+			<div class="panel-body col-xs-8">
+				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
+				Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
+				Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
+				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.<br><br>
+			</div>
+			<form id="formTimesheetConfirmation" method="POST" action="">
+				<input type="hidden" name="checkbox_overtime_arr" value="" />
+				<div class="panel-body col-xs-4"><br>
+					<button type="submit" <?php echo ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$isAllowed_confirmTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzter) ) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+							name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
+							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
+				</div>
+			</form>
+		</div> -->
+
+		<!-- try manu -->
 		<div class="row">
 			<div class="panel-body col-xs-8">
 				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
@@ -1419,7 +1531,15 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<form id="formTimesheetConfirmation" method="POST" action="">
 				<input type="hidden" name="checkbox_overtime_arr" value="" />
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$isAllowed_confirmTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzter)) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+					<button type="submit"
+					<?php if ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$isAllowed_confirmTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzterMitVertretungsfunktion)): ?>
+							disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."
+						<?php if ($isVorgesetzterMitVertretungsfunktion): ?>
+							data-toggle="tooltip" title="Als Vertretung können Sie diese direkt genehmigen."
+						<?php else: ?>
+							data-toggle='tooltip' title=""
+						<?php endif; ?>
+					<?php endif; ?>
 							name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
 							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <?php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
 				</div>
@@ -1437,7 +1557,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<form method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit"
-						<?php if ((!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) && ($isVorgesetzter || $isPersonal || $isTimesheetManager)): ?>
+						<?php if ((!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) && ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterMitVertretungsfunktion)): ?>
 							disabled
 							<?php if ($isTimesheetManager && !$isConfirmed): ?>
 								data-toggle="tooltip" title="Monatsliste wurde nicht versendet. Als Timesheet Manager können Sie diese direkt genehmigen."
@@ -1545,7 +1665,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			Ab dem <?php echo $date_next_month->format('d.m.Y') ?> können Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> an Ihren Vorgesetzten schicken.<br>
 			Sie können jedoch laufend Ihre Bestätigungen zu Ihren Abwesenheitszeiten hochladen.
 		</div>
-		<?php endif; ?>
+	<?php endif; ?>
 
 		<!-- IF today inserted/updated/deleted times concerning the selected month -->
 		<?php if (!$isSyncedWithCaseTime_today || $hasCaseTimeChanges_today): ?>
@@ -1624,6 +1744,22 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			Bitte überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
 		</div>
+		<?php endif; ?>
+
+		<!-- IF there are blocking Pause errors -->
+		<?php if ($hasBlockingPauseError && !$isDisabled_by_formerUnsentTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today):  ?>
+			<div class="alert alert-danger alert-dismissible text-center" role="alert">
+				<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+				<b>
+					Pausenfehler!
+				</b>
+				<br><br>Bitte korrigieren Sie den Pausenfehler vom
+					<?php
+					$day = new DateTime($hasBlockingPauseError);
+					echo $day->format('d.m.Y');
+					?>!<br><br>
+				<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
+			</div>
 		<?php endif; ?>
 
 		<!-- IF Checkbox 'Vor Monatsende abschließen' is checked, the button 'Monatsliste abschicken' is blocked -->
@@ -1928,7 +2064,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 									$genehmigtvon = new Benutzer($ts->genehmigtvon);
 									$genehmigtvon = $genehmigtvon->getFullName();
 									?>
-									<td class='text-center' data-toggle="tooltip" title="Genehmigt am <?php echo $ts_date_genehmigt->format('d.m.Y') ?> von <?php echo $genehmigtvon ?>"><img src="../../../skin/images/ampel_gruen.png" ></td>
+									<td class='text-center' data-toggle="tooltip" title="Genehmigt am <?php echo $ts_date_genehmigt->format('d.m.Y') ?> von <?php echo $genehmigtvon ?>"><img src="../../../skin/images/tick.png" ></td>
 								<?php endif; ?>
 							</tr>
 							<?php endif; ?>

@@ -381,9 +381,13 @@ function AddonCaseTimeLoadZeitsaldo(uid,exportXLS)
 				moli_dd += '<a href="../../../addons/casetime/cis/timesheet.php">Monatslisten verwalten</a>';
 
 				$('#monatsliste').html(moli_dd);
-				document.getElementById('monat').selectedIndex=MonatLetztes-1;
-				if (MonatLetztes == 12)
-					document.getElementById('jahr').selectedIndex=1;
+
+				if (exportXLS)
+				{
+					document.getElementById('monat').selectedIndex=MonatLetztes-1;
+					if (MonatLetztes == 12)
+						document.getElementById('jahr').selectedIndex=1;
+				}
 			}
       },
 		error: function(){

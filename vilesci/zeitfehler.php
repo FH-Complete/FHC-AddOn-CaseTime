@@ -22,21 +22,28 @@
 require_once('../config.inc.php');
 require_once('../../../config/vilesci.config.inc.php');
 require_once('../include/functions.inc.php');
-require_once('../../../include/benutzerberechtigung.class.php');
 require_once('../include/casetime.class.php');
+require_once('../../../include/benutzerberechtigung.class.php');
+require_once('../../../include/mitarbeiter.class.php');
 
 $uid = get_uid();
 
 $username = $_GET['uid'];
 
 // Wenn es nicht der eigene Eintrag ist, muss man admin sein
-if($username!=$uid)
+// oder Vorgesetzter, der ausschließlich sichtberechtigt auf Files seiner MA ist
+if ($username != $uid)
 {
 	$rechte = new benutzerberechtigung();
 	$rechte->getBerechtigungen($uid);
+	$mas = new mitarbeiter();
+	$mas->getUntergebene($uid, true);
+	$untergebenen_arr = array();
+	$untergebenen_arr = $mas->untergebene;
 
-	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid'))
-		die('Sie haben keine Berechtigung fuer diese Seite');	
+	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') &&
+	!(in_array($username, $untergebenen_arr)))
+		die('Sie haben keine Berechtigung fuer diese Seite');
 }
 
 /**
