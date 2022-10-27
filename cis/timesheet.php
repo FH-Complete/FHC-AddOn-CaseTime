@@ -624,45 +624,65 @@ $overwork_arr = array();
 if (!empty($zeitaufzeichnung_arr))
 {
 	$length = count($zeitaufzeichnung_arr);
-	
+
 	for ($i = 0; $i < $length; $i++)
 	{
 		$datum = new DateTime($zeitaufzeichnung_arr[$i]->datum. ' midnight');
 		$start = new DateTime($zeitaufzeichnung_arr[$i]->start);
 		$ende = new DateTime($zeitaufzeichnung_arr[$i]->ende);
-		
+		$aktivity = $zeitaufzeichnung_arr[$i]->aktivitaet_kurzbz;
+
 		// If datum is same day
 		if ($work_day == $datum)
 		{
 			// Add working hours
 			$sum_daily_hours += $ende->getTimestamp() - $start->getTimestamp();
 		}
-		
+
 		// If datum is not same day or datum is last day
 		if ($work_day != $datum || $i == ($length - 1))
 		{
-			// If employee worked more than max day limit
-			If (($sum_daily_hours - $max_daily_hours) > 0)
+			// If employee worked more than max day limit and not Dienstreise
+			If ((($sum_daily_hours - $max_daily_hours) > 0) && ($aktivity != "DienstreiseMT"))
 			{
 				// Store date and overworking time
 				$obj = new StdClass();
 				$obj->datum = $work_day->format('d.m.Y');
 				$obj->sum_daily_hours = DateTime::createFromFormat('U', $sum_daily_hours)->format('H:i');
-				
+
 				$overwork_arr[]= $obj;
 			}
 		}
-		
+
 		// If datum is not same day or datum is first day
 		if ($work_day != $datum || $i == 0)
 		{
 			// Start summing up working hours
 			$sum_daily_hours = $ende->getTimestamp() - $start->getTimestamp();
 		}
-		
 		$work_day = $datum;
 	}
 }
+
+//Get Salden for activities
+$gesamtsaldo = 0;
+$saldo_arr = array();
+foreach ($zeitaufzeichnung_arr as $zaItem)
+{
+	if( !isset($saldo_arr[$zaItem->aktivitaet_kurzbz]) )
+	{
+		$saldo_arr[$zaItem->aktivitaet_kurzbz] = 0.00;
+	}
+
+	$start = new DateTime($zaItem->start);
+	$ende = new DateTime($zaItem->ende);
+	$sum_activity = $ende->getTimestamp() - $start->getTimestamp();
+
+	$saldo_arr[$zaItem->aktivitaet_kurzbz] += $sum_activity;
+	$gesamtsaldo += $sum_activity;
+}
+
+ksort($saldo_arr);
 
 
 // *********************************	CASETIME CHECKS
@@ -1224,7 +1244,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<div class="row">
 			<div class="panel-body col-xs-12">
 				<b>Überblick <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?></b><br><br>
-				
+
 				<table class="table table-bordered table-condensed">
 					<tbody>
 						<tr>
@@ -1235,6 +1255,12 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 							<td><?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot1, 2) ?></td>
 							<td><?php echo ($date_actual == $date_selected) ? 'Aktuell bis gestern' : 'Zu Monatsende' ?></td>
 							<td><?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot2, 2) ?></td>
+						</tr>
+						<tr>
+							<td></td>
+							<td></td>
+							<td>Gesamt</td>
+							<td><?php echo round($monatslisten_salden->saldot2, 2) - round($monatslisten_salden->saldot1, 2)	?></td>
 						</tr>
 						<tr>
 							<th colspan="4">Tage über 10 Stunden</th>
@@ -1250,13 +1276,57 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 						<?php if (empty($overwork_arr)): ?>
 							<td colspan="4">Keine Tage über 10 Stunden vorhanden.</td>
 						<?php endif; ?>
+
+						<!--panel: Summe Aktivitäten-->
+						<tr>
+							<th colspan="4">Gebuchte Aktivitäten</th>
+						</tr>
+						<?php
+							foreach($saldo_arr as $aktivitaet => $saldo): ?>
+						<tr>
+							<td>
+							<?php
+								$stunden = floor ($saldo/60/60);
+								$stunden = $stunden < 10 ? '0'.$stunden : $stunden;
+
+								$restMinuten = $saldo/60%60;
+								$restMinuten = $restMinuten < 10 ? '0'.$restMinuten : $restMinuten;
+
+								$prozent = ($gesamtsaldo != 0) ? $saldo/$gesamtsaldo : '';
+
+								echo $aktivitaet;
+							?>
+							</td>
+							<td><span class="pull-right"><?php echo $stunden . ":" . $restMinuten ?></span></td>
+							<td></td>
+							<td><span class="pull-right"><?php echo round($prozent * 100, 2) . " %" ?></span></td>
+						</tr>
+						<?php endforeach; ?>
+
+						<tr>
+							<td></td>
+							<td><span class="pull-right">
+							<?php
+								$stundenG = $gesamtsaldo/60/60;
+								$stundenG = floor($stundenG);
+								$minutenG = $gesamtsaldo/60;
+								$restMinutenG = $gesamtsaldo/60%60;
+								$restMinutenG = $restMinutenG < 10 ? '0'.$restMinutenG : $restMinutenG;
+								echo $stundenG . ":" . $restMinutenG
+							?></span></td>
+							<td>Stunden</td>
+							<td></td>
+						</tr>
 					</tbody>
 				</table>
 			</div>
+
 			<div class="panel-body col-xs-12">
-				<a class="pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
-					<span class="pull-right text-uppercase"><u>Zu meiner Zeitaufzeichnung</u></span>
+
+				<a role="button" class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
+					<span>Zur Zeitaufzeichnung</span>
 				</a>
+
 				<span>
 					<?php if (!$isSent): ?>
 						<b>Zeitaufzeichnung prüfen & bearbeiten</b>
@@ -1520,7 +1590,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			</form>
 		</div> -->
 
-		<!-- try manu -->
 		<div class="row">
 			<div class="panel-body col-xs-8">
 				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
