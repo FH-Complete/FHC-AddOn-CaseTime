@@ -1015,6 +1015,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			let hasVorgesetzten = <?php echo json_encode($hasVorgesetzten) ?>;
 			let hasCaseTimeChanges_today = <?php echo json_encode($hasCaseTimeChanges_today) ?>;
 			let isSyncedWithCaseTime_today = <?php echo json_encode($isSyncedWithCaseTime_today) ?>;
+			let isTSManager = <?php echo json_encode($isTimesheetManager) ?>;
 
 
             // If passed all checks, disable submit button if vorzeitig_abgeschickt is true
@@ -1032,9 +1033,9 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
             // But: Submit button must be disabled anyway if some of these checks are met
             if (isSent ||
                 !isAllowed_sendTimesheet ||
-                isPersonal ||
-                isVorgesetzter_indirekt ||
-                isVorgesetzter ||
+                (isPersonal && !isTSManager) ||
+                (isVorgesetzter_indirekt && !isTSManager) ||
+                (isVorgesetzter && !isTSManager) ||
                 !hasVorgesetzten ||
                 hasCaseTimeChanges_today ||
                 !isSyncedWithCaseTime_today
@@ -1091,7 +1092,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<!--************************************	PANEL ACTUAL TIMESHEET	 -->
 		<span class="h4">Aktuelle Monatsliste: <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?></span>
 		<br><br><br>
-
 	</div><!--/.end col-xs-8-->
 
 	<div class="col-xs-4">
@@ -1132,6 +1132,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<b>Sie sind TIMESHEET MANAGER für diese Monatsliste.</b><br>
 			Sie können Monatslisten neu erstellen, genehmigen bzw. retournieren.<br>
 			Weiters können Sie Dokumente hochladen und löschen, solange die Monatsliste vom Mitarbeiter nicht versendet worden ist.
+			<br>Außerdem sind Sie berechtigt, für Mitarbeiter die Monatsliste abzuschicken.
 		</div>
 	</div>
 
@@ -1337,7 +1338,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				</div>
 			</div>-->
 
-		<!--panel: SEND timesheet-->
+		<!--panel: SEND timesheet manu-->
 		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
 			<div class="panel-body col-xs-8">
 				<b>Monatsliste abschließen</b><br><br>
@@ -1346,7 +1347,14 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
+					<button type="submit"
+					<?php
+					//	echo ($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
+						echo ($isSent || $isDisabled_by_formerUnsentTimesheet ||
+						 $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || ($isVorgesetzter  && !$isTimesheetManager)
+						 || ($isPersonal && !$isTimesheetManager) || !$hasVorgesetzten || $hasCaseTimeChanges_today ||
+						  !$isSyncedWithCaseTime_today || ($isVorgesetzter_indirekt && !$isTimesheetManager) )? 'disabled data-toggle="tooltip"' : '';
+				//		echo $isTimesheetManager ? 'data-toggle="tooltip"' : '';
 						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" id="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
@@ -1404,7 +1412,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			</form>
 		</div> -->
 
-		<!-- try manu -->
 		<div class="row">
 			<div class="panel-body col-xs-8">
 				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
