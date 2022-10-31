@@ -652,6 +652,7 @@ if (!empty($zeitaufzeichnung_arr))
 
 				$overwork_arr[]= $obj;
 			}
+			sort($overwork_arr);
 		}
 
 		// If datum is not same day or datum is first day
@@ -1240,47 +1241,50 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<!--************************************		ACTUAL MONTHLIST for employees-->
 	<div class="panel panel-default" <?php echo ($isFuture) ? 'style="display: none;"' : '' ?>>
 
-		<!--panel: DOWNLOAD timesheet-->
+		<!--panel: ÜBERBLICK timesheet-->
 		<div class="row">
 			<div class="panel-body col-xs-12">
 				<b>Überblick <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?></b><br><br>
 
+				<!--panel: Zeitsaldo -->
+				<div class="row panel-top-cstm">
+					<div class="panel-body col-xs-8">
+						<b>Zeitsaldo</b><br><br>
+						Zu Monatsbeginn:
+						<?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot1, 2) ?>
+						<br><?php echo ($date_actual == $date_selected) ? 'Aktuell bis gestern' : 'Zu Monatsende' ?>
+						<?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot2, 2) ?>
+						<br>Gesamt: <b><?php echo round($monatslisten_salden->saldot2, 2) - round($monatslisten_salden->saldot1, 2)	?></b>
+					</div>
+				</div>
+
+				<!--panel: Tage über 10 Stunden -->
+				<div class="row panel-top-cstm">
+					<div class="panel-body col-xs-8">
+						<b>Tage über 10 Stunden</b><br>
+						<?php foreach($overwork_arr as $overwork): ?>
+									<?php echo "<br>" . $overwork->datum ?>
+									<?php echo "(" . $overwork->sum_daily_hours . " Stunden)" ?>
+
+								<?php endforeach; ?>
+								<?php if (empty($overwork_arr)): ?>
+									Keine Tage über 10 Stunden vorhanden.
+								<?php endif; ?>
+					</div>
+				</div>
+				<br>
+
 				<table class="table table-bordered table-condensed">
 					<tbody>
-						<tr>
-							<th colspan="4">Zeitsaldo</th>
-						</tr>
-						<tr>
-							<td>Zu Monatsbeginn</td>
-							<td><?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot1, 2) ?></td>
-							<td><?php echo ($date_actual == $date_selected) ? 'Aktuell bis gestern' : 'Zu Monatsende' ?></td>
-							<td><?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot2, 2) ?></td>
-						</tr>
-						<tr>
-							<td></td>
-							<td></td>
-							<td>Gesamt</td>
-							<td><?php echo round($monatslisten_salden->saldot2, 2) - round($monatslisten_salden->saldot1, 2)	?></td>
-						</tr>
-						<tr>
-							<th colspan="4">Tage über 10 Stunden</th>
-						</tr>
-						<?php foreach($overwork_arr as $overwork): ?>
-						<tr>
-							<td>Datum</td>
-							<td><?php echo $overwork->datum ?></td>
-							<td>Stunden</td>
-							<td><?php echo $overwork->sum_daily_hours ?></td>
-						</tr>
-						<?php endforeach; ?>
-						<?php if (empty($overwork_arr)): ?>
-							<td colspan="4">Keine Tage über 10 Stunden vorhanden.</td>
-						<?php endif; ?>
 
 						<!--panel: Summe Aktivitäten-->
 						<tr>
-							<th colspan="4">Gebuchte Aktivitäten</th>
+							<th class="col-md-3 ">Gebuchte Aktivitäten</th>
+							<th class="col-md-2 text-right">Stunden</th>
+							<th class="col-md-2 text-right">anteilig</th>
+							<th class="border-bottom-0"></th>
 						</tr>
+
 						<?php
 							foreach($saldo_arr as $aktivitaet => $saldo): ?>
 						<tr>
@@ -1298,13 +1302,12 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 							?>
 							</td>
 							<td><span class="pull-right"><?php echo $stunden . ":" . $restMinuten ?></span></td>
-							<td></td>
-							<td><span class="pull-right"><?php echo round($prozent * 100, 2) . " %" ?></span></td>
+							<td><span class="pull-right"><?php echo round($prozent * 100, 0) . " %" ?></span></td>
 						</tr>
 						<?php endforeach; ?>
 
 						<tr>
-							<td></td>
+							<td>Gesamt</td>
 							<td><span class="pull-right">
 							<?php
 								$stundenG = $gesamtsaldo/60/60;
@@ -1314,8 +1317,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 								$restMinutenG = $restMinutenG < 10 ? '0'.$restMinutenG : $restMinutenG;
 								echo $stundenG . ":" . $restMinutenG
 							?></span></td>
-							<td>Stunden</td>
-							<td></td>
+							<td><span class="pull-right">100 %</span></td>
 						</tr>
 					</tbody>
 				</table>
