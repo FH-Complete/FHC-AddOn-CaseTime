@@ -232,7 +232,8 @@ $bisverwendung->getLastVerwendung($uid);
 if (!$timesheetVorhanden && $bisverwendung->zeitaufzeichnungspflichtig)
 {
 	$date_last_begin_verwendung = $timesheet->getLastVerwendungZapflicht($uid);
-	$timesheet->insertTimeSheet($uid, $date_last_begin_verwendung);
+	$date_last_beginn_lastdayofmonth = new DateTime('last day of '. $date_last_begin_verwendung. ' midnight');
+	$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
 }
 
 foreach($verwendung_arr as $verwendung)
@@ -876,12 +877,12 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
 	<link rel="stylesheet" type="text/css" href="../../../vendor/components/jqueryui/themes/base/jquery-ui.min.css">
-	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap/dist/css/bootstrap.min.css">
-	<link rel="stylesheet" type="text/css" href="../../../vendor/components/font-awesome/css/font-awesome.min.css">
+	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap3/dist/css/bootstrap.min.css">
+	<link rel="stylesheet" type="text/css" href="../../../vendor/fortawesome/font-awesome4/css/font-awesome.min.css">
 	<link rel="stylesheet" type="text/css" href="../../../public/css/DialogLib.css">
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
-	<script type="text/javascript" src="../../../vendor/twbs/bootstrap/dist/js/bootstrap.min.js"></script>
+	<script type="text/javascript" src="../../../vendor/twbs/bootstrap3/dist/js/bootstrap.min.js"></script>
 	<script type="text/javascript" src="../../../public/js/DialogLib.js"></script>
 	<title>Timesheet</title>
 	<style>
