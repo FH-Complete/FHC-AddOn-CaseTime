@@ -711,7 +711,7 @@ if (isset($_POST['submitTimesheet']))
 				if ($timesheet->save(true))
 				{
 					// reload page to refresh actual and all monthlist display vars
-					header('Location: '.$_SERVER['PHP_SELF']. '?year='. $year. '&month='. $month);
+					header('Location: '.$_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
 				}
 				else
 				{
@@ -1129,10 +1129,10 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<div class="panel panel-default">
 		<div class="panel-body text-info">
 			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
-			<b>Sie sind TIMESHEET MANAGER für diese Monatsliste.</b><br>
+			<b>Sie sind TIMESHEET MANAGER*IN für diese Monatsliste.</b><br>
 			Sie können Monatslisten neu erstellen, genehmigen bzw. retournieren.<br>
-			Weiters können Sie Dokumente hochladen und löschen, solange die Monatsliste vom Mitarbeiter nicht versendet worden ist.
-			<br>Außerdem sind Sie berechtigt, für Mitarbeiter die Monatsliste abzuschicken.
+			Weiters können Sie Dokumente hochladen und löschen, solange die Monatsliste noch nicht versendet worden ist.
+			<br>Außerdem sind Sie berechtigt, für Mitarbeiter*innen die Monatsliste abzuschicken.
 		</div>
 	</div>
 
@@ -1145,7 +1145,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<div class="panel-body col-xs-8">
 				<b>Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> herunterladen</b><br><br>
 				Diese Liste ist nur für Ihren Bedarf und Ihre Eigenkontrolle.<br>
-				Sie wird in diesem Schritt nicht an Ihren Vorgesetzten versendet.
+				Sie wird in diesem Schritt nicht an Ihre Vorgesetzte / Ihren Vorgesetzten versendet.
 			</div>
 			<div class="panel-body col-xs-4"><br>
 				<a role="button" class="btn btn-default pull-right"
@@ -1338,7 +1338,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				</div>
 			</div>-->
 
-		<!--panel: SEND timesheet manu-->
+		<!--panel: SEND timesheet -->
 		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
 			<div class="panel-body col-xs-8">
 				<b>Monatsliste abschließen</b><br><br>
@@ -1349,12 +1349,11 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit"
 					<?php
-					//	echo ($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
 						echo ($isSent || $isDisabled_by_formerUnsentTimesheet ||
 						 $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || ($isVorgesetzter  && !$isTimesheetManager)
 						 || ($isPersonal && !$isTimesheetManager) || !$hasVorgesetzten || $hasCaseTimeChanges_today ||
 						  !$isSyncedWithCaseTime_today || ($isVorgesetzter_indirekt && !$isTimesheetManager) )? 'disabled data-toggle="tooltip"' : '';
-				//		echo $isTimesheetManager ? 'data-toggle="tooltip"' : '';
+
 						echo (($isSent || $isDisabled_by_formerUnsentTimesheet || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" id="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo implode(' und ', $vorgesetzte_full_name_arr) ?> verschicken?');">Monatsliste verschicken</button>
@@ -1415,7 +1414,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<div class="row">
 			<div class="panel-body col-xs-8">
 				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
-				Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
+				Prüfen Sie die Zeiterfassung Ihrer Mitarbeiterin / Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br><br>
 				Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
 				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.<br><br>
 			</div>
@@ -1442,7 +1441,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<div class="panel-body col-xs-8">
 				<span class="text-info text-uppercase"><b>Monatsliste retournieren</b></span><br><br>
 				Retournieren Sie die Monatsliste, falls diese nochmals überarbeitet werden muss.<br>
-				Ihr Mitarbeiter kann diese dann wieder bearbeiten und erneut an Sie versenden.<br>
+				Ihr/e Mitarbeiter*in kann diese dann wieder bearbeiten und erneut an Sie versenden.<br>
 				Die Monatsliste wird hierbei <b>nicht</b> genehmigt.
 			</div>
 			<form method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
@@ -1520,7 +1519,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<!--************************************		ALERTS	 -->
 
 	<!-- IF uid is EMPLOYEE -->
-	<?php if (!$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt): ?>
+	<?php if ((!$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) || $isTimesheetManager): ?>
 		<!-- IF first entry AND obliged to record times AND timesheets are missing before actual date -->
 		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig && !$isTimesheetManager): ?>
 			<div class="alert alert-danger alert-dismissible text-center" role="alert">
@@ -1747,7 +1746,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<div class="alert alert-danger alert-dismissible text-center" role="alert">
 				<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 				<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> muss von Ihrem Mitarbeiter noch versendet werden!</b><br><br>
-				Ihr Mitarbeiter muss die Monatsliste erst bzw. erneut versenden, bevor Sie diese genehmigen oder retournieren können.
+				Ihr/e Mitarbeiter*in muss die Monatsliste erst bzw. erneut versenden, bevor Sie diese genehmigen oder retournieren können.
 			</div>
 		<?php endif; ?>
 
@@ -1775,7 +1774,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		-->
 
 		 <!--IF timesheet is sent AND confirmed-->
-		<?php if ($isSent && $isConfirmed): ?>
+		 <!--Timesheetmanager already sees this info in the mitarbeiterview-->
+		<?php if (($isSent && $isConfirmed) && !$isTimesheetManager): ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> ist genehmigt.</b><br><br>
