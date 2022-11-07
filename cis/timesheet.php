@@ -616,10 +616,14 @@ $zeitaufzeichnung->getListeUserFromTo(
 
 $zeitaufzeichnung_arr = $zeitaufzeichnung->result;
 
+sort($zeitaufzeichnung_arr);
+
 $work_day = '';
 $max_daily_hours = 10 * 60 * 60; // 10 hours
 $sum_daily_hours = 0;
 $overwork_arr = array();
+$count_aktivity = 0;
+$akt_arr = array();
 
 if (!empty($zeitaufzeichnung_arr))
 {
@@ -637,6 +641,8 @@ if (!empty($zeitaufzeichnung_arr))
 		{
 			// Add working hours
 			$sum_daily_hours += $ende->getTimestamp() - $start->getTimestamp();
+			$count_aktivity ++;
+		  $akt_arr[] = $zeitaufzeichnung_arr[$i]->zeitaufzeichnung_id;
 		}
 
 		// If datum is not same day or datum is last day
@@ -649,42 +655,49 @@ if (!empty($zeitaufzeichnung_arr))
 				$obj = new StdClass();
 				$obj->datum = $work_day->format('d.m.Y');
 				$obj->sum_daily_hours = DateTime::createFromFormat('U', $sum_daily_hours)->format('H:i');
+			  $obj->count_aktivity = $count_aktivity;
+			  $obj->activities = $akt_arr;
 
 				$overwork_arr[]= $obj;
 			}
 			sort($overwork_arr);
 		}
 
-		// If datum is not same day or datum is first day
+		//If datum is not same day or datum is first day
 		if ($work_day != $datum || $i == 0)
 		{
 			// Start summing up working hours
 			$sum_daily_hours = $ende->getTimestamp() - $start->getTimestamp();
+			$count_aktivity ++;
+			$akt_arr[] = $zeitaufzeichnung_arr[$i]->zeitaufzeichnung_id;
 		}
 		$work_day = $datum;
 	}
 }
 
 //Get Salden for activities
+$activities_to_ignore = array("DienstreiseMT");
+
 $gesamtsaldo = 0;
 $saldo_arr = array();
 foreach ($zeitaufzeichnung_arr as $zaItem)
 {
-	if( !isset($saldo_arr[$zaItem->aktivitaet_kurzbz]) )
+	if(!in_array($zaItem->aktivitaet_kurzbz ,$activities_to_ignore))
 	{
-		$saldo_arr[$zaItem->aktivitaet_kurzbz] = 0.00;
+		if(!isset($saldo_arr[$zaItem->aktivitaet_kurzbz]))
+		 {
+			 $saldo_arr[$zaItem->aktivitaet_kurzbz] = 0.00;
+		 }
+		 $start = new DateTime($zaItem->start);
+		 $ende = new DateTime($zaItem->ende);
+		 $sum_activity = $ende->getTimestamp() - $start->getTimestamp();
+
+		 $saldo_arr[$zaItem->aktivitaet_kurzbz] += $sum_activity;
+		 $gesamtsaldo += $sum_activity;
 	}
-
-	$start = new DateTime($zaItem->start);
-	$ende = new DateTime($zaItem->ende);
-	$sum_activity = $ende->getTimestamp() - $start->getTimestamp();
-
-	$saldo_arr[$zaItem->aktivitaet_kurzbz] += $sum_activity;
-	$gesamtsaldo += $sum_activity;
 }
 
 ksort($saldo_arr);
-
 
 // *********************************	CASETIME CHECKS
 // Check if user made any changes in Zeitaufzeichnung today concerning the month period of selected date
