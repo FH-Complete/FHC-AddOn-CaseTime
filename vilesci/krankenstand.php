@@ -74,7 +74,7 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
 
 			// Add CSV file (only for krankenstaende)
 			// ---------------------------------------------------------------------------------------------------------
-			$csv = "Vorname;Nachname;Krank von;Krank bis\n";	// string csv-list informing about duration of krankenstaende within the from-to-period
+			$csv = "Vorname;Nachname;Krank von;Krank bis;Abteilung;Unternehmen\n";	// string csv-list informing about duration of krankenstaende within the from-to-period
             if ($dokument_kurzbz == 'bst_krnk')
             {
                 // Get all active and fix-employed employees
@@ -104,8 +104,26 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
                     // Add duration of employees krankenstand to csv-list
                     foreach ($krankenstand_tage_arr as $krankenstand_tage)
                     {
-                        $csv .= "$vorname;$nachname;$krankenstand_tage->vondatum;$krankenstand_tage->bisdatum\n";
-                    }
+						$mitarbeiter = new Mitarbeiter($uid);
+						$mitarbeiter->getMitarbeiterKostenstelle($krankenstand_tage->vondatum, $krankenstand_tage->bisdatum);
+						$kostenstellen_arr = $mitarbeiter->result;
+						$unternehmen = [];
+						$kostenstellen = [];
+						foreach ($kostenstellen_arr as $kostenstelle)
+						{
+							$org = new Organisationseinheit();
+							$org->getOERoot($kostenstelle->oekurzbz);
+							
+							$kostenstellen[] = $kostenstelle->bezeichnung;
+							if ($org->oe_kurzbz === 'gst')
+								$unternehmen[] = 'FH';
+							elseif ($org->oe_kurzbz === 'gmbh')
+								$unternehmen[] = 'GmBH';
+							else
+								$unternehmen[] = '';
+						}
+						$csv .= "$vorname;$nachname;$krankenstand_tage->vondatum;$krankenstand_tage->bisdatum;" . implode(', ', $kostenstellen) . ";" . implode(', ', $unternehmen) . "\n";
+					}
                 }
                 
                 // Add the csv-list to zip-archive
