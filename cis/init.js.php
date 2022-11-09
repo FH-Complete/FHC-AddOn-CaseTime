@@ -428,13 +428,15 @@ function AddonCaseTimeLoadSaldoAllin(uid)
 					min = Math.round(min);
 					var std_anzeigealt = std+'h:'+min+'m';
 
-					if(result.salue1sum >= 0)
-						color1='green';
-					else
+					if(result.salue1sum >= 380)
+						color1='red';
+					else if (result.salue1sum >= 300)
 						color1='blue';
+					else
+						color1='black';
 
 					$('#saldoAllin').css('margin-left','50px');
-					$('#saldoAllin').html('Aktueller Saldo Allin: <span style="color:'+ color1 +'">' + result.salue1sum + '</span> Stunden ('+std_anzeigealt+')' );
+					$('#saldoAllin').html('All-In Summe Studienjahr: <span style="color:'+ color1 +'">' + result.salue1sum + '</span> Stunden ('+std_anzeigealt+')' );
 
 				}
 			},
