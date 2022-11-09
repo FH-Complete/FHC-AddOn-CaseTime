@@ -827,55 +827,54 @@ function getCaseTimeSaldoAllIn($uid)
 	}
 
 /**
-	 * Überprüft, ob im Zeitraum einer Zeitsperre eine abgeschickte Monatsliste vorhanden ist
-	 * @param string $mitarbeiter_uid Uid des Mitarbeiters.
-	 * @param date $vondatum Startdatum Zeitsperre im Format 'YYYY-MM-DD'.
-	 * @param date $bisdatum Bisdatum Zeitsperre im Format 'YYYY-MM-DD'.
-	 * @return date Monatslistendatum, wenn status Monatsliste abgeschickt, ansonsten false
-	 */
-	function checkStatusMonatsliste($mitarbeiter_uid, $vondatum, $bisdatum)
+ * Überprüft, ob im Zeitraum einer Zeitsperre eine abgeschickte Monatsliste vorhanden ist
+ * @param string $mitarbeiter_uid Uid des Mitarbeiters.
+ * @param date $vondatum Startdatum Zeitsperre im Format 'YYYY-MM-DD'.
+ * @param date $bisdatum Bisdatum Zeitsperre im Format 'YYYY-MM-DD'.
+ * @return date Monatslistendatum, wenn status Monatsliste abgeschickt, ansonsten false
+ */
+function checkStatusMonatsliste($mitarbeiter_uid, $vondatum, $bisdatum)
+{
+	$db = new basis_db();
+	$qry = "SELECT ts.datum FROM addon.tbl_casetime_timesheet ts
+			WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
+			and (((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum
+			or ((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum)";
+
+	if ($result = $db->db_query($qry))
 	{
-		$db = new basis_db();
-		$qry = "SELECT ts.datum FROM addon.tbl_casetime_timesheet ts
-				WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
-				and (((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum
-				or ((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum)";
-
-		if ($result = $db->db_query($qry))
+		$db->result = '';
+		while ($row = $db->db_fetch_object($result))
 		{
-			$db->result = '';
-			while ($row = $db->db_fetch_object($result))
-			{
-				$db->result[] = $row->datum;
+			$db->result[] = $row->datum;
 
-			}
-			return $db->result;
 		}
-		else
-		{
-			return false;
-		}
+		return $db->result;
+	}
+	else
+	{
+		return false;
 	}
 }
 
 /**
-	 * Formatiert Zahl aus Zeitsaldo in Format h: min
-	 * @param float $zeitsaldo Zeitsaldo in Minuten (zBsp: -1.93)
-	 * @return string Zeitsaldo im Format hh:mm, (zBsp:- 1h:56m)
-	 */
-	function formatZeitsaldo($zeitsaldo)
+ * Formatiert Zahl aus Zeitsaldo in Format h: min
+ * @param float $zeitsaldo Zeitsaldo in Minuten (zBsp: -1.93)
+ * @return string Zeitsaldo im Format hh:mm, (zBsp:- 1h:56m)
+ */
+function formatZeitsaldo($zeitsaldo)
+{
+	if ($zeitsaldo >= 0)
 	{
-		if ($zeitsaldo >= 0)
-		{
-			$stunden = floor($zeitsaldo);
-			$minuten = floor(($zeitsaldo - $stunden) * 60);
-		}
-		else if ($zeitsaldo < 0 )
-		{
-			$stunden = ceil($zeitsaldo);
-			$minuten = floor(($zeitsaldo - $stunden) * (-60));
-		}
-		return $stunden . "h:" . $minuten . "m";
+		$stunden = floor($zeitsaldo);
+		$minuten = floor(($zeitsaldo - $stunden) * 60);
 	}
+	else if ($zeitsaldo < 0 )
+	{
+		$stunden = ceil($zeitsaldo);
+		$minuten = floor(($zeitsaldo - $stunden) * (-60));
+	}
+	return $stunden . "h:" . $minuten . "m";
+}
 
 ?>

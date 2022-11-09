@@ -445,10 +445,12 @@ foreach($employee_uid_arr as $employee_uid)
 	$now = new DateTime('today');
 	$now = $now->format('Y-m-d');
 	$ende = $bis-> result;
+	$endeBisLastZapflicht = null;
+
 	foreach ($ende as $e)
 	{
 			$endeBisLastZapflicht =  $e->ende;
-			if ($endeBisLastZapflicht == '')
+			if (empty($endeBisLastZapflicht))
 				$endeBisLastZapflicht = $now;
 	}
 
@@ -529,7 +531,7 @@ foreach($employee_uid_arr as $employee_uid)
 	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
 	$verwendung_arr = $bisverwendung->result;
 	$vertragsstunden = 0;
-	$arrEchterDV= [103,110];
+	$arrEchterDV= [103];
 	if (defined('DEFAULT_ECHTER_DIENSTVERTRAG') && DEFAULT_ECHTER_DIENSTVERTRAG != '')
 	{
 		$arrEchterDV = DEFAULT_ECHTER_DIENSTVERTRAG;
