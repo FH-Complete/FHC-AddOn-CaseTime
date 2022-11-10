@@ -1257,10 +1257,10 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<!--panel: ÜBERBLICK timesheet-->
 		<div class="row">
 			<div class="panel-body col-xs-12">
-				<b>Überblick <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?></b><br><br>
+				<b>Überblick <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?></b><br>
 
 				<!--panel: Zeitsaldo -->
-				<div class="row panel-top-cstm">
+				<!-- <div class="row panel-top-cstm">
 					<div class="panel-body col-xs-8">
 						<b>Zeitsaldo</b><br><br>
 						Zu Monatsbeginn:
@@ -1269,10 +1269,10 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 						<?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot2, 2) ?>
 						<br>Gesamt: <b><?php echo round($monatslisten_salden->saldot2, 2) - round($monatslisten_salden->saldot1, 2)	?></b>
 					</div>
-				</div>
+				</div> -->
 
 				<!--panel: Tage über 10 Stunden -->
-				<div class="row panel-top-cstm">
+				<!-- <div class="row panel-top-cstm">
 					<div class="panel-body col-xs-8">
 						<b>Tage über 10 Stunden</b><br>
 						<?php foreach($overwork_arr as $overwork): ?>
@@ -1284,18 +1284,194 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 									Keine Tage über 10 Stunden vorhanden.
 								<?php endif; ?>
 					</div>
-				</div>
+				</div> -->
 				<br>
 
+				<!-- test Manu 1-->
+				<!--panel: Überblick -->
+				<div class="row panel-top-cstm">
+
+					<div class="panel-body col-xs-4">
+						<b>Zeitsaldo</b><br><br>
+						Zu Monatsbeginn:
+						<?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot1, 2) ?>
+						<br><?php echo ($date_actual == $date_selected) ? 'Aktuell bis gestern' : 'Zu Monatsende' ?>
+						<?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot2, 2) ?>
+						<br>Gesamt: <b><?php echo round($monatslisten_salden->saldot2, 2) - round($monatslisten_salden->saldot1, 2)	?></b>
+					</div>
+
+
+					<div class="panel-body col-xs-4">
+					<span>
+						<?php if (!$isSent): ?>
+							<b>Zeitaufzeichnung prüfen & bearbeiten</b>
+						<?php else: ?>
+							<b>Zeitaufzeichnung einsehen</b>
+						<?php endif; ?>
+					</span>
+					<br><br>
+					<a href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
+						 target="_blank" class="text-muted"><small><u>(Monatsliste herunterladen)</u></small></a>
+				</div>
+
+
+
+
+<!-- <br><br><br><br><br><br><br><br>
+				<a role="button" class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
+					<span>Zur Zeitaufzeichnung</span>
+				</a> -->
+
+
+				</div>
+				<br><br>
+				<!-- test Manu 1 ende-->
+
+
+				<!--panel: Tage über 10 Stunden -->
+				<!-- <div class="row panel-top-cstm">
+					<div class="panel-body col-xs-8">
+						<b>Tage über 10 Stunden</b><br>
+						<?php foreach($overwork_arr as $overwork): ?>
+									<?php echo "<br>" . $overwork->datum ?>
+									<?php echo "(" . $overwork->sum_daily_hours . " Stunden)" ?>
+
+								<?php endforeach; ?>
+								<?php if (empty($overwork_arr)): ?>
+									Keine Tage über 10 Stunden vorhanden.
+								<?php endif; ?>
+					</div>
+				</div> -->
+
+				<div class="panel-body col-xs-5">
+					<table class="table table-bordered table-condensed">
+						<tbody>
+
+							<!--panel: Summe Aktivitäten-->
+							<tr>
+								<th class="col-md-3 ">Gebuchte Aktivitäten</th>
+								<th class="col-md-2 text-right">Stunden</th>
+								<th class="col-md-2 text-right">anteilig</th>
+
+							</tr>
+
+							<?php
+								foreach($saldo_arr as $aktivitaet => $saldo): ?>
+							<tr>
+								<td>
+								<?php
+									$stunden = floor ($saldo/60/60);
+									$stunden = $stunden < 10 ? '0'.$stunden : $stunden;
+
+									$restMinuten = $saldo/60%60;
+									$restMinuten = $restMinuten < 10 ? '0'.$restMinuten : $restMinuten;
+
+									$prozent = ($gesamtsaldo != 0) ? $saldo/$gesamtsaldo : '';
+
+									echo $aktivitaet;
+								?>
+								</td>
+								<td><span class="pull-right"><?php echo $stunden . ":" . $restMinuten ?></span></td>
+								<td><span class="pull-right"><?php echo round($prozent * 100, 0) . " %" ?></span></td>
+							</tr>
+							<?php endforeach; ?>
+
+							<tr>
+								<td>Gesamt</td>
+								<td><span class="pull-right">
+								<?php
+									$stundenG = $gesamtsaldo/60/60;
+									$stundenG = floor($stundenG);
+									$minutenG = $gesamtsaldo/60;
+									$restMinutenG = $gesamtsaldo/60%60;
+									$restMinutenG = $restMinutenG < 10 ? '0'.$restMinutenG : $restMinutenG;
+									echo $stundenG . ":" . $restMinutenG
+								?></span></td>
+								<td><span class="pull-right">100 %</span></td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+
+				<div class="panel-body col-xs-3">
+					<b class="pull-right">Tage über 10 Stunden</b><br>
+					<?php foreach($overwork_arr as $overwork): ?>
+								<?php echo "<br><span class='pull-right'>" . $overwork->datum ?>
+								<?php echo "(" . $overwork->sum_daily_hours . " Stunden)</span>" ?>
+
+							<?php endforeach; ?>
+							<?php if (empty($overwork_arr)): ?>
+								Keine Tage über 10 Stunden vorhanden.
+							<?php endif; ?>
+				</div>
+
+				<div class="panel-body col-xs-3">
+					<br><br><br><br><br>
+					<a role="button" class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
+					 <span>Zur Zeitaufzeichnung</span>
+				 </a>
+				</div>
+
+			</div>
+
+			<!-- <div class="panel-body col-xs-12">
+
+				<a role="button" class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
+					<span>Zur Zeitaufzeichnung</span>
+				</a>
+
+				<span>
+					<?php if (!$isSent): ?>
+						<b>Zeitaufzeichnung prüfen & bearbeiten</b>
+					<?php else: ?>
+						<b>Zeitaufzeichnung einsehen</b>
+					<?php endif; ?>
+				</span>
+				<br><br>
+				<a href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
+				   target="_blank" class="text-muted"><small><u>(Monatsliste herunterladen)</u></small></a>
+			</div> -->
+		</div>
+
+
+
+
+		<!-- test Manu 2-->
+		<!--panel: Überblick -->
+		<div class="row panel-top-cstm">
+
+			<div class="panel-body col-xs-3">
+				<b>Überblick <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?></b><br>
+				<br><b>Zeitsaldo</b>
+				<br>
+				Zeitsaldo zu Monatsbeginn:
+				<?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot1, 2) ?>
+				<br><?php echo ($date_actual == $date_selected) ? 'Zeitsaldo aktuell bis gestern' : 'Zeitsaldo zu Monatsende' ?>
+				<?php echo gettype($monatslisten_salden) == 'string' ? $monatslisten_salden : round($monatslisten_salden->saldot2, 2) ?>
+				<br>Gesamt: <b><?php echo round($monatslisten_salden->saldot2, 2) - round($monatslisten_salden->saldot1, 2)	?></b>
+
+
+				<br><br><b class="pull-center">Tage über 10 Stunden</b>
+				<?php foreach($overwork_arr as $overwork): ?>
+							<?php echo "<br>" . $overwork->datum ?>
+							<?php echo "(" . $overwork->sum_daily_hours . " Stunden)" ?>
+
+						<?php endforeach; ?>
+						<?php if (empty($overwork_arr)): ?>
+							Keine Tage über 10 Stunden vorhanden.
+						<?php endif; ?>
+			</div>
+
+			<div class="panel-body col-xs-4">
 				<table class="table table-bordered table-condensed">
 					<tbody>
+						<br><br>
 
 						<!--panel: Summe Aktivitäten-->
 						<tr>
 							<th class="col-md-3 ">Gebuchte Aktivitäten</th>
 							<th class="col-md-2 text-right">Stunden</th>
 							<th class="col-md-2 text-right">anteilig</th>
-							<th class="border-bottom-0"></th>
 						</tr>
 
 						<?php
@@ -1333,27 +1509,34 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 							<td><span class="pull-right">100 %</span></td>
 						</tr>
 					</tbody>
-				</table>
+					</table>
 			</div>
 
-			<div class="panel-body col-xs-12">
 
-				<a role="button" class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
-					<span>Zur Zeitaufzeichnung</span>
-				</a>
-
+			<div class="panel-body col-xs-3">
+				<br><br>
 				<span>
 					<?php if (!$isSent): ?>
-						<b>Zeitaufzeichnung prüfen & bearbeiten</b>
+						<b class="pull-right">Zeitaufzeichnung prüfen & bearbeiten</b>
 					<?php else: ?>
-						<b>Zeitaufzeichnung einsehen</b>
+						<b class="pull-right">Zeitaufzeichnung einsehen</b>
 					<?php endif; ?>
 				</span>
 				<br><br>
 				<a href="<?php echo APP_ROOT. 'addons/casetime/vilesci/monatsliste.php?download=true&uid='. $uid. '&monat='. $month. '&jahr='. $year ?>"
-				   target="_blank" class="text-muted"><small><u>(Monatsliste herunterladen)</u></small></a>
-			</div>
+					 target="_blank" class="text-muted"><small class="pull-right"><u>(Monatsliste herunterladen)</u></small></a>
+
+				</div>
+
+				<div class="panel-body col-xs-2">
+					<br><br><br><br><br><br><br>
+					<a role="button" class="btn btn-default pull-right" href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php?uid='. $uid. '&alle' ?>">
+					 <span>Zur Zeitaufzeichnung</span>
+				 </a>
+			 </div>
+
 		</div>
+		<!-- test Manu 2 ende-->
 
 		<!--panel: Anzeige Homeoffice Tage-->
 		<div class="row panel-top-cstm">
