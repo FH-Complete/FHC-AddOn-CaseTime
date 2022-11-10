@@ -839,7 +839,8 @@ function checkStatusMonatsliste($mitarbeiter_uid, $vondatum, $bisdatum)
 	$qry = "SELECT ts.datum FROM addon.tbl_casetime_timesheet ts
 			WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
 			and (((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum
-			or ((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum)";
+			or ((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum)
+			and ts.abgeschicktamum is not NULL";
 
 	if ($result = $db->db_query($qry))
 	{
