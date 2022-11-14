@@ -125,11 +125,9 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		}
 		else
 		{
-			if ($mitarbeiter->getLastVorgesetzter($timesheet_vorzeitigAbgeschickt->uid))
+			if ($vorgesetzter = $mitarbeiter->getLastVorgesetzter($timesheet_vorzeitigAbgeschickt->uid))
 			{
-				$chef1 = $mitarbeiter->getLastVorgesetzter($timesheet_vorzeitigAbgeschickt->uid);
-				array_push($vorgesetzte_uid_arr, $mitarbeiter->getLastVorgesetzter($timesheet_vorzeitigAbgeschickt->uid));
-				array_push($vorgesetzte_uid_arr, $mitarbeiter->getLastVorgesetzter($chef1));
+				array_push($vorgesetzte_uid_arr, $vorgesetzter);
 			}
 		}
 

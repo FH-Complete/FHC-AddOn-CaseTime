@@ -235,7 +235,11 @@ if (!$timesheetVorhanden && $bisverwendung->zeitaufzeichnungspflichtig)
 {
 	$date_last_begin_verwendung = $timesheet->getLastVerwendungZapflicht($uid);
 	$date_last_beginn_lastdayofmonth = new DateTime('last day of '. $date_last_begin_verwendung. ' midnight');
-	$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
+
+	if ($date_last_beginn_lastdayofmonth > $date_begin_zeitaufzeichnungspflicht)
+	{
+		$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
+	}
 }
 
 foreach($verwendung_arr as $verwendung)
@@ -292,7 +296,9 @@ foreach ($timesheet_arr as $timesheet)
 if (!in_array($date_last_beginn_lastdayofmonth->format('Y-m-d'), $timesheets))
 {
 	$timesheet = new Timesheet();
-	$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
+	// Timesheet nur Anlegen wenn nach dem GO Live Datum der Timesheets
+	if ($date_last_beginn_lastdayofmonth > $date_begin_zeitaufzeichnungspflicht)
+		$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
 }
 
 
@@ -473,7 +479,10 @@ if ($date_allow_new_ts < $date_selected ||
 
 if($isAllowed_createTimesheet)
 {
-	if(!CheckisZeitaufzeichnungspflichtig($verwendung_arr,$date_selected->format('Y-m-d')))
+	// Pruefen ob die Persoen in diesem Monat Zeitaufzeichnungspflichtig ist
+	$ts_date = new DateTime('last day of '.$date_selected->format('Y-m-d'). ' midnight');
+	$monatsletzter = $ts_date->format('Y-m-d');
+	if(!CheckisZeitaufzeichnungspflichtig($verwendung_arr,$monatsletzter))
 	{
 		$isAllowed_createTimesheet = false;
 	}
