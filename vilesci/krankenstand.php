@@ -50,8 +50,8 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
 		$cnt = 1;	// counter for unique filename
 		
 		// Create temp zip file in temp dir
-		$tmp_zip_file = tempnam(sys_get_temp_dir(), "FHC_BESTAETIGUNGEN_". $dokument_bezeichnung. "_"). '.zip';
-
+		$tmp_zip_file = tempnam(sys_get_temp_dir(), "FHC_BESTAETIGUNGEN_". $dokument_bezeichnung. "_");
+		rename($tmp_zip_file, $tmp_zip_file .= '.zip');
 		// Create zip archive
 		// ---------------------------------------------------------------------------------------------------------
 		if ($zip->open($tmp_zip_file, ZipArchive::CREATE) === TRUE) 
@@ -74,9 +74,14 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
 
 			// Add CSV file (only for krankenstaende)
 			// ---------------------------------------------------------------------------------------------------------
-			$csv = "Vorname;Nachname;Krank von;Krank bis;Abteilung;Unternehmen\n";	// string csv-list informing about duration of krankenstaende within the from-to-period
+			$tmp_csv_name = null;
             if ($dokument_kurzbz == 'bst_krnk')
             {
+				$tmp_csv_name = tempnam(sys_get_temp_dir(), "Kontrolle_Krankenstaende_$from-$to"); // string csv-list informing about duration of krankenstaende within the from-to-period
+				rename($tmp_csv_name, $tmp_csv_name .= '.csv');
+				$csv_file = fopen($tmp_csv_name,'w');
+				fputcsv($csv_file, array('Vorname', 'Nachname', 'Krank von', 'Krank bis', 'Abteilung', 'Unternehmen' ), ';');
+
                 // Get all active and fix-employed employees
                 $all_employee_uid_arr = array();
                 $mitarbeiter = new Mitarbeiter();
@@ -115,25 +120,24 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
 							$org->getOERoot($kostenstelle->oekurzbz);
 							
 							$kostenstellen[] = $kostenstelle->bezeichnung;
-							if ($org->oe_kurzbz === 'gst')
-								$unternehmen[] = 'FH';
-							elseif ($org->oe_kurzbz === 'gmbh')
-								$unternehmen[] = 'GmBH';
-							else
-								$unternehmen[] = '';
+							$unternehmen[] = $org->oe_kurzbz;
 						}
-						$csv .= "$vorname;$nachname;$krankenstand_tage->vondatum;$krankenstand_tage->bisdatum;" . implode(', ', $kostenstellen) . ";" . implode(', ', $unternehmen) . "\n";
+						
+						$csv_line = array($vorname, $nachname, $krankenstand_tage->vondatum, $krankenstand_tage->bisdatum, implode(', ', $kostenstellen), implode(', ', $unternehmen));
+						$csv_line = array_map('utf8_decode', $csv_line);
+						fputcsv($csv_file, $csv_line, ';');
 					}
                 }
-                
-                // Add the csv-list to zip-archive
-                $zip->addFromString("Kontrolle_Krankenstaende_$from-$to.csv", $csv);
-            }
+
+				// Add the csv-list to zip-archive
+				$zip->addFile($tmp_csv_name, "Kontrolle_Krankenstaende_$from-$to.csv");
+				fclose($csv_file);
+			}
             
 			// Close zip archive
 			// ---------------------------------------------------------------------------------------------------------
-			$zip->close();			
-		
+			$zip->close();
+
 			// Download zip archive
 			header('Content-Type: application/zip');
 			header('Content-disposition: attachment; filename='. basename($tmp_zip_file));
@@ -142,7 +146,12 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
 			
 			// Delete temp zip file
 			unlink($tmp_zip_file);
-		} 
+
+			if (!is_null($tmp_csv_name) && file_exists($tmp_csv_name))
+			{
+				unlink($tmp_csv_name);
+			}
+		}
 		else 
 		{
 		    echo 'Fehler beim Zippen der Krankenstandsbestätigungen.';
