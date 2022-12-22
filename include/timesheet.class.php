@@ -390,14 +390,17 @@ class Timesheet extends basis_db
 				AND
 					zeitsperretyp_kurzbz IN (\'DienstV\', \'Krank\', \'PflegeU\', \'CovidSB\',  \'CovidKS\')
 				AND
-					bisdatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date
+					vondatum <= datum::date
+				AND
+					bisdatum >= date_trunc(\'month\', datum::date)::date
 
 				UNION
+
 				SELECT
 					timesheet_id,
 					datum,
 					null,
-					zeitaufzeichnung_id,
+					CAST (zeitaufzeichnung_id AS varchar),
 					tbl_aktivitaet.beschreibung,
 					aktivitaet_kurzbz,
 					start,
@@ -414,14 +417,15 @@ class Timesheet extends basis_db
 					aktivitaet_kurzbz IN (\'Arztbesuch\', \'Behoerde\', \'Dienstreise\', \'DienstreiseMT\')
 				AND
 					ende::date BETWEEN date_trunc(\'month\', datum::date) AND datum::date
-				ORDER BY
-					datum DESC
+				ORDER BY datum DESC
 				';
+
 
 			if ($this->db_query($qry))
 			{
 				while ($row = $this->db_fetch_object())
 				{
+
 					$obj = new stdClass();
 
 					$obj->datum = $row->datum;
@@ -434,6 +438,7 @@ class Timesheet extends basis_db
 					$obj->zeitaufzeichnung_id = $row->zeitaufzeichnung_id;
 
 					$this->result[] = $obj;
+
 				}
 
 				// If timesheet is given, check absences only for that timesheet

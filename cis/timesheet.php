@@ -214,7 +214,6 @@ $isFuture = false;	// true if date selected is in the future
 // Check if user has obligation to record times
 $date_begin_zeitaufzeichnungspflicht = clone $date_golive;	// earliest date of mandatory time recording; default date of golive
 $isZeitaufzeichnungspflichtig = false;
-//var_dump($date_begin_zeitaufzeichnungspflicht);
 
 // * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
 $bisverwendung = new bisverwendung();
@@ -1336,6 +1335,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 					</table>
 				</div>
 			</div>-->
+
 
 		<!--panel: SEND timesheet-->
 		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $isDisabled_by_missingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
