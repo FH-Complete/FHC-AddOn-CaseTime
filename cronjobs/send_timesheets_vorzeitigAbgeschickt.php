@@ -34,6 +34,7 @@ $db = new basis_db();
 $date_last_month = new DateTime('first day of last month midnight');
 
 $cnt_timesheetsVersendet = 0;
+$cnt_timesheetsAnHrVersendet = 0;
 $cnt_timesheetsNichtVersendet = 0;
 $cnt_timesheetsError = 0;
 $uid_timesheetsError_arr = array();
@@ -116,11 +117,61 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		// Get Vorgesetzte
 		$mitarbeiter = new Mitarbeiter();
 		$vorgesetzte_uid_arr = array();	// array with uid of one or more supervisors
+		$timesheetDate = $timesheet_vorzeitigAbgeschickt->datum;
 
-		if ($mitarbeiter->getVorgesetzte($timesheet_vorzeitigAbgeschickt->uid))
+		if ($mitarbeiter->getVorgesetzteMonatTimesheet($timesheet_vorzeitigAbgeschickt->uid, $timesheetDate))
 		{
 			$vorgesetzte_uid_arr = $mitarbeiter->vorgesetzte;
 		}
+		else
+		{
+			if ($vorgesetzter = $mitarbeiter->getLastVorgesetzter($timesheet_vorzeitigAbgeschickt->uid))
+			{
+				array_push($vorgesetzte_uid_arr, $vorgesetzter);
+			}
+		}
+
+		// Send Sancho mail to HR
+		if (empty($vorgesetzte_uid_arr))
+		{
+			$output = 'kein Vorgesetzter gefunden: mail an HR';
+
+			$to = defined('CASETIME_TIMESHEET_HR_EMAIL') && !empty(CASETIME_TIMESHEET_HR_EMAIL)
+				? CASETIME_TIMESHEET_HR_EMAIL
+				: '';
+				$subject =
+					'Fehlender Vorgesetzter für Monatsliste '. $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '.
+					$date_last_month->format('Y'). ' von '. $full_name;
+				$header_img = 'sancho_header_confirm_timesheet.jpg';
+				$vorgesetzter_vorname = 'HR-Teammitglied';
+
+				$fields = array(
+					'firstName' => $vorgesetzter_vorname,
+					'employee' => $first_name,
+					'date_monthlist' => $monatsname[$sprache_index][$date_last_month->format('m') - 1]. " ". $date_last_month->format('Y'),
+					'link' => CIS_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_vorzeitigAbgeschickt->timesheet_id
+				);
+
+
+				if (sendSanchoMail('Sancho_Content_confirmTimesheet', $fields, $to, $subject, $header_img))
+				{
+					$send_date = new DateTime();
+					$timesheet = new Timesheet();
+					$timesheet->timesheet_id = $timesheet_vorzeitigAbgeschickt->timesheet_id;
+					$timesheet->abgeschicktamum = $send_date->format('Y-m-d H:i:s');
+
+					// Save abgeschicktamum
+					$timesheet->save(true);
+
+					$cnt_timesheetsAnHrVersendet++;
+				}
+				else
+				{
+					$cnt_timesheetsError++;
+					$uid_timesheetsError[]= $timesheet->uid;
+				}
+		}
+
 
 		// Send Mail to Vorgesetzte
 		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
@@ -210,6 +261,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 $nl = "\n";
 echo $nl. "Fertig.";
 echo $nl. "Anzahl Monatslisten an Vorgesetzte abgeschickt: ". $cnt_timesheetsVersendet;
+echo $nl. "Anzahl Monatslisten an HR - fehlender Vorgesetzter: ".$cnt_timesheetsAnHrVersendet++;
 echo $nl. "Anzahl Monatslisten, wegen CasetimeError/fehlende Dokumente, nicht abgeschickt: ". $cnt_timesheetsNichtVersendet;
 echo $nl. "Anzahl Monatslisten fehlerhaft: ". $cnt_timesheetsError;
 

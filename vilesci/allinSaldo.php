@@ -1,5 +1,5 @@
 <?php
-/* Copyright (C) 2015 fhcomplete.org
+/* Copyright (C) 2022 fhcomplete.org
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as
@@ -16,9 +16,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
  *
  */
-/**
- * Durchlaufscript fuer Fehlerabfrage
- */
+
 require_once('../config.inc.php');
 require_once('../../../config/vilesci.config.inc.php');
 require_once('../include/functions.inc.php');
@@ -31,28 +29,27 @@ $uid = get_uid();
 $username = $_GET['uid'];
 
 // Wenn es nicht der eigene Eintrag ist, muss man admin sein
-// oder Vorgesetzter, der ausschließlich sichtberechtigt auf Files seiner MA ist
+// oder Vorgesetzter, der ausschließlich auf Files seiner MA sichtberechtigt ist
 if ($username != $uid)
 {
-	$rechte = new benutzerberechtigung();
-	$rechte->getBerechtigungen($uid);
-	$mas = new mitarbeiter();
-	$mas->getUntergebene($uid, true);
-	$untergebenen_arr = array();
-	$untergebenen_arr = $mas->untergebene;
+    $rechte = new benutzerberechtigung();
+    $rechte->getBerechtigungen($uid);
 
-	if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') &&
-	!(in_array($username, $untergebenen_arr)))
-		die('Sie haben keine Berechtigung fuer diese Seite');
+    $ma = new mitarbeiter();
+    $ma->getUntergebene($uid, true);
+    $untergebenen_arr = array();
+    $untergebenen_arr = $ma->untergebene;
+
+    if(!$rechte->isBerechtigt('admin') && !$rechte->isBerechtigt('mitarbeiter/urlaube', null, 'suid') &&
+    !in_array($username, $untergebenen_arr))
+     die('Sie haben keine Berechtigung fuer diese Seite');
 }
-
-header('Content-Type: application/json');
-/**
- * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
- */
-$retval = getCaseTimeErrors($username);
-
-//echo '[["14.01.2015", "Zeitfehler 1"], ["14.01.2015", "Zeitfehler 2"],["01.01.2014","Zeitfehler ausserhalb der Range"]]';
-echo json_encode($retval);
+  /**
+  * Sendet einen Request an den CaseTime Server um die Daten dort zu speichern
+  */
+  $retval = getCaseTimeSaldoAllIn($username);
+  //echo "-18.66";
+  //echo " {'STATUS': 'OK', 'RESULT': -23.3}";
+  echo json_encode($retval);
 
 ?>

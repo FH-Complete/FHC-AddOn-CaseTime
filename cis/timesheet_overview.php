@@ -440,6 +440,20 @@ foreach($employee_uid_arr as $employee_uid)
 	$timesheet = new Timesheet();
 	$timesheet_arr = $timesheet->loadAll($employee_uid);
 
+	$bis = new Bisverwendung();
+	$bis->getLastBisZAPflicht($employee_uid);
+	$now = new DateTime('today');
+	$now = $now->format('Y-m-d');
+	$ende = $bis-> result;
+	$endeBisLastZapflicht = null;
+
+	foreach ($ende as $e)
+	{
+			$endeBisLastZapflicht =  $e->ende;
+			if (empty($endeBisLastZapflicht))
+				$endeBisLastZapflicht = $now;
+	}
+
 	// data of MOST RECENT timesheet BEFORE the actual month
 	if (!empty($timesheet_arr))
 	{
@@ -454,11 +468,28 @@ foreach($employee_uid_arr as $employee_uid)
 		// count missing timesheets (until last month)
 		if ($last_timesheet_date < $date_last_month)
 		{
-			$cnt_isNotCreated = $date_last_month->diff($last_timesheet_date)->m;
+			$endeBisLastZapflicht = new DateTime($endeBisLastZapflicht);
+			$now = new DateTime($now);
+
+			if(($endeBisLastZapflicht < $now) && ($last_timesheet_date <= $endeBisLastZapflicht))
+			{
+				$cnt_isNotCreated = ($endeBisLastZapflicht->diff($last_timesheet_date)->m);
+				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
+			}
+			elseif (($endeBisLastZapflicht <= $now) && ($last_timesheet_date > $endeBisLastZapflicht))
+			{
+				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
+			}
+			else
+			{
+				$cnt_isNotCreated = $date_last_month->diff($last_timesheet_date)->m;
+				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
+			}
 		}
+		$endeBisLastZapflicht = new DateTime($endeBisLastZapflicht);
 
 		// if employee has already created monthlist for actual month, go back to the one monthlist before
-		if ($last_timesheet_date > $date_last_month)
+		if ($last_timesheet_date > $date_last_month || ($last_timesheet_date > $endeBisLastZapflicht))
 		{
 			// start counting with -1 as actual month should not be considered
 			$cnt_isNotSent = -1;
@@ -487,6 +518,7 @@ foreach($employee_uid_arr as $employee_uid)
 		if (is_null($timesheet->genehmigtamum))
 		{
 			$cnt_isNotConfirmed++;
+
 		}
 	}
 
@@ -499,9 +531,15 @@ foreach($employee_uid_arr as $employee_uid)
 	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
 	$verwendung_arr = $bisverwendung->result;
 	$vertragsstunden = 0;
+	$arrEchterDV= [103];
+	if (defined('DEFAULT_ECHTER_DIENSTVERTRAG') && DEFAULT_ECHTER_DIENSTVERTRAG != '')
+	{
+		$arrEchterDV = DEFAULT_ECHTER_DIENSTVERTRAG;
+	}
+
 	foreach($verwendung_arr as $verwendung)
 	{
-		if ($verwendung->ba1code == 103)
+		if(in_array($verwendung->ba1code, $arrEchterDV))
 		{
 			$vertragsstunden = $verwendung->vertragsstunden;
 		}
@@ -836,7 +874,7 @@ function sortEmployeesName($employee1, $employee2)
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
 				<td>
 					<input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
-						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?> 
+						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?>
 						   onchange="fixOrAllEmployees()"/>
 					<label for="onlyfixemployess">&nbsp;nur fix Angestellte</label>
 				</td>
