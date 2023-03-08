@@ -1301,11 +1301,18 @@ class Timesheet extends basis_db
 	{
 		if (isset($uid) && !empty($uid))
 		{
+			$date_golive = new DateTime('first day of '. CASETIME_TIMESHEET_GOLIVE);
+			$date_begin_zeitaufzeichnungspflicht = $date_golive->format('Y-m-d');
+			$date_begin_zeitaufzeichnungspflicht = "'$date_begin_zeitaufzeichnungspflicht'";
+
 			$qry = "
 			SELECT beginn
 			FROM bis.tbl_bisverwendung
 			WHERE mitarbeiter_uid = ". $this->db_add_param($uid). "
 			and zeitaufzeichnungspflichtig = TRUE
+			AND beginn < NOW()::date
+			AND COALESCE(beginn, $date_begin_zeitaufzeichnungspflicht ::date) < NOW()::date
+			AND COALESCE(ende, NOW()::date) > $date_begin_zeitaufzeichnungspflicht ::date
 			order by bisverwendung_id DESC LIMIT 1;
 			";
 
