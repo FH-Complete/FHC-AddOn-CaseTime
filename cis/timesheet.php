@@ -55,6 +55,7 @@ $month = $date_actual->format('m');	// string month of actual timesheet
 $year = $date_actual->format('Y');	// string year of actual timesheet
 
 $isTimesheetManager = false;	//true if uid has special right to manage timesheets
+$arrayZP = array();
 
 // month & year is overwritten by navigating through monthlist
 if (isset($_GET['month']) && isset($_GET['year']))
@@ -226,22 +227,6 @@ $bisverwendung->getVerwendung($uid);
 $verwendung_arr = $bisverwendung->result;
 $date_first_begin_verwendung = null;
 
-//check if timesheet vorhanden und zeitaufzeichnungsplichtig
-$timesheet = new Timesheet();
-$timesheetVorhanden = $timesheet->checkIfUserHasTimesheet($uid);
-$bisverwendung->getLastVerwendung($uid);
-//neues Timesheet einfügen mit Beginndatum letzter zeitaufzeichnungspflichtiger Bisverwendung
-if (!$timesheetVorhanden && $bisverwendung->zeitaufzeichnungspflichtig)
-{
-	$date_last_begin_verwendung = $timesheet->getLastVerwendungZapflicht($uid);
-	$date_last_beginn_lastdayofmonth = new DateTime('last day of '. $date_last_begin_verwendung. ' midnight');
-
-	if ($date_last_beginn_lastdayofmonth > $date_begin_zeitaufzeichnungspflicht)
-	{
-		$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
-	}
-}
-
 foreach($verwendung_arr as $verwendung)
 {
 	if($verwendung->zeitaufzeichnungspflichtig)
@@ -278,27 +263,6 @@ foreach($verwendung_arr as $verwendung)
 			break;
 		}
 	}
-}
-
-//check if there is a timesheet of the month of last beginnVerwendung (important if beginn is not 1st of month)
-$timesheet_arr = new Timesheet();
-$timesheet_arr = $timesheet_arr->loadAll($uid);
-
-$date_last_begin_verwendung = $timesheet->getLastVerwendungZapflicht($uid);
-$date_last_beginn_lastdayofmonth = new DateTime('last day of '. $date_last_begin_verwendung. ' midnight');
-
-$timesheets = array();
-foreach ($timesheet_arr as $timesheet)
-{
- array_push($timesheets, $timesheet->datum);
-}
-
-if (!in_array($date_last_beginn_lastdayofmonth->format('Y-m-d'), $timesheets))
-{
-	$timesheet = new Timesheet();
-	// Timesheet nur Anlegen wenn nach dem GO Live Datum der Timesheets
-	if ($date_last_beginn_lastdayofmonth > $date_begin_zeitaufzeichnungspflicht)
-		$timesheet->insertTimeSheet($uid, $date_last_beginn_lastdayofmonth->format('Y-m-d'));
 }
 
 
@@ -354,13 +318,15 @@ foreach ($timesheet_arr as $ts)
 {
 	$ts_date = new DateTime('first day of '. $ts->datum. ' midnight');
 	$ts_isSent = (is_null($ts->abgeschicktamum)) ? false : true;
+	$ts_checkdate = new DateTime('last day of '. $ts->datum. ' midnight');
+	$ts_checkdate = $ts_checkdate->format('Y-m-d');
 
 	// flag if at least one timesheet is NOT sent AND BEFORE the selected date
 	if (!$ts_isSent)
 	{
 		if ($ts_date < $date_selected)
 		{
-			if(CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum))
+			if(CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts_checkdate))
 				$isDisabled_by_formerUnsentTimesheet = true;
 		}
 	}
@@ -421,10 +387,11 @@ $missing_timesheet_arr = array_reverse($missing_timesheet_arr);
 // Merge missing dummy timesheets with timesheet array
 $merged_timesheet_arr = array_merge($missing_timesheet_arr, $timesheet_arr);
 
+
 function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 {
-  $ts_date = new DateTime('first day of '. $datum. ' midnight');
-  $startdatum = $ts_date->format('Y-m-d');
+	$ts_date = new DateTime('first day of '. $datum. ' midnight');
+	$startdatum = $ts_date->format('Y-m-d');
 	$zp = false;
 	foreach ($verwendung_arr as $bv)
 	{
@@ -436,13 +403,20 @@ function CheckisZeitaufzeichnungspflichtig($verwendung_arr, $datum)
 	return $zp;
 }
 
+
+
 // Get data of merged timesheet array (missing and existing timesheets)
 $timesheet_year_arr = array();	// unique timesheet years to set title in "Alle Monatslisten" - panel
 $date_allow_new_ts = clone $date_actual;	// date of timesheet to be created
 $zp = false;
+
 foreach ($merged_timesheet_arr as $ts)
 {
 	$ts_date = new DateTime($ts->datum);
+
+	//Ende des Monats nehmen
+	$ts_checkdate = new DateTime('last day of '.$ts->datum. ' midnight');
+	$ts_checkdate = $ts_checkdate->format('Y-m-d');
 	$ts_year = $ts_date->format('Y');
 
 	// get years (unique) for existing AND/OR missing timesheets
@@ -453,7 +427,8 @@ foreach ($merged_timesheet_arr as $ts)
 
 	if (is_null($ts->timesheet_id))
 	{
-		$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum);
+		//Aufruf der Funktion mit Monatsende, um bisverwendungen > Monatserstem zu berücksichtigen
+		$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts_checkdate);
 		if($zp)
 		{
 			$date_allow_new_ts = clone $ts_date;
@@ -469,6 +444,7 @@ else
 	$date_earliest_ts = new DateTime('2999-01-01'); // Currently not allowed to create Timesheet
 
 // Flag if timesheet may not be created
+
 if ($date_allow_new_ts < $date_selected ||
 	$date_selected > $date_actual||
 	$date_selected < $date_golive ||
@@ -482,7 +458,9 @@ if($isAllowed_createTimesheet)
 	// Pruefen ob die Persoen in diesem Monat Zeitaufzeichnungspflichtig ist
 	$ts_date = new DateTime('last day of '.$date_selected->format('Y-m-d'). ' midnight');
 	$monatsletzter = $ts_date->format('Y-m-d');
-	if(!CheckisZeitaufzeichnungspflichtig($verwendung_arr,$monatsletzter))
+
+
+	if(!CheckisZeitaufzeichnungspflichtig($verwendung_arr, $monatsletzter))
 	{
 		$isAllowed_createTimesheet = false;
 	}
@@ -1535,6 +1513,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 	<!-- IF uid is EMPLOYEE -->
 	<?php if (!$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt): ?>
+
+
 		<!-- IF first entry AND obliged to record times AND timesheets are missing before actual date -->
 		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig && !$isTimesheetManager): ?>
 			<div class="alert alert-danger alert-dismissible text-center" role="alert">
@@ -1542,7 +1522,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				<b>Sie sind ab <?php echo $monatsname[$sprache_index][($date_begin_zeitaufzeichnungspflicht->format('n')) - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
 				Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
 				<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_begin_zeitaufzeichnungspflicht->format('Y') ?>&month=<?php echo $date_begin_zeitaufzeichnungspflicht->format('m')?>"
-				   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
+				   class="text-danger">
+				   <b>Monatsliste <?php echo $monatsname[$sprache_index][$date_begin_zeitaufzeichnungspflicht->format('n') - 1]. ' '. $date_begin_zeitaufzeichnungspflicht->format('Y') ?> jetzt erstellen</b></a>
 		   </div>
 		<?php endif; ?>
 
@@ -1585,13 +1566,22 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 		<!-- IF timesheets are missing before selected date -->
 		<?php if ($isDisabled_by_missingTimesheet && !$isConfirmed && !$isFuture && !is_null($date_last_timesheet)): ?>
+			<?php
+				$index1 = $date_last_timesheet->format('n');
+				$year = $date_last_timesheet->format('Y');
+				if($date_last_timesheet->format('n') > 11)
+				{
+					$index1 = 0;
+					$year = $date_last_timesheet->format('Y') + 1;
+				}
+			?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
 			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
 			Ihre letzte Monatsliste haben sie für <?php echo $monatsname[$sprache_index][($date_last_timesheet->format('n')) - 1]. ' '. $date_last_timesheet->format('Y'); ?> erstellt.<br><br>
-			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $date_last_timesheet->format('Y') ?>&month=<?php echo ($date_last_timesheet->format('m') + 1)?>"
-			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$date_last_timesheet->format('n')]. ' '. ($date_last_timesheet->format('Y')) ?> jetzt erstellen</b></a>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo $year ?>&month=<?php echo $index1 + 1 ?>"
+			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][$index1]. ' '. $year ?> jetzt erstellen</b></a>
 		</div>
 		<?php endif; ?>
 
@@ -1853,11 +1843,12 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 						</tr>
 						<!--loop through all timesheets-->
 						<?php foreach ($merged_timesheet_arr as $ts): ?>
-							<?php $ts_date = new DateTime('first day of '. $ts->datum. ' midnight'); ?>
-                            <?php
-								$zp = CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts->datum);
-                            ?>
 							<?php
+							$ts_checkdate = new DateTime('last day of '.$ts->datum. ' midnight');
+							$ts_checkdate = $ts_checkdate->format('Y-m-d');
+							$ts_date = new DateTime('first day of '. $ts->datum. ' midnight');
+							$zp =  CheckisZeitaufzeichnungspflichtig($verwendung_arr, $ts_checkdate);
+
 							//if timesheet is in the looped year, then show timesheet information in this table
 							if ($ts_date->format('Y') == $year):
 							?>
