@@ -91,6 +91,7 @@ if ((isset($_GET['onlyfix']) && $_GET['onlyfix'] == 'false') ||
 }
 $_SESSION['casetime/onlyfix'] = $showOnlyFixEmployees;
 
+
 if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 	(!isset($_GET['submitAllMA']) && isset($_SESSION['casetime/submitAllMA']) && $_SESSION['casetime/submitAllMA'] == true))
 {
@@ -328,6 +329,7 @@ if (!empty($all_employee_uid_arr))
 	}
 }
 
+
 // *********************************  data for SUPERVISORS VIEW
 // covidstatus
 $covidhelper = new CovidHelper();
@@ -365,6 +367,7 @@ if (!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) && $_SESSION['
 
 	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
+
 }
 // * Get time- and holiday balances for ALL employees from CaseTime Server
 elseif($_SESSION['casetime/submitAllMA'] == true &&
@@ -392,7 +395,6 @@ elseif($_SESSION['casetime/submitAllMA'] == true &&
 
 	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
-
 }
 else
 {
@@ -449,9 +451,9 @@ foreach($employee_uid_arr as $employee_uid)
 
 	foreach ($ende as $e)
 	{
-			$endeBisLastZapflicht =  $e->ende;
-			if (empty($endeBisLastZapflicht))
-				$endeBisLastZapflicht = $now;
+		$endeBisLastZapflicht =  $e->ende;
+		if (empty($endeBisLastZapflicht))
+			$endeBisLastZapflicht = $now;
 	}
 
 	// data of MOST RECENT timesheet BEFORE the actual month
@@ -524,7 +526,8 @@ foreach($employee_uid_arr as $employee_uid)
 
 	// Flag if user has obligation to record times
 	$isZeitaufzeichnungspflichtig = false;
-    $azg = false;
+	$isAllIn = false;
+	$azg = false;
 	// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
 	$bisverwendung = new bisverwendung();
 	$now = new DateTime('today');
@@ -537,16 +540,31 @@ foreach($employee_uid_arr as $employee_uid)
 		$arrEchterDV = DEFAULT_ECHTER_DIENSTVERTRAG;
 	}
 
+	$checkAllIn = false;
+	if (defined('DEFAULT_ALLIN_DIENSTVERTRAG') && DEFAULT_ALLIN_DIENSTVERTRAG != '')
+	{
+		$arrAllInDV = DEFAULT_ALLIN_DIENSTVERTRAG;
+		$checkAllIn = true;
+		if(getCaseTimeSaldoAllIn($employee_uid))
+			$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
+	}
+
 	foreach($verwendung_arr as $verwendung)
 	{
 		if(in_array($verwendung->ba1code, $arrEchterDV))
 		{
 			$vertragsstunden = $verwendung->vertragsstunden;
 		}
+		if($checkAllIn && in_array($verwendung->ba1code, $arrAllInDV))
+		{
+			$isAllIn = true;
+			if(getCaseTimeSaldoAllIn($employee_uid))
+			$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
+		}
 		if($verwendung->azgrelevant)
-        {
-            $azg = true;
-        }
+		{
+			$azg = true;
+		}
 		if($verwendung->zeitaufzeichnungspflichtig)
 		{
 			$isZeitaufzeichnungspflichtig = true;
@@ -624,7 +642,6 @@ foreach($employee_uid_arr as $employee_uid)
 			$zeitsaldoklasse = '';
 	}
 
-
 	// Get organisational unit of employee
 	$benutzer_fkt = new Benutzerfunktion();
 	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
@@ -668,6 +685,9 @@ foreach($employee_uid_arr as $employee_uid)
 
 	// Collect all employees data to push to overall employees array
 	$obj = new stdClass();
+
+	if(!isset($allInSaldo))
+			$allInSaldo = '';
 	// * full data of employee who has timesheets
 	if (!empty($timesheet_arr))
 	{
@@ -690,9 +710,11 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_uid = $last_cntrl_uid;
 		$obj->last_cntrl_remark = $last_cntrl_remark;
 		$obj->azg = $azg;	// boolean
+		$obj->isAllIn = $isAllIn;
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig;	// boolean
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
+		$obj->salue1sum = $allInSaldo;
 	}
 	// * basic data of employee who has NO timesheets
 	else
@@ -716,9 +738,11 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_uid = $last_cntrl_uid;	//empty
 		$obj->last_cntrl_remark = $last_cntrl_remark;	//empty
 		$obj->azg = $azg;	// boolean
+		$obj->isAllIn = $isAllIn;
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig; // boolean
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
+		$obj->salue1sum = $allInSaldo;
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
@@ -879,7 +903,7 @@ function sortEmployeesName($employee1, $employee2)
 					<label for="onlyfixemployess">&nbsp;nur fix Angestellte</label>
 				</td>
 				<td></td>
-                <td></td>
+				<td></td>
 				<td colspan="2" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
@@ -888,8 +912,10 @@ function sortEmployeesName($employee1, $employee2)
 			<tr>
 				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>
-				<th>AZG anwendbar</th>
-                <th>Zeitaufzeichnungspflichtig</th>
+
+				<?php echo (!$checkAllIn) ? '<th>AZG anwendbar</th>' : '' ?>
+				<?php echo ($checkAllIn) ? '<th>All In</th>' : '' ?>
+				<th>Zeitaufzeichnungspflichtig</th>
 				<!--<th>Status</th>-->
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
@@ -900,7 +926,7 @@ function sortEmployeesName($employee1, $employee2)
 				</th>
 				<th>Zeitsaldo
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
+						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit <?php echo ($checkAllIn) ? '/ Allin Summe Studienjahr' : '' ?>&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
 				</th>
 				<th data-toggle="tooltip" title="Verfügbare Urlaubstage / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
@@ -935,17 +961,30 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if ($employee->azg): ?>
+					<?php if (!$checkAllIn): ?>
+						<?php if ($employee->azg): ?>
+							<td class='text-center'>ja</td>
+						<?php else: ?>
+							<td class='text-center'>nein</td>
+						<?php endif; ?>
+					<?php endif; ?>
+
+					<?php if ($checkAllIn): ?>
+						<?php if ($employee->isAllIn): ?>
+							<td class='text-center'>ja</td>
+						<?php else: ?>
+							<td class='text-center'>nein
+							</td>
+						<?php endif; ?>
+					<?php endif; ?>
+
+					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
 						<td class='text-center'>ja</td>
 					<?php else: ?>
 						<td class='text-center'>nein</td>
 					<?php endif; ?>
 
-					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
-                        <td class='text-center'>ja</td>
-					<?php else: ?>
-                        <td class='text-center'>nein</td>
-					<?php endif; ?>
+
 
 					<!--status-->
 					<!-- * only consider if timesheet date is date of last month -->
@@ -998,8 +1037,13 @@ function sortEmployeesName($employee1, $employee2)
 					<!--balance of working hours on next account-->
 					<td class='text-center<?php echo $employee->zeitsaldoklasse ?>'><?php
 					echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
-					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';
-					?></td>
+					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -'; ?>
+					<?php if ($checkAllIn): ?>
+						<?php if ($employee->isAllIn): ?>
+							<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
+						<?php endif; ?>
+					<?php endif; ?>
+						</td>
 
 					<!--overtime hours-->
 					<!--<td class='text-center'>5,0 h</td>-->
@@ -1042,10 +1086,21 @@ function sortEmployeesName($employee1, $employee2)
 					<?php endif; ?>
 
                     <!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if ($employee->azg): ?>
-                        <td class='text-center'>ja</td>
-					<?php else: ?>
-                        <td class='text-center'>nein</td>
+					<?php if (!$checkAllIn): ?>
+						<?php if ($employee->azg): ?>
+	                        <td class='text-center'>ja</td>
+						<?php else: ?>
+	                        <td class='text-center'>nein</td>
+						<?php endif; ?>
+					<?php endif; ?>
+
+					<?php if ($checkAllIn): ?>
+						<?php if ($employee->isAllIn): ?>
+							<td class='text-center'>ja</td>
+						<?php else: ?>
+							<td class='text-center'>nein
+							</td>
+						<?php endif; ?>
 					<?php endif; ?>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
@@ -1054,6 +1109,7 @@ function sortEmployeesName($employee1, $employee2)
 					<?php else: ?>
 						<td class='text-center'>nein</td>
 					<?php endif; ?>
+
 
 					<!--status-->
 					<!--<td class='text-center'>nicht angelegt</td>-->
@@ -1073,8 +1129,13 @@ function sortEmployeesName($employee1, $employee2)
 
 						<td class='text-center<?php echo $zeitsaldoklasse ?>'><?php
 						echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
-						echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';
-						?></td>
+						echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';?>
+						<?php if ($checkAllIn): ?>
+							<?php if ($employee->isAllIn): ?>
+								<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
+							<?php endif; ?>
+						<?php endif; ?>
+						</td>
 						<!--overtime hours-->
 						<!--<td class='text-center'>-</td>-->
 						<!--holidays cosumed-->
