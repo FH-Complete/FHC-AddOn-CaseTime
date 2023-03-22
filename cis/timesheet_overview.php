@@ -545,8 +545,9 @@ foreach($employee_uid_arr as $employee_uid)
 	{
 		$arrAllInDV = DEFAULT_ALLIN_DIENSTVERTRAG;
 		$checkAllIn = true;
-		if(getCaseTimeSaldoAllIn($employee_uid))
-			$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
+		//sehr serverlastig
+		// if(getCaseTimeSaldoAllIn($employee_uid))
+		// 	$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
 	}
 
 	foreach($verwendung_arr as $verwendung)
@@ -558,8 +559,6 @@ foreach($employee_uid_arr as $employee_uid)
 		if($checkAllIn && in_array($verwendung->ba1code, $arrAllInDV))
 		{
 			$isAllIn = true;
-			if(getCaseTimeSaldoAllIn($employee_uid))
-			$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
 		}
 		if($verwendung->azgrelevant)
 		{
@@ -610,6 +609,13 @@ foreach($employee_uid_arr as $employee_uid)
 											);
 			}
 		}
+		//request for allin
+		if($isAllIn)
+		{
+			$allInSaldo = 0;
+			if(getCaseTimeSaldoAllIn($employee_uid))
+				$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
+		}
 	}
 	else
 	{
@@ -619,6 +625,7 @@ foreach($employee_uid_arr as $employee_uid)
 		// holiday information
 		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
 	}
+
 
 	// set css-class for time-balance field
 	if (!$vertragsstunden)
