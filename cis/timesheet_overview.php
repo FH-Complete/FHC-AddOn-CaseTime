@@ -545,9 +545,6 @@ foreach($employee_uid_arr as $employee_uid)
 	{
 		$arrAllInDV = DEFAULT_ALLIN_DIENSTVERTRAG;
 		$checkAllIn = true;
-		//sehr serverlastig
-		// if(getCaseTimeSaldoAllIn($employee_uid))
-		// 	$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
 	}
 
 	foreach($verwendung_arr as $verwendung)
@@ -572,9 +569,10 @@ foreach($employee_uid_arr as $employee_uid)
 
 	}
 
-	// Get time- & holiday balances
+	// Get time- & holiday balances and SaldoAllin
 	$time_balance = false;
 	$holiday = false;
+	$allInSaldo = false;
 
 	// * if uid is personnel manager or superleader, check the object-array with all time-
 	// and holiday balances and match with the actual employee
@@ -607,15 +605,16 @@ foreach($employee_uid_arr as $employee_uid)
 												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch
 												: '-'
 											);
+
+				//AllinSaldo
+				$allInSaldo = (
+					isset($time_holiday_balance_arr->{$uc_employee_uid}->AllInSaldo)
+					? $time_holiday_balance_arr->{$uc_employee_uid}->AllInSaldo
+					: false
+				);
 			}
 		}
-		//request for allin
-		if($isAllIn)
-		{
-			$allInSaldo = 0;
-			if(getCaseTimeSaldoAllIn($employee_uid))
-				$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
-		}
+
 	}
 	else
 	{
@@ -624,6 +623,14 @@ foreach($employee_uid_arr as $employee_uid)
 
 		// holiday information
 		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
+
+		//request for allin
+		if($isAllIn)
+		{
+			$allInSaldo = false;
+			if(getCaseTimeSaldoAllIn($employee_uid))
+				$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
+		}
 	}
 
 
@@ -1092,12 +1099,12 @@ function sortEmployeesName($employee1, $employee2)
 						<td><?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
 					<?php endif; ?>
 
-                    <!--obligated to record times (zeitaufzeichnungspflichtig)-->
+					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
 					<?php if (!$checkAllIn): ?>
 						<?php if ($employee->azg): ?>
-	                        <td class='text-center'>ja</td>
+							<td class='text-center'>ja</td>
 						<?php else: ?>
-	                        <td class='text-center'>nein</td>
+							<td class='text-center'>nein</td>
 						<?php endif; ?>
 					<?php endif; ?>
 
