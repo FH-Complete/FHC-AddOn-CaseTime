@@ -130,10 +130,10 @@ WHERE
 		uid in(".$db->db_implode4SQL($user_arr).")
 	AND
 	(zeit_start<>(SELECT min(start::time) FROM campus.tbl_zeitaufzeichnung
-					WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or  aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+					WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT' and aktivitaet_kurzbz != 'Pflegefs') or  aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	OR
 	date_trunc('minute',zeit_ende)<>(SELECT max(ende::time) FROM campus.tbl_zeitaufzeichnung
-				WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
+				WHERE ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT' and aktivitaet_kurzbz != 'Pflegefs') or aktivitaet_kurzbz is null) and uid=tbl_casetime_zeitaufzeichnung.uid AND start::date=tbl_casetime_zeitaufzeichnung.datum)
 	);";
 
 // geaenderte Ar/Pa/... Eintraege markieren NICHT DienstreiseMT!
@@ -239,7 +239,7 @@ $qry = "
 			campus.tbl_zeitaufzeichnung
 		WHERE
 			start::date>=".$db->db_add_param($sync_datum_start)."
-			AND ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT') or aktivitaet_kurzbz is null)
+			AND ((aktivitaet_kurzbz != 'LehreExtern' and aktivitaet_kurzbz != 'Ersatzruhe' and aktivitaet_kurzbz != 'DienstreiseMT' and aktivitaet_kurzbz != 'Pflegefs') or aktivitaet_kurzbz is null)
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
 $qry.="AND uid in(".$db->db_implode4SQL($user_arr).")";
@@ -296,7 +296,7 @@ $qry = "
 		FROM
 			campus.tbl_zeitaufzeichnung
 		WHERE
-			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde','LehreExtern','Ersatzruhe', 'DienstreiseMT')
+			aktivitaet_kurzbz in('Pause','Arztbesuch','Dienstreise','Behoerde','LehreExtern','Ersatzruhe', 'DienstreiseMT', 'Pflegefs')
 			AND start::date>=".$db->db_add_param($sync_datum_start)."
 			AND start::date<=".$db->db_add_param($sync_datum_ende);
 
@@ -307,10 +307,12 @@ $qry.="
 
 $elsumme = '00:00';
 $ersumme = '00:00';
+$pfsumme = '00:00';
 if($result = $db->db_query($qry))
 {
 	$el_arr = array();
 	$er_arr = array();
+	$pf_arr = array();
 	while($row = $db->db_fetch_object($result))
 	{
 		switch($row->aktivitaet_kurzbz)
@@ -322,9 +324,10 @@ if($result = $db->db_query($qry))
 			case 'LehreExtern': $typ = 'pa'; break;
 			case 'Ersatzruhe': $typ = 'pa'; break;
 			case 'DienstreiseMT': $typ = 'da'; break;
+			case 'Pflegefs': $typ = 'pa'; break;
 		}
 
-		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern' && $row->aktivitaet_kurzbz != 'Ersatzruhe' && $row->aktivitaet_kurzbz != 'DienstreiseMT')
+		if ($row->aktivitaet_kurzbz != 'Pause' && $row->aktivitaet_kurzbz != 'LehreExtern' && $row->aktivitaet_kurzbz != 'Ersatzruhe' && $row->aktivitaet_kurzbz != 'DienstreiseMT' && $row->aktivitaet_kurzbz != 'Pflegefs')
 		{
 			$start_for_casetime = date('H:i:s', strtotime('+1 seconds', strtotime($row->start_full)));
 			$end_for_casetime = $row->endzeit;
@@ -410,9 +413,42 @@ if($result = $db->db_query($qry))
 			else
 				$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
 		}
+		elseif ($row->aktivitaet_kurzbz == 'Pflegefs')
+		{
+			$pfstart = new DateTime($row->startzeit);
+			$pfende = new DateTime($row->endzeit);
+			$pfdiff = $pfstart->diff($pfende);
+			$pfadd = $pfdiff->h.':'.$pfdiff->i;
+			if (array_key_exists($row->uid, $pf_arr))
+			{
+				if (array_key_exists($row->datum, $pf_arr[$row->uid]))
+				{
+					$pf_arr[$row->uid][$row->datum] = $datum_obj->sumZeit($pf_arr[$row->uid][$row->datum], $pfadd);
+				}
+				else
+				{
+
+					$pf_arr[$row->uid][$row->datum] = $pfadd;
+				}
+			}
+			else
+			{
+				$pf_arr[$row->uid] = array();
+				$pf_arr[$row->uid][$row->datum] = $pfadd;
+			}
+			$qry_tag = "select count(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
+			$result_tag = $db->db_query($qry_tag);
+			$inkernzeit = 	$db->db_fetch_row($result_tag);
+			$msglog .= $inkernzeit[0];
+			if ($inkernzeit[0] == 0)
+			{
+				$retval = array(-1,-1);
+			}
+			else
+				$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime);
+		}
 		else
 			$retval = SendData($typ, $row->uid, $row->datum, $start_for_casetime, $end_for_casetime, $row->datum_bis);
-		//$retval = SendData($typ, $row->uid, $row->datum, $row->startzeit, $row->endzeit);
 
 		if(is_array($retval))
 		{
@@ -470,6 +506,19 @@ if($result = $db->db_query($qry))
 			$erzeit = number_format($erzeit, 2, '.', '');
 			SendDataImport($key, $datum_key, 'ER', $erzeit);
 			$msglog .= "\n ER-Buchung: ".$key."-".$datum_key."-".$erzeit;
+		}
+	}
+
+	// eintrag für Pflegefs schreiben
+	foreach ($pf_arr as $key => $val)
+	{
+		foreach ($pf_arr[$key] as $datum_key => $datum_val)
+		{
+			list($h2, $m2) = explode(':', $datum_val);
+			$pfzeit = $h2+$m2/60;
+			$pfzeit = number_format($pfzeit, 2, '.', '');
+			SendDataImport($key, $datum_key, 'PFS', $pfzeit);
+			$msglog .= "\n Pflegefreistellung-Buchung: ".$key."-".$datum_key."-".$pfzeit;
 		}
 	}
 }

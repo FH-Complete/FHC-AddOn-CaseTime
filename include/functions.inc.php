@@ -218,6 +218,8 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 		$delval = SendDataDelete($uid, $datum, 'EL');
 	elseif ($typ == 'ER')
 		$delval = SendDataDelete($uid, $datum, 'ER');
+	elseif ($typ == 'PFS')
+		$delval = SendDataDelete($uid, $datum, 'PFS');
 	else
 		$delval = DeleteRecords($uid, $datum);
 
@@ -255,6 +257,9 @@ function SendDataImport($uid, $datum, $typ, $zeit=0)
 			break;
 		case 'ER':
 			$art = 'ersatzruhe';
+			break;
+		case 'PFS':
+			$art = 'pflegefs';
 			break;
 		case 'CovidSB':
 			$art = 'krankenstandcovid';
@@ -352,6 +357,9 @@ function SendDataDelete($uid, $datum, $typ)
 			break;
 		case 'ER':
 			$art = 'ersatzruhe';
+			break;
+		case 'PFS':
+			$art = 'pflegefs';
 			break;
 		case 'CovidSB':
 			$art = 'krankenstandcovid';

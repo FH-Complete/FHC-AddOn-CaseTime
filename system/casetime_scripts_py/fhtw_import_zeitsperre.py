@@ -66,6 +66,12 @@ def import_zeitsperre(self, sachb, buchdat, art, zeit):
         drucken = 'J'
         auftragsposition = '62'
         stunden = zeit
+    elif art == 'pflegefs':
+        lohnart = 'PFS'
+        auftragsnummer = '1'
+        drucken = 'J'
+        auftragsposition = '11'
+        stunden = zeit
     elif art == 'krankenstandcovid':
         lohnart = 'KC'
         auftragsnummer = '1'

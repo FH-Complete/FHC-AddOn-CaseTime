@@ -1146,7 +1146,7 @@ class Timesheet extends basis_db
 									/* null values in aktivitaet_kurzbz are considered as working times -> leave them */
 									aktivitaet_kurzbz IS NULL
 									OR
-									aktivitaet_kurzbz NOT IN ('LehreExtern', 'Ersatzruhe','DienstreiseMT')
+									aktivitaet_kurzbz NOT IN ('LehreExtern', 'Ersatzruhe','DienstreiseMT', 'Pflegefs')
 								)
 							)
 
@@ -1167,7 +1167,7 @@ class Timesheet extends basis_db
 									/* null values in aktivitaet_kurzbz are considered as working times -> leave them */
 									aktivitaet_kurzbz IS NULL
 									OR
-									aktivitaet_kurzbz NOT IN ('LehreExtern', 'Ersatzruhe','DienstreiseMT')
+									aktivitaet_kurzbz NOT IN ('LehreExtern', 'Ersatzruhe','DienstreiseMT', 'Pflegefs')
 								)
 							)
 						)

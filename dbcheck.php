@@ -545,7 +545,7 @@ if (!$result = @$db->db_query("SELECT * FROM addon.vw_homeoffice_ma LIMIT 1"))
 			FROM campus.tbl_zeitaufzeichnung za
 			JOIN public.tbl_benutzer b on za.uid = b.uid
 			JOIN public.tbl_person p on p.person_id =b.person_id
-			WHERE aktivitaet_kurzbz not in ('Pause', 'Dienstreise', 'DienstreiseMT', 'Arztbesuch', 'Ersatzruhe', 'Behoerde')
+			WHERE aktivitaet_kurzbz not in ('Pause', 'Dienstreise', 'DienstreiseMT', 'Arztbesuch', 'Ersatzruhe', 'Behoerde', 'Pflegefs')
 			GROUP BY za.uid,  p.vorname, p.nachname, p.svnr, DATE(za.start)
 			having sum (CASE when za.homeoffice = false THEN 1 ELSE NULL END) is NULL
 		);
