@@ -1009,6 +1009,34 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		}, 3500);
 	}
 
+	//uncheck vorzeitigesAbschicken bei cancelConfirmation
+	function resetVorzeitigesAbschicken(timesheet_id)
+	{
+		$.ajax({
+			type: 'POST',
+			dataType: 'json',
+			cache: false,
+			async: false,
+			data: {
+				action: 'ajax',
+				method: 'saveVorzeitigAbgeschickt',
+				timesheet_id: timesheet_id,
+				vorzeitig_abgeschickt: false
+			},
+			success: function (result) {
+				if (result) {
+					//alert('Vorzeitiges Abschicken deaktiviert');
+					console.log('Vorzeitiges Abschicken deaktiviert');
+				}
+				else
+				{
+					alert('Fehler beim Speichern');
+				}
+			}
+		});
+	}
+
+
 	// Get overtime checkbox values from one form and pass to hidden field of the submitting form
 	// NOTE: workaround to use values of 2 forms by submitting only one
 	$(document).ready(function(){
@@ -1499,12 +1527,44 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 				</p>
 			</div>
+			<!-- Variante mit Modal -->
 			<div class="panel-body col-xs-4"><br>
 				<form class="form" method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
-				<button type="submit" <?php echo (!$isSent || !$isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>
-					name="submitTimesheetCancelConfirmation" class="btn btn-primary pull-right"
-					onclick="return confirm('Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\n für <?php echo $full_name ?> sicher aufheben?\nDabei werden zur Überarbeitung auch\ndie Genehmigungen ALLER MONATE DANACH wieder aufgehoben!');">Genehmigung aufheben</button>
-				</form>
+					<button
+					type="button"
+					class="btn btn-primary pull-right"
+					data-toggle="modal"
+					data-target="#modalCancelCon"
+					<?php echo (!$isSent || !$isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>>
+					Genehmigung aufheben
+				</button>
+				<!-- Modal -->
+				<div class="modal fade" id="modalCancelCon" tabindex="-1" role="dialog" aria-labelledby="modalCancelConLabel">
+					<div class="modal-dialog" role="document">
+						<div class="modal-content">
+							<div class="modal-header">
+								<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+								<h4 class="modal-title" id="modalCancelConLabel">Genehmigung wirklich aufheben?</h4>
+							</div>
+							<div class="modal-body">
+								Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>
+								für <?php echo $full_name ?> sicher aufheben?
+								<br>Dabei werden zur Überarbeitung auch die Genehmigungen ALLER MONATE DANACH wieder aufgehoben!
+							</div>
+							<div class="modal-footer">
+								<button type="button" class="btn btn-default" data-dismiss="modal">Abbrechen</button>
+								<button
+								type="submit"
+								name="submitTimesheetCancelConfirmation"
+								class="btn btn-primary"
+								onclick="resetVorzeitigesAbschicken(<?php echo $timesheet_id;?>);">
+								OK
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
 			</div>
 		</div>
 
