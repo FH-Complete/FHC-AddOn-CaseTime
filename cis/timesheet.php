@@ -1024,13 +1024,9 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				vorzeitig_abgeschickt: false
 			},
 			success: function (result) {
-				if (result) {
-					//alert('Vorzeitiges Abschicken deaktiviert');
-					console.log('Vorzeitiges Abschicken deaktiviert');
-				}
-				else
+				if(!result)
 				{
-					alert('Fehler beim Speichern');
+					alert('Fehler beim Reset Vorzeitiges Abschicken');
 				}
 			}
 		});
