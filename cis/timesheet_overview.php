@@ -33,6 +33,7 @@ require_once('../../../include/globals.inc.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
 require_once('../../../include/covid/covidhelper.class.php');
+require_once('../../../include/vertragsbestandteil.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
 
@@ -442,90 +443,81 @@ foreach($employee_uid_arr as $employee_uid)
 	$timesheet = new Timesheet();
 	$timesheet_arr = $timesheet->loadAll($employee_uid);
 
-	$bis = new Bisverwendung();
-	$bis->getLastBisZAPflicht($employee_uid);
-	$now = new DateTime('today');
-	$now = $now->format('Y-m-d');
-	$ende = $bis-> result;
-	$endeBisLastZapflicht = null;
+    // Get last timesheet
+    $last_timesheet_id = !empty($timesheet_arr) ? $timesheet_arr[0]->timesheet_id : null;
+    $last_timesheet_date = !empty($timesheet_arr) ? new DateTime($timesheet_arr[0]->datum) : null;
 
-	foreach ($ende as $e)
-	{
-		$endeBisLastZapflicht =  $e->ende;
-		if (empty($endeBisLastZapflicht))
-			$endeBisLastZapflicht = $now;
-	}
+    // Get last sent timesheet
+    $result = $timesheet->getSent($employee_uid, 'DESC', 1);
+    $lastSentTimesheetDatum = $result == true ? new DateTime($timesheet->result[0]->datum) : null;
 
-	// data of MOST RECENT timesheet BEFORE the actual month
-	if (!empty($timesheet_arr))
-	{
-		$index = 0;
-		$cnt_isNotSent = 0;	// counts all timesheets not sent by the employee
-		$cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
-		$cnt_isNotCreated = 0;	// counts missing timesheets between last timesheet date and last months date
+    // Get last confirmed timesheet
+    $result = $timesheet->getConfirmed($employee_uid, 'DESC', 1);
+    $lastConfirmedTimesheet = $result == true ? $timesheet->result[0] : null;
+    $lastConfirmedTimesheetDatum = !is_null($lastConfirmedTimesheet) ? new DateTime($lastConfirmedTimesheet->datum) : null;
 
-		// last timesheet date
-		$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[0]->datum); //set time to zero
+    // Erster VBT Zeitaufzeichnungspflicht
+    $vbt = new vertragsbestandteil();
+    $result = $vbt->getZaPflichtig($employee_uid, 'ASC', 1);
+    $ersteZaPflicht = $result == true ? $vbt->result[0] : null;
 
-		// count missing timesheets (until last month)
-		if ($last_timesheet_date < $date_last_month)
-		{
-			$endeBisLastZapflicht = new DateTime($endeBisLastZapflicht);
-			$now = new DateTime($now);
+    $cnt_isNotSent = 0;	        // counts all timesheets not sent by the employee
+    $cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
+    $cnt_isNotCreated = 0;	    // counts missing timesheets between last timesheet date and last months date
 
-			if(($endeBisLastZapflicht < $now) && ($last_timesheet_date <= $endeBisLastZapflicht))
-			{
-				$cnt_isNotCreated = ($endeBisLastZapflicht->diff($last_timesheet_date)->m);
-				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
-			}
-			elseif (($endeBisLastZapflicht <= $now) && ($last_timesheet_date > $endeBisLastZapflicht))
-			{
-				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
-			}
-			else
-			{
-				$cnt_isNotCreated = $date_last_month->diff($last_timesheet_date)->m;
-				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
-			}
-		}
-		$endeBisLastZapflicht = new DateTime($endeBisLastZapflicht);
+    // Monatsliste startet ab erster Zeitaufzeichnunsplficht (aber nicht vor GoLive-Datum)
+    $monatslisteStartdatum = getMonatslisteStartdatum($ersteZaPflicht);
 
-		// if employee has already created monthlist for actual month, go back to the one monthlist before
-		if ($last_timesheet_date > $date_last_month || ($last_timesheet_date > $endeBisLastZapflicht))
-		{
-			// start counting with -1 as actual month should not be considered
-			$cnt_isNotSent = -1;
-			$cnt_isNotConfirmed = -1;
+    $monat = new DateTime();
 
-			// go back one monthlist only if it exists
-			if (count($timesheet_arr) > 1)
-			{
-				$index = 1;
-				$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[$index]->datum);
-			}
-		}
-		$last_timesheet_id = $timesheet_arr[$index]->timesheet_id;
-		$last_timesheet_sent = (!is_null($timesheet_arr[$index]->abgeschicktamum)) ? new DateTime($timesheet_arr[$index]->abgeschicktamum) : null;
-		$last_timesheet_confirmed = (!is_null($timesheet_arr[$index]->genehmigtamum)) ? new DateTime ($timesheet_arr[$index]->genehmigtamum) : null;
-	}
+    while ($monat->format('Y-m') >= $monatslisteStartdatum->format('Y-m'))
+    {
+        $isZaPflichtig = $vbt->isZaPflichtig($employee_uid, $monat->format('Y-m-t'));
 
-	// data of ALL timesheets
-	foreach ($timesheet_arr as $timesheet)
-	{
-		if (is_null($timesheet->abgeschicktamum))
-		{
-			$cnt_isNotSent++;
-		}
+        // Wenn im Monat zeitaufzeichnungspflichtig ist
+        if ($isZaPflichtig)
+        {
+            $ts = new Timesheet($employee_uid, $monat->format('m'), $monat->format('Y'));
 
-		if (is_null($timesheet->genehmigtamum))
-		{
-			$cnt_isNotConfirmed++;
+            /**
+             * Vergangene nicht versendete / nicht erstellte Timesheet ermitteln.
+             *
+             * Aktuelles Monat nicht beruecksichtigen bei Ermittlung der unversendeten / nicht erstellten Timesheets.
+             *
+             * Wenn es mindestens ein genehmigtes Timesheet gibt, und davor noch Timesheets fehlen, dann nur die Timesheets
+             * NACH der Genehmigung auf 'fehlen' oder 'unversendet' prüfen.
+             **/
+            if ((is_null($lastConfirmedTimesheet) || $monat->format('Y-m') > (new DateTime($lastConfirmedTimesheet->datum))->format('Y-m')) &&
+                $monat->format('Y-m') != (new DateTime())->format('Y-m'))  // aktuelles Monat nicht beruecksichtigen
+            {
+                // Wenn Timesheet vorhanden ist
+                if (!is_null($ts->timesheet_id))
+                {
+                    // flag if at least one timesheet is not sent
+                    if (is_null($ts->abgeschicktamum))
+                    {
+                        $cnt_isNotSent++;
+                    }
 
-		}
-	}
+                    // flag if at least one timesheet is not confirmed
+                    if (is_null($ts->genehmigtamum))
+                    {
+                        $cnt_isNotConfirmed++;
+                    }
+                }
+                // Wenn kein Timesheet vorhanden ist
+                else
+                {
+                    $cnt_isNotCreated++;
+                }
+            }
+        }
+
+        // Monat erhöhen
+        $monat->sub(new DateInterval('P1M'));
+    }
 
 	// Flag if user has obligation to record times
-	$isZeitaufzeichnungspflichtig = false;
 	$isAllIn = false;
 	$azg = false;
 	// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
@@ -560,13 +552,15 @@ foreach($employee_uid_arr as $employee_uid)
 		{
 			$azg = true;
 		}
-		if($verwendung->zeitaufzeichnungspflichtig)
-		{
-			$isZeitaufzeichnungspflichtig = true;
-			break;
-		}
 
 	}
+
+    // Flag if employee is zeitaufzeichnungspflichtig
+    $vbt = new vertragsbestandteil();
+    $result = $vbt->getZaPflichtig($employee_uid);
+
+    // Mindestens eine Zeitaufzeichnungspflicht vorhanden
+    $isZeitaufzeichnungspflichtig = empty($result) ? false : true;  // bei mindestens 1 ZA Pflicht
 
 	// Get time- & holiday balances and SaldoAllin
 	$time_balance = false;
@@ -711,8 +705,8 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = $last_timesheet_id;
 		$obj->last_timesheet_date = $last_timesheet_date;
-		$obj->last_timesheet_sent = $last_timesheet_sent;
-		$obj->last_timesheet_confirmed = $last_timesheet_confirmed;
+		$obj->last_timesheet_sent = $lastSentTimesheetDatum;
+		$obj->last_timesheet_confirmed = $lastConfirmedTimesheetDatum;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = $cnt_isNotSent;
 		$obj->all_timesheets_notConfirmed = $cnt_isNotConfirmed;
@@ -765,6 +759,27 @@ foreach($employee_uid_arr as $employee_uid)
 usort($employees_data_arr, "sortEmployeesName");
 
 // *********************************	FUNCTIONS
+function getMonatslisteStartdatum($ersteZaPflicht)
+{
+
+    // Wenn Zeitaufzeichnungspflicht hat
+    if (!is_null($ersteZaPflicht))
+    {
+        // Wenn erste Zeitaufzeichnungspflichtmonat >= GoLive-Monat liegt...
+        if ((new DateTime($ersteZaPflicht->von))->format('Y-m') >= (new DateTime(CASETIME_TIMESHEET_GOLIVE))->format('Y-m'))
+        {
+            return new DateTime($ersteZaPflicht->von);  // ...vondatum der ersten Zeitaufzeichnungspflicht setzen
+        }
+        else
+        {
+            return new DateTime(CASETIME_TIMESHEET_GOLIVE);  // ...ansonsten GoLive Datum setzen
+        }
+    }
+
+    // Wenn erste Zeitaufzeichnungspflichtmonat in der Zukunft liegt oder es gar keine Zeitaufzeichnungspflicht gibt
+    return new DateTime();  // aktuelles Datum setzen
+}
+
 function sortEmployeesName($employee1, $employee2)
 {
     return strcmp($employee1->nachname, $employee2->nachname);
@@ -1004,11 +1019,11 @@ function sortEmployeesName($employee1, $employee2)
 <!--					<?php /*if ($date_last_month == $employee->last_timesheet_date): */?>
 
 						<!-- * status text if confirmed-->
-						<?php /*if (!is_null($employee->last_timesheet_confirmed)): */?>
+						<?php /*if (!is_null($employee->lastConfirmedTimesheetDatum)): */?>
 							<!--<td class='text-center'>genehmigt</td>-->
 
 						<!-- * status text if sent-->
-						<?php /*elseif (!is_null($employee->last_timesheet_sent)): */?>
+						<?php /*elseif (!is_null($employee->lastSentTimesheetDatum)): */?>
 							<!--<td class='text-center'>abgeschickt</td>-->
 
 						<!-- * status text if created-->
