@@ -536,6 +536,95 @@ class Timesheet extends basis_db
     }
 
     /**
+     * Get sent timesheets only.
+     *
+     * DESC and limit 1 to retrieve last sent timesheet only.
+     * ASC and limit 1 to retrieve frist sent timesheet only.
+     * @param $uid
+     * @param string $order
+     * @param null $limit
+     * @return array|bool
+     */
+    public function getSent($uid, $order = 'DESC', $limit = null)
+    {
+        if ($order !== 'ASC' && $order !== 'DESC')
+        {
+            $this->errormsg = 'Fehler beim Laden der Daten';
+            return false;
+        }
+
+        if (isset($uid) && !empty($uid))
+        {
+            $qry = '
+				SELECT
+					timesheet_id,
+					uid,
+					datum,
+					insertamum,
+					insertvon,
+					abgeschicktamum,
+					genehmigtamum,
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen,
+					vorzeitig_abgeschickt
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					uid ='. $this->db_add_param($uid). '
+                AND abgeschicktamum IS NOT NULL
+				ORDER BY
+					datum ' . $order;
+
+
+            if (!is_null($limit))
+            {
+                $qry .= ' LIMIT ' . $this->db_add_param($limit, FHC_INTEGER);
+            }
+
+            if ($result = $this->db_query($qry))
+            {
+                if ($this->db_num_rows($result) > 0) {
+                    $this->result = array();
+                    while ($row = $this->db_fetch_object()) {
+                        $obj = new stdClass();
+
+                        $obj->timesheet_id = $row->timesheet_id;
+                        $obj->uid = $row->uid;
+                        $obj->datum = $row->datum;
+                        $obj->insertamum = $row->insertamum;
+                        $obj->insertvon = $row->insertvon;
+                        $obj->abgeschicktamum = $row->abgeschicktamum;
+                        $obj->genehmigtamum = $row->genehmigtamum;
+                        $obj->genehmigtvon = $row->genehmigtvon;
+                        $obj->kontrolliertamum = $row->kontrolliertamum;
+                        $obj->kontrolliertvon = $row->kontrolliertvon;
+                        $obj->kontroll_notizen = $row->kontroll_notizen;
+                        $obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
+
+                        $this->result[] = $obj;
+                    }
+
+                    return $this->result;
+                }
+
+                return true;
+            }
+            else
+            {
+                $this->errormsg = "Fehler in der Abfrage zum Genehmigen der timesheets.";
+                return false;
+            }
+        }
+        else
+        {
+            $this->errormsg = "UID muss vorhanden und nicht leer sein";
+            return false;
+        }
+    }
+
+    /**
      * Get unsent timesheets only.
      *
      * DESC and limit 1 to retrieve last unsent timesheet only.
