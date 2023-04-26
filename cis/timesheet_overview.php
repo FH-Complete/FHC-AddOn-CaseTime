@@ -430,7 +430,7 @@ else
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
 	}
 }
-
+$checkAllIn = false;
 foreach($employee_uid_arr as $employee_uid)
 {
 	// name of employee
@@ -540,7 +540,6 @@ foreach($employee_uid_arr as $employee_uid)
 		$arrEchterDV = DEFAULT_ECHTER_DIENSTVERTRAG;
 	}
 
-	$checkAllIn = false;
 	if (defined('DEFAULT_ALLIN_DIENSTVERTRAG') && DEFAULT_ALLIN_DIENSTVERTRAG != '')
 	{
 		$arrAllInDV = DEFAULT_ALLIN_DIENSTVERTRAG;
