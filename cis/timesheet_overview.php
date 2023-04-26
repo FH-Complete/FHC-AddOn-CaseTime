@@ -519,8 +519,8 @@ foreach($employee_uid_arr as $employee_uid)
 
 	// Flag if user has obligation to record times
 	$isAllIn = false;
-	$azg = false;
-	// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
+
+	// * only get active employee contracts
 	$bisverwendung = new bisverwendung();
 	$now = new DateTime('today');
 	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
@@ -548,12 +548,11 @@ foreach($employee_uid_arr as $employee_uid)
 		{
 			$isAllIn = true;
 		}
-		if($verwendung->azgrelevant)
-		{
-			$azg = true;
-		}
-
 	}
+
+    // Flag if employee is AZG-relevant
+    $vbt = new vertragsbestandteil();
+    $azg = $vbt->isAzgRelevant($employee_uid);
 
     // Flag if employee is zeitaufzeichnungspflichtig
     $vbt = new vertragsbestandteil();
