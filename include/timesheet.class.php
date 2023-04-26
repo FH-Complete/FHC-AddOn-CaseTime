@@ -11,6 +11,7 @@ require_once(dirname(__FILE__). '/../../../include/dms.class.php');
 require_once(dirname(__FILE__). '/../../../include/functions.inc.php');
 require_once(dirname(__FILE__). '/../../../include/bisverwendung.class.php');
 require_once(dirname(__FILE__). '/../../../include/zeitaufzeichnung.class.php');
+require_once(dirname(__FILE__). '/../../../include/vertragsbestandteil.class.php');
 
 /**
  * Description of casetime_timesheet
@@ -1914,7 +1915,6 @@ class Timesheet extends basis_db
 	 */
 	public function hasBlockingErrorPause($uid, $month, $year)
 	{
-		$verwendung = new bisverwendung();
 		$datum = new datum();
 
 		//aktuelles Monat nach Pausenfehler checken
@@ -1926,14 +1926,13 @@ class Timesheet extends basis_db
 			$za = new zeitaufzeichnung();
 			if ($za->checkPausenErrors($uid, $day))
 			{
-				$verwendung->getVerwendungDatum($uid, $day);
-				foreach ($verwendung->result as $v)
-				{
-					if ($v->azgrelevant)
-					{
-						return $day; // Blocking error found
-					}
-				}
+                $vbt = new vertragsbestandteil();
+                $isAzgrelevant = $vbt->isAzgRelevant($uid, $day);
+
+                if ($isAzgrelevant)
+                {
+                    return $day; // Blocking error found
+                }
 			}
 			$stamp = strtotime("+1 day", $stamp);
 		}
