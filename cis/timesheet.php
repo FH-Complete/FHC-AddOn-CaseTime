@@ -218,7 +218,8 @@ $now = new DateTime('today');
 
 // Get all timesheets
 $ts = new Timesheet();
-$timesheet_arr = $ts->loadAll($uid);
+$ts->loadAll($uid);
+$timesheet_arr = !empty($ts->result) ? $ts->result : array();
 
 $isBeforeGolive = false;	// true if date is before golive date
 $isFirstEntry = empty($timesheet_arr) ? true : false;	// true if user enters first time monthlist site
@@ -239,8 +240,8 @@ $ersteZaPflicht = $result == true ? $vbt->result[0] : null;
 $isZeitaufzeichnungspflichtig = empty($result) ? false : true;  // bei mindestens 1 ZA Pflicht
 
 // Letztes genehmigtes Timesheet
-$result = $ts->getConfirmed($uid, 'DESC', 1);
-$lastConfirmedTimesheet = $result == true ? $ts->result[0] : null;
+$ts->getConfirmed($uid, 'DESC', 1);
+$lastConfirmedTimesheet = !empty($ts->result) ? $ts->result[0] : null;
 
 // Monatsliste startet ab erster Zeitaufzeichnunsplficht (aber nicht vor GoLive-Datum)
 $monatslisteStartdatum = getMonatslisteStartdatum($ersteZaPflicht);
