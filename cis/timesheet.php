@@ -240,6 +240,7 @@ $ersteZaPflicht = $result == true ? $vbt->result[0] : null;
 $isZeitaufzeichnungspflichtig = empty($result) ? false : true;  // bei mindestens 1 ZA Pflicht
 
 // Letztes genehmigtes Timesheet
+$ts = new Timesheet();
 $ts->getConfirmed($uid, 'DESC', 1);
 $lastConfirmedTimesheet = !empty($ts->result) ? $ts->result[0] : null;
 
@@ -368,14 +369,14 @@ if (!empty($timesheet_cntrl_uid))
 }
 
 // Check if has at least former unsent timesheet
-$hasFormerMissingTimesheet = false;	// true if there are former missing timesheets
+$hasFormerUnsentTimesheet = false;
 if (!is_null($firstNotSentTimesheetDatum) && $firstNotSentTimesheetDatum->format('Y-m') < $date_selected->format('Y-m'))
 {
     $hasFormerUnsentTimesheet = true;
 }
 
 // Check if has at least former missing timesheet
-$hasFormerUnsentTimesheet = false;
+$hasFormerMissingTimesheet = false;	// true if there are former missing timesheets
 if (!is_null($firstMissingTimesheetDatum) && $firstMissingTimesheetDatum->format('Y-m') < $date_selected->format('Y-m'))
 {
     $hasFormerMissingTimesheet = true;
