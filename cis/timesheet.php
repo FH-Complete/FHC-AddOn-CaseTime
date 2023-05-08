@@ -1504,22 +1504,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		</div>
 		<?php endif; ?>
 
-<!--    NOTE: irrelevant mit neuer Vertragsstruktur -->
-<!--		 IF not allowed to create timesheet (only checked when trying to create FIRST timesheet 2 or more months before actual monthyear)-->
-<!--		--><?php //if (!$isAllowed_createTimesheet && !$isZeitaufzeichnungspflichtig): ?>
-<!--		<div class="alert alert-warning alert-dismissible text-center" role="alert">-->
-<!--			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>-->
-<!--			--><?php //if ($isBeforeGolive): ?>
-<!--			<b>Monatslisten dürfen NICHT vor dem --><?php //echo $monatsname[$sprache_index][$date_golive->format('n') - 1]. ' '. $date_golive->format('Y') ?><!-- liegen!</b>-->
-<!--			--><?php //else: ?>
-<!--			<b>Für --><?php //echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?><!-- kann noch keine Monatsliste angelegt werden!</b><br><br>-->
-<!--			Monatslisten können nur für abgeschlossene Monate an den Vorgesetzten gesendet werden.<br>-->
-<!--			<a href="--><?php //echo $_SERVER['PHP_SELF']?><!--?year=--><?php //echo $year ?><!--&month=--><?php //echo ($month - 1)?><!--"-->
-<!--			   class="text-warning"><b>Erste Monatsliste für --><?php //echo $monatsname[$sprache_index][$month - 2]. ' '. $year ?><!-- jetzt erstellen</b></a>-->
-<!--			--><?php //endif; ?>
-<!--		</div>-->
-<!--		--><?php //endif; ?>
-
 		<!-- IF there are casetime server errors that are defined as blocking errors -->
 		<?php if ($hasCaseTimeError && $isAllowed_sendTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
