@@ -1866,7 +1866,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		</div>
 	<?php elseif (!$isZaPflichtig): ?>
         <div class="panel panel-warning">
-            <div class="panel-heading text-center text-warning">Status: <b>ABGESCHICKT</b></div>
+            <div class="panel-heading text-center text-warning">Status: <b>NICHT ZEITAUFZEICHNUNGSPFLICHTIG</b></div>
         </div>
 	<?php elseif ($isSent && !$isConfirmed): ?>
 		<div class="panel panel-warning">
