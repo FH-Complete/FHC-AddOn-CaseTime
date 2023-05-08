@@ -407,8 +407,9 @@ class Timesheet extends basis_db
 
             if ($result = $this->db_query($qry))
             {
+                $this->result = array();
+
                 if ($this->db_num_rows($result) > 0) {
-                    $this->result = array();
                     while ($row = $this->db_fetch_object()) {
                         $obj = new stdClass();
 
