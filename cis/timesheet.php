@@ -1462,7 +1462,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php endif; ?>
 
 		<!-- IF timesheets are missing before selected date -->
-		<?php if ($hasFormerMissingTimesheet && !$isConfirmed && !$isFuture && !is_null($date_last_timesheet)): ?>
+		<?php if ($isZaPflichtigOnSelDate && $hasFormerMissingTimesheet && !$isConfirmed && !$isFuture && !is_null($date_last_timesheet)): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> kann noch keine Monatsliste angelegt werden!</b><br><br>
@@ -1848,7 +1848,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<div class="panel panel-success">
 			<div class="panel-heading text-center text-success">Status: <b>GENEHMIGT</b></div>
 		</div>
-	<?php elseif (!$isZaPflichtig): ?>
+	<?php elseif (!$isZaPflichtigOnSelDate): ?>
         <div class="panel panel-warning">
             <div class="panel-heading text-center text-warning">Status: <b>NICHT ZEITAUFZEICHNUNGSPFLICHTIG</b></div>
         </div>
