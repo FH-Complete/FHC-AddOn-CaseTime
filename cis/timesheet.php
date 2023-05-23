@@ -386,10 +386,10 @@ if (!is_null($firstMissingTimesheetDatum) && $firstMissingTimesheetDatum->format
 $isAllowed_sendTimesheet = !$hasFormerMissingTimesheet && !$hasFormerUnsentTimesheet;
 
 // Check if has not confirmed timesheet
-$isAllowed_confirmTimesheet = true;
+$hasFormerUnconfirmedTimesheet = true;
 if (!is_null($firstNotConfirmedTimesheetDatum) && $firstNotConfirmedTimesheetDatum->format('Y-m') < $date_selected->format('Y-m'))
 {
-    $isAllowed_confirmTimesheet = false;
+    $hasFormerUnconfirmedTimesheet = false;
 }
 
 // Save timesheet, if timesheet is new and user is timely allowed to create first timesheet
@@ -1191,7 +1191,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 										checked AND disabled if overtime was already confirmed
 										<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="0"
 										<?php echo (isset($checkbox_overtime_arr[0]) && $checkbox_overtime_arr[0] == 'true') ? "checked" : "" ?>
-										<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
+										<?php echo (!$isSent || $isFuture || !$hasFormerUnconfirmedTimesheet) ? "disabled" : "" ?>
 										<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
 									</td>
 								<?php endif; ?>
@@ -1204,7 +1204,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 									<td <?php echo (isset($checkbox_overtime_arr[1]) && $checkbox_overtime_arr[1] == 'false') ? 'class="danger"' : '' ?>>
 										<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="1"
 										<?php echo (isset($checkbox_overtime_arr[1]) && $checkbox_overtime_arr[1] == 'true') ? "checked" : "" ?>
-										<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
+										<?php echo (!$isSent || $isFuture || !$hasFormerUnconfirmedTimesheet) ? "disabled" : "" ?>
 										<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
 									</td>
 								<?php endif; ?>
@@ -1217,7 +1217,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 									<td <?php echo (isset($checkbox_overtime_arr[2]) && $checkbox_overtime_arr[2] == 'false') ? 'class="danger"' : '' ?>>
 										<input class="checkbox-inline" name="checkbox_overtime[]" type="checkbox" value="2"
 										<?php echo (isset($checkbox_overtime_arr[2]) && $checkbox_overtime_arr[2] == 'true') ? "checked" : "" ?>
-										<?php echo (!$isSent || $isFuture || !$isAllowed_confirmTimesheet) ? "disabled" : "" ?>
+										<?php echo (!$isSent || $isFuture || !$hasFormerUnconfirmedTimesheet) ? "disabled" : "" ?>
 										<?php echo ($isConfirmed) ? "checked disabled" : "" ?>>
 									</td>
 								<?php endif; ?>
@@ -1287,7 +1287,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<form id="formTimesheetConfirmation" method="POST" action="">
 				<input type="hidden" name="checkbox_overtime_arr" value="" />
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$isAllowed_confirmTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzter) ) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+					<button type="submit" <?php echo ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$hasFormerUnconfirmedTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzter) ) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 							name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
 							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
 				</div>
@@ -1305,7 +1305,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				<input type="hidden" name="checkbox_overtime_arr" value="" />
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit"
-					<?php if ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$isAllowed_confirmTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzterMitVertretungsfunktion)): ?>
+					<?php if ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$hasFormerUnconfirmedTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzterMitVertretungsfunktion)): ?>
 							disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."
 						<?php if ($isVorgesetzterMitVertretungsfunktion): ?>
 							data-toggle="tooltip" title="Als Vertretung können Sie diese direkt genehmigen."
@@ -1330,7 +1330,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<form method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit"
-						<?php if ((!$isSent || $isConfirmed || !$isAllowed_confirmTimesheet) && ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterMitVertretungsfunktion)): ?>
+						<?php if ((!$isSent || $isConfirmed || !$hasFormerUnconfirmedTimesheet) && ($isVorgesetzter || $isPersonal || $isTimesheetManager || $isVorgesetzterMitVertretungsfunktion)): ?>
 							disabled
 							<?php if ($isTimesheetManager && !$isConfirmed): ?>
 								data-toggle="tooltip" title="Monatsliste wurde nicht versendet. Als Timesheet Manager können Sie diese direkt genehmigen."
@@ -1369,7 +1369,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			</div>
 			<div class="panel-body col-xs-4"><br>
 				<form class="form" method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
-				<button type="submit" <?php echo (!$isSent || !$isConfirmed || !$isAllowed_confirmTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>
+				<button type="submit" <?php echo (!$isSent || !$isConfirmed || !$hasFormerUnconfirmedTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>
 					name="submitTimesheetCancelConfirmation" class="btn btn-primary pull-right"
 					onclick="return confirm('Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\n für <?php echo $full_name ?> sicher aufheben?\nDabei werden zur Überarbeitung auch\ndie Genehmigungen ALLER MONATE DANACH wieder aufgehoben!');">Genehmigung aufheben</button>
 				</form>
@@ -1630,7 +1630,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php endif; ?>
 
 		<!--IF former timesheets are not yet confirmed (only shown for supervisors and timesheet managers)-->
-		<?php if(!$isAllowed_confirmTimesheet && (($isVorgesetzter && $isVorgesetzter_indirekt) || $isTimesheetManager)): ?>
+		<?php if(!$hasFormerUnconfirmedTimesheet && (($isVorgesetzter && $isVorgesetzter_indirekt) || $isTimesheetManager)): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Sie müssen noch frühere Monatslisten genehmigen!</b><br><br>
