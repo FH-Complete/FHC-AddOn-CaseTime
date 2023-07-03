@@ -449,11 +449,11 @@ foreach($employee_uid_arr as $employee_uid)
 
     // Get last sent timesheet
     $result = $timesheet->getSent($employee_uid, 'DESC', 1);
-    $lastSentTimesheetDatum = $result == true ? new DateTime($timesheet->result[0]->datum) : null;
+    $lastSentTimesheetDatum = $result == true && !empty($timesheet->result) ? new DateTime($timesheet->result[0]->datum) : null;    // Fixed errormsg Undefined offset on line 462
 
     // Get last confirmed timesheet
     $result = $timesheet->getConfirmed($employee_uid, 'DESC', 1);
-    $lastConfirmedTimesheet = $result == true ? $timesheet->result[0] : null;
+    $lastConfirmedTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
     $lastConfirmedTimesheetDatum = !is_null($lastConfirmedTimesheet) ? new DateTime($lastConfirmedTimesheet->datum) : null;
 
     // Erster VBT Zeitaufzeichnungspflicht
