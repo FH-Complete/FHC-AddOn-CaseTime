@@ -1671,10 +1671,10 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php if ($isFirstEntry && $isZeitaufzeichnungspflichtig): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
-			<b><?php echo $full_name. ' ist ab '. $monatsname[$sprache_index][((new DateTime($ersteZaPflicht->datum))->format('n')) - 1]. ' '. (new DateTime($ersteZaPflicht->datum))->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
+			<b><?php echo $full_name. ' ist ab '. $monatsname[$sprache_index][((new DateTime($ersteZaPflicht->von))->format('n')) - 1]. ' '. (new DateTime($ersteZaPflicht->von))->format('Y'); ?> zeitaufzeichnungspflichtig.</b><br><br>
 			Monatslisten müssen chronologisch erstellt und an Vorgesetzte gesendet werden.<br>
-			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo (new DateTime($ersteZaPflicht->datum))->format('Y') ?>&month=<?php echo (new DateTime($ersteZaPflicht->datum))->format('m')?>&employee_uid=<?php echo $uid ?>&create=true""
-			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][(new DateTime($ersteZaPflicht->datum))->format('n') - 1]. ' '. (new DateTime($ersteZaPflicht->datum))->format('Y') ?> jetzt erstellen</b></a>
+			<a href="<?php echo $_SERVER['PHP_SELF']?>?year=<?php echo (new DateTime($ersteZaPflicht->von))->format('Y') ?>&month=<?php echo (new DateTime($ersteZaPflicht->von))->format('m')?>&employee_uid=<?php echo $uid ?>&create=true""
+			   class="text-danger"><b>Monatsliste <?php echo $monatsname[$sprache_index][(new DateTime($ersteZaPflicht->von))->format('n') - 1]. ' '. (new DateTime($ersteZaPflicht->von))->format('Y') ?> jetzt erstellen</b></a>
 		</div>
 		<?php endif; ?>
 
