@@ -1738,4 +1738,54 @@ class Timesheet extends basis_db
 		$this->result = $missing_bestaetigung_arr;
 		return false;
 	}
+
+    /** Get the most recent timesheet abgeschicktamum
+     *
+     * @param type $uid
+     * @return boolean True on success.
+     */
+    public function getDataOfLatestTimesheetAbgeschickt($uid)
+    {
+        if (isset($uid) && !empty($uid))
+        {
+            $qry = '
+				SELECT
+					*
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					uid=' . $this->db_add_param($uid, FHC_STRING) . '
+				AND
+					abgeschicktamum IS NOT NULL
+				ORDER BY
+					abgeschicktamum DESC LIMIT 1';
+
+            if ($this->db_query($qry))
+            {
+
+                if ($row = $this->db_fetch_object())
+                {
+                    $this->timesheet_id = $row->timesheet_id;
+                    $this->abgeschicktamum = $row->abgeschicktamum;
+                    $this->datum = $row->datum;
+
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                $this->errormsg = "Fehler in der Abfrage zu Daten des zuletzten abgeschickten Timesheets.";
+                return false;
+            }
+        }
+        else
+        {
+            $this->errormsg = "UID muss vorhanden und nicht leer sein";
+            return false;
+        }
+    }
 }
