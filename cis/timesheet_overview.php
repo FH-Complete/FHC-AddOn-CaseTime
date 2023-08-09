@@ -496,7 +496,7 @@ foreach($employee_uid_arr as $employee_uid)
 			$cnt_isNotConfirmed = -1;
 
 			// go back one monthlist only if it exists
-			if (count($timesheet_arr) > 1)
+			if (numberOfElements($timesheet_arr) > 1)
 			{
 				$index = 1;
 				$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[$index]->datum);

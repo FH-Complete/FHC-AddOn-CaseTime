@@ -361,7 +361,7 @@ if($result = $db->db_query($qry))
 				$el_arr[$row->uid] = array();
 				$el_arr[$row->uid][$row->datum] = $eladd;
 			}
-			$qry_tag = "select count(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
+			$qry_tag = "select COUNT(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
 			$result_tag = $db->db_query($qry_tag);
 			$inkernzeit = 	$db->db_fetch_row($result_tag);
 			$msglog .= $inkernzeit[0];
@@ -399,7 +399,7 @@ if($result = $db->db_query($qry))
 				$er_arr[$row->uid] = array();
 				$er_arr[$row->uid][$row->datum] = $eradd;
 			}
-			$qry_tag = "select count(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
+			$qry_tag = "select COUNT(*) from addon.tbl_casetime_zeitaufzeichnung where uid = '".$row->uid."' and datum = '".$row->datum."' and zeit_start < '".$row->startzeit."' and zeit_ende > '".$row->endzeit."' and typ = 'ko'";
 			$result_tag = $db->db_query($qry_tag);
 			$inkernzeit = 	$db->db_fetch_row($result_tag);
 			$msglog .= $inkernzeit[0];
