@@ -821,6 +821,13 @@ if (isset($_POST['submitTimesheetSendBack']))
 	$timesheet->timesheet_id = $timesheet_id;
 	$timesheet->abgeschicktamum = null;
 
+	//if there are newer timesheets already sent: reset abgeschicktamum to enable user to change records
+	$array_to_reset = $timesheet->getNewerTimesheets($timesheet_id, $uid);
+	foreach($array_to_reset as $ts)
+	{
+		$timesheet->resetSentData($ts);
+	}
+
 	// save confirmation
 	if ($timesheet->save(true))
 	{
