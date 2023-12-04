@@ -31,7 +31,6 @@ require_once('../../../include/sprache.class.php');
 require_once('../../../include/globals.inc.php');
 require_once('../../../include/dms.class.php');
 require_once('../../../include/mitarbeiter.class.php');
-require_once('../../../include/bisverwendung.class.php');
 require_once('../../../include/zeitaufzeichnung.class.php');
 require_once('../../../include/sancho.inc.php');
 require_once('../include/functions.inc.php');
