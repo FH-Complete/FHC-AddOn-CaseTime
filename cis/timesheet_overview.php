@@ -431,7 +431,7 @@ else
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
 	}
 }
-$checkAllIn = false;
+$isAllIn = false;
 foreach($employee_uid_arr as $employee_uid)
 {
 	// name of employee
@@ -520,35 +520,13 @@ foreach($employee_uid_arr as $employee_uid)
 	// Flag if user has obligation to record times
 	$isAllIn = false;
 
-	// * only get active employee contracts
-	$bisverwendung = new bisverwendung();
-	$now = new DateTime('today');
-	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
-	$verwendung_arr = $bisverwendung->result;
-	$vertragsstunden = 0;
-	$arrEchterDV= [103];
-	if (defined('DEFAULT_ECHTER_DIENSTVERTRAG') && DEFAULT_ECHTER_DIENSTVERTRAG != '')
-	{
-		$arrEchterDV = DEFAULT_ECHTER_DIENSTVERTRAG;
-	}
+	// Get employees active Wochenstunden
+	$vbt = new vertragsbestandteil();
+	$vertragsstunden = $vbt->getWochenstunden($employee_uid) ? $vbt->result[0]->wochenstunden : 0;
 
-	if (defined('DEFAULT_ALLIN_DIENSTVERTRAG') && DEFAULT_ALLIN_DIENSTVERTRAG != '')
-	{
-		$arrAllInDV = DEFAULT_ALLIN_DIENSTVERTRAG;
-		$checkAllIn = true;
-	}
-
-	foreach($verwendung_arr as $verwendung)
-	{
-		if(in_array($verwendung->ba1code, $arrEchterDV))
-		{
-			$vertragsstunden = $verwendung->vertragsstunden;
-		}
-		if($checkAllIn && in_array($verwendung->ba1code, $arrAllInDV))
-		{
-			$isAllIn = true;
-		}
-	}
+	// Flag if employee has AllIn Contract
+	$vbt = new vertragsbestandteil();
+	$isAllin = $vbt->isAllin($employee_uid);
 
     // Flag if employee is AZG-relevant
     $vbt = new vertragsbestandteil();
@@ -940,8 +918,8 @@ function sortEmployeesName($employee1, $employee2)
 				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>
 
-				<?php echo (!$checkAllIn) ? '<th>AZG anwendbar</th>' : '' ?>
-				<?php echo ($checkAllIn) ? '<th>All In</th>' : '' ?>
+				<?php echo (!$isAllIn) ? '<th>AZG anwendbar</th>' : '' ?>
+				<?php echo ($isAllIn) ? '<th>All In</th>' : '' ?>
 				<th>Zeitaufzeichnungspflichtig</th>
 				<!--<th>Status</th>-->
 				<th>Abgeschickt am</th>
@@ -953,7 +931,7 @@ function sortEmployeesName($employee1, $employee2)
 				</th>
 				<th>Zeitsaldo
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit <?php echo ($checkAllIn) ? '/ Allin Summe Studienjahr' : '' ?>&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
+						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit <?php echo ($isAllIn) ? '/ Allin Summe Studienjahr' : '' ?>&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
 				</th>
 				<th data-toggle="tooltip" title="Verfügbare Urlaubstage / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
@@ -988,7 +966,7 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if (!$checkAllIn): ?>
+					<?php if (!$isAllIn): ?>
 						<?php if ($employee->azg): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -996,7 +974,7 @@ function sortEmployeesName($employee1, $employee2)
 						<?php endif; ?>
 					<?php endif; ?>
 
-					<?php if ($checkAllIn): ?>
+					<?php if ($isAllIn): ?>
 						<?php if ($employee->isAllIn): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -1065,7 +1043,7 @@ function sortEmployeesName($employee1, $employee2)
 					<td class='text-center<?php echo $employee->zeitsaldoklasse ?>'><?php
 					echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
 					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -'; ?>
-					<?php if ($checkAllIn): ?>
+					<?php if ($isAllIn): ?>
 						<?php if ($employee->isAllIn): ?>
 							<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
 						<?php endif; ?>
@@ -1113,7 +1091,7 @@ function sortEmployeesName($employee1, $employee2)
 					<?php endif; ?>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if (!$checkAllIn): ?>
+					<?php if (!$isAllIn): ?>
 						<?php if ($employee->azg): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -1121,7 +1099,7 @@ function sortEmployeesName($employee1, $employee2)
 						<?php endif; ?>
 					<?php endif; ?>
 
-					<?php if ($checkAllIn): ?>
+					<?php if ($isAllIn): ?>
 						<?php if ($employee->isAllIn): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -1157,7 +1135,7 @@ function sortEmployeesName($employee1, $employee2)
 						<td class='text-center<?php echo $zeitsaldoklasse ?>'><?php
 						echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
 						echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';?>
-						<?php if ($checkAllIn): ?>
+						<?php if ($isAllIn): ?>
 							<?php if ($employee->isAllIn): ?>
 								<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
 							<?php endif; ?>
