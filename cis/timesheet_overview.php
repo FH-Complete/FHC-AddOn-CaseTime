@@ -520,6 +520,10 @@ foreach($employee_uid_arr as $employee_uid)
 	// Flag if user has obligation to record times
 	$isAllIn = false;
 
+    // Flag if employee is karenziert
+	$vbt = new vertragsbestandteil();
+	$isKarenziert = $vbt->isKarenziert($employee_uid);
+
 	// Get employees active Wochenstunden
 	$vbt = new vertragsbestandteil();
 	$vertragsstunden = $vbt->getWochenstunden($employee_uid) ? $vbt->result[0]->wochenstunden : 0;
@@ -699,6 +703,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
 		$obj->salue1sum = $allInSaldo;
+        $obj->isKarenziert = $isKarenziert;
 	}
 	// * basic data of employee who has NO timesheets
 	else
@@ -727,6 +732,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
 		$obj->salue1sum = $allInSaldo;
+		$obj->isKarenziert = $isKarenziert;
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
@@ -1040,7 +1046,9 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--balance of working hours on next account-->
-					<td class='text-center<?php echo $employee->zeitsaldoklasse ?>'><?php
+					<td class='text-right<?php echo $employee->zeitsaldoklasse ?>'>
+                    <?php echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
+                    <?php
 					echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
 					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -'; ?>
 					<?php if ($isAllIn): ?>
@@ -1132,9 +1140,11 @@ function sortEmployeesName($employee1, $employee2)
 					<td class='text-center'>-</td>
 						<!--balance of working hours on next account-->
 
-						<td class='text-center<?php echo $zeitsaldoklasse ?>'><?php
-						echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
-						echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';?>
+						<td class='text-right<?php echo $zeitsaldoklasse ?>'>
+                        <?php echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
+                        <?php
+                            echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
+                            echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';?>
 						<?php if ($isAllIn): ?>
 							<?php if ($employee->isAllIn): ?>
 								<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
