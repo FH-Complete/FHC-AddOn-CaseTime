@@ -63,6 +63,9 @@ addon.push(
 				// Anzeige der Zeitfehler
 				AddonCaseTimeLoadErrors(params.uid);
 
+				// Anzeige Saldo Allin
+				AddonCaseTimeLoadSaldoAllin(params.uid);
+
 				// Anzeige der Ueberstunden
 				AddonCaseTimeLoadZeitsaldo(params.uid, params.exportXLS);
 				break;
@@ -381,15 +384,67 @@ function AddonCaseTimeLoadZeitsaldo(uid,exportXLS)
 				moli_dd += '<a href="../../../addons/casetime/cis/timesheet.php">Monatslisten verwalten</a>';
 
 				$('#monatsliste').html(moli_dd);
-				document.getElementById('monat').selectedIndex=MonatLetztes-1;
-				if (MonatLetztes == 12)
-					document.getElementById('jahr').selectedIndex=1;
+
+				if (exportXLS)
+				{
+					document.getElementById('monat').selectedIndex=MonatLetztes-1;
+					if (MonatLetztes == 12)
+						document.getElementById('jahr').selectedIndex=1;
+				}
 			}
       },
 		error: function(){
 			alert("Error Casetime Load");
 		}
     });
+}
+
+/**
+ * Anzeige Saldo Allin
+ */
+function AddonCaseTimeLoadSaldoAllin(uid)
+{
+	$.ajax({
+			type: "GET",
+			dataType: 'json',
+			url: '<?php echo APP_ROOT;?>/addons/casetime/vilesci/allinSaldo.php?uid='+uid,
+			success: function (result)
+			{
+				if (result === false)
+				{
+					$('#saldoAllin').css('margin-left','50px');
+					$('#saldoAllin').html('<span style="color:grey">kein Saldo AllIn</span>');
+				}
+				else
+				{
+					var zahl = parseFloat(result.salue1sum);
+					if (zahl > 0)
+						var faktor = 1;
+					else
+						var faktor = -1;
+					zahl = zahl * faktor;
+					var std = Math.floor(zahl);
+					var min = (zahl-Math.floor(zahl))*60;
+					min = Math.round(min);
+					var std_anzeigealt = std+'h:'+min+'m';
+
+					if(result.salue1sum >= 380)
+						color1='red';
+					else if (result.salue1sum >= 300)
+						color1='blue';
+					else
+						color1='black';
+
+					$('#saldoAllin').css('margin-left','50px');
+					$('#saldoAllin').html('All-In Summe Studienjahr: <span style="color:'+ color1 +'">' + result.salue1sum + '</span> Stunden ('+std_anzeigealt+')' );
+
+				}
+			},
+			error: function()
+			{
+				alert("Error Casetime Load - AddonCaseTimeLoadSaldoAllin(uid) ");
+			}
+		});
 }
 
 /**
@@ -444,4 +499,20 @@ function AddonCaseTimeGenerateMonatslisteDD()
 		}
     });
 
+}
+
+function getAnzeigeZeitenViewOld(saldo)
+{
+	var zahl = parseFloat($saldo);
+	if (zahl > 0)
+		var faktor = 1;
+	else
+		var faktor = -1;
+	zahl = zahl * faktor;
+	var std = Math.floor(zahl);
+	var min = (zahl-Math.floor(zahl))*60;
+	min = Math.round(min);
+	var std_anzeigealt = std+'h:'+min+'m';
+
+	return std_anzeigealt;
 }

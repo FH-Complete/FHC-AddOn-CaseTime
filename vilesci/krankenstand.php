@@ -1,5 +1,5 @@
 <?php
-/* 
+/*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
@@ -17,7 +17,7 @@ require_once('../../../include/dokument.class.php');
 require_once('../include/functions.inc.php');
 
 $uid = get_uid();
-$sprache = getSprache();	
+$sprache = getSprache();
 $p = new phrasen($sprache);
 
 $rechte = new benutzerberechtigung();
@@ -48,40 +48,45 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
 		$timesheet = new Timesheet();
 		$bestaetigung_doc_arr = $timesheet->loadBestaetigungen_inPeriod($from, $to, $dokument_kurzbz);	// array with dms information
 		$cnt = 1;	// counter for unique filename
-		
-		// Create temp zip file in temp dir
-		$tmp_zip_file = tempnam(sys_get_temp_dir(), "FHC_BESTAETIGUNGEN_". $dokument_bezeichnung. "_"). '.zip';
 
+		// Create temp zip file in temp dir
+		$tmp_zip_file = tempnam(sys_get_temp_dir(), "FHC_BESTAETIGUNGEN_". $dokument_bezeichnung. "_");
+		rename($tmp_zip_file, $tmp_zip_file .= '.zip');
 		// Create zip archive
 		// ---------------------------------------------------------------------------------------------------------
-		if ($zip->open($tmp_zip_file, ZipArchive::CREATE) === TRUE) 
+		if ($zip->open($tmp_zip_file, ZipArchive::CREATE) === TRUE)
 		{
 			// Loop through all bestaetigungen documents
 			foreach ($bestaetigung_doc_arr as $bestaetigung_doc)
-			{		
+			{
 				$filename = DMS_PATH. $bestaetigung_doc->filename;
 				$ext = pathinfo($bestaetigung_doc->filename, PATHINFO_EXTENSION);
 				$cnt = setLeadingZero($cnt);
-					
+
 				// Add krankenstand document to zip-file
 				if (file_exists($filename))
 				{
 					$zip->addFile($filename, $dokument_bezeichnung. '_'. $cnt. '_'. $bestaetigung_doc->insertvon. '.'. strtolower($ext));
 				}
-				
+
 				$cnt++;
 			}
 
 			// Add CSV file (only for krankenstaende)
 			// ---------------------------------------------------------------------------------------------------------
-			$csv = "Vorname;Nachname;Krank von;Krank bis\n";	// string csv-list informing about duration of krankenstaende within the from-to-period
+			$tmp_csv_name = null;
             if ($dokument_kurzbz == 'bst_krnk')
             {
+				$tmp_csv_name = tempnam(sys_get_temp_dir(), "Kontrolle_Krankenstaende_$from-$to"); // string csv-list informing about duration of krankenstaende within the from-to-period
+				rename($tmp_csv_name, $tmp_csv_name .= '.csv');
+				$csv_file = fopen($tmp_csv_name,'w');
+				fputcsv($csv_file, array('Vorname', 'Nachname', 'Krank von', 'Krank bis', 'Abteilung', 'Unternehmen' ), ';');
+
                 // Get all active and fix-employed employees
                 $all_employee_uid_arr = array();
                 $mitarbeiter = new Mitarbeiter();
                 $mitarbeiter->getPersonal('true', false, false, 'true', false, null);
-    
+
                 foreach ($mitarbeiter->result as $mitarbeiter)
                 {
                     if ($mitarbeiter->personalnummer > 0)	// filter out dummies
@@ -89,48 +94,71 @@ if (isset($_POST['download']) && isset($_POST['from']) && isset($_POST['to']) &&
                         $all_employee_uid_arr []= $mitarbeiter->uid;
                     }
                 }
-                
+
                 // Create entries in csv-list
                 foreach ($all_employee_uid_arr as $uid)
                 {
                     $benutzer = new Benutzer($uid);
                     $vorname = $benutzer->vorname;
                     $nachname = $benutzer->nachname;
-                
+
                     // Get duration of employees krankenstand, if the krankenstand was within the from-to-period
                     $timesheet = new Timesheet();
                     $krankenstand_tage_arr = $timesheet->getKrankenstaende_byUser_inPeriod($uid, $from, $to);
-                    
+
                     // Add duration of employees krankenstand to csv-list
                     foreach ($krankenstand_tage_arr as $krankenstand_tage)
                     {
-                        $csv .= "$vorname;$nachname;$krankenstand_tage->vondatum;$krankenstand_tage->bisdatum\n";
-                    }
+						$mitarbeiter = new Mitarbeiter($uid);
+						$mitarbeiter->getMitarbeiterKostenstelle($krankenstand_tage->vondatum, $krankenstand_tage->bisdatum);
+						$kostenstellen_arr = $mitarbeiter->result;
+						$unternehmen = [];
+						$kostenstellen = [];
+						foreach ($kostenstellen_arr as $kostenstelle)
+						{
+							$org = new Organisationseinheit();
+							$org->getOERoot($kostenstelle->oekurzbz);
+
+							$kostenstellen[] = $kostenstelle->bezeichnung;
+
+							$org->load($org->oe_kurzbz);
+							$unternehmen[] = $org->bezeichnung;
+						}
+
+						$csv_line = array($vorname, $nachname, $krankenstand_tage->vondatum, $krankenstand_tage->bisdatum, implode(', ', $kostenstellen), implode(', ', $unternehmen));
+						fputcsv($csv_file, $csv_line, ';');
+					}
                 }
-                
-                // Add the csv-list to zip-archive
-                $zip->addFromString("Kontrolle_Krankenstaende_$from-$to.csv", $csv);
-            }
-            
+
+				// Add the csv-list to zip-archive
+				$zip->addFile($tmp_csv_name, "Kontrolle_Krankenstaende_$from-$to.csv");
+				fclose($csv_file);
+			}
+
 			// Close zip archive
 			// ---------------------------------------------------------------------------------------------------------
-			$zip->close();			
-		
+			$zip->close();
+
 			// Download zip archive
 			header('Content-Type: application/zip');
 			header('Content-disposition: attachment; filename='. basename($tmp_zip_file));
 			header('Content-Length: '. filesize($tmp_zip_file));
 			readfile($tmp_zip_file);
-			
+
 			// Delete temp zip file
 			unlink($tmp_zip_file);
-		} 
-		else 
+
+			if (!is_null($tmp_csv_name) && file_exists($tmp_csv_name))
+			{
+				unlink($tmp_csv_name);
+			}
+		}
+		else
 		{
 		    echo 'Fehler beim Zippen der Krankenstandsbestätigungen.';
 		}
 	}
-	else 
+	else
 	{
 		echo 'Es muss ein Bestaetigungstyp,ein Von- und ein Bis-Datum vorhanden sein';
 	}
@@ -161,14 +189,14 @@ foreach ($dokument->result as $key => $value)
 	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
 	<script type="text/javascript" src="../../../vendor/components/jqueryui/ui/i18n/datepicker-de.js"></script>
-	<title>Krankenstaende</title>	
+	<title>Krankenstaende</title>
 	<script>
 	$(document).ready(function(){
 		var date = new Date();
 		var date_default_from = new Date(date.getFullYear(), date.getMonth() - 1, 20);	// 20th of last month
 		var date_default_to = new Date(date.getFullYear(), date.getMonth(), 19);	// 19th of actual month
 		var dateFormat = "dd.mm.yy";
-		
+
 		from = $("#from")
 			.datepicker()	// init datepicker
 			.datepicker("setDate", date_default_from)	// set value to from-date
@@ -180,10 +208,10 @@ foreach ($dokument->result as $key => $value)
 			.datepicker("setDate", date_default_to)
 			.on("change", function() {
 				from.datepicker("option", "maxDate", getDate(this));
-			}); 
+			});
 
 		function getDate(element) {
-			var date;		
+			var date;
 			try {
 				date = $.datepicker.parseDate(dateFormat, element.value);
 			} catch(error) {
@@ -197,17 +225,17 @@ foreach ($dokument->result as $key => $value)
 </head>
 <body class="Background_main">
 	<h2>Bestätigungen der MitarbeiterInnen</h2>
-	
+
 	<h3>ZIP-Download von Bestätigungen</h3>
 	<br>
-	
+
 	<form accept-charset="UTF-8" action="<?php $_SERVER['PHP_SELF'] ?>" method="POST">
 		<table>
             <tr>
                 <td style="width: 50px;">Typ</td>
                 <td colspan="3">
                     <select id="typ" name='dokument_kurzbz' class="form-control" style='width:300px'>
-		
+
 		                <?php foreach ($dokument->result as $dok): ?>
                             <option value="<?php echo $dok->dokument_kurzbz ?>"
 				                <?php echo

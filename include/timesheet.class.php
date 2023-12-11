@@ -9,6 +9,8 @@ require_once(dirname(__FILE__). '/../../../include/basis_db.class.php');
 require_once(dirname(__FILE__). '/../../../include/datum.class.php');
 require_once(dirname(__FILE__). '/../../../include/dms.class.php');
 require_once(dirname(__FILE__). '/../../../include/functions.inc.php');
+require_once(dirname(__FILE__). '/../../../include/bisverwendung.class.php');
+require_once(dirname(__FILE__). '/../../../include/zeitaufzeichnung.class.php');
 
 /**
  * Description of casetime_timesheet
@@ -1289,6 +1291,108 @@ class Timesheet extends basis_db
 		}
 	}
 
+	/** Check if there is no existing timesheet although user is zeitaufzeichnungsplichtig
+	 *
+	 * @param string $uid User ID.
+	 * @return string $beginn	Wenn vorhanden Datum der letzen Bisverwendung mit ZA-Pflicht
+	 * @return boolean	True when this constellation is the case
+	 */
+	public function getLastVerwendungZapflicht($uid)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			$date_golive = new DateTime('first day of '. CASETIME_TIMESHEET_GOLIVE);
+			$date_begin_zeitaufzeichnungspflicht = $date_golive->format('Y-m-d');
+			$date_begin_zeitaufzeichnungspflicht = "'$date_begin_zeitaufzeichnungspflicht'";
+
+			$qry = "
+			SELECT beginn
+			FROM bis.tbl_bisverwendung
+			WHERE mitarbeiter_uid = ". $this->db_add_param($uid). "
+			and zeitaufzeichnungspflichtig = TRUE
+			AND beginn < NOW()::date
+			AND COALESCE(beginn, $date_begin_zeitaufzeichnungspflicht ::date) < NOW()::date
+			AND COALESCE(ende, NOW()::date) > $date_begin_zeitaufzeichnungspflicht ::date
+			order by bisverwendung_id DESC LIMIT 1;
+			";
+
+			if ($this->db_query($qry))
+			{
+				if ($row = $this->db_fetch_object())
+				{
+					$beginn = $row->beginn;
+					return $beginn;
+				}
+				else
+				{
+					$this->errormsg = 'Fehler beim Laden der Daten';
+					return false;
+				}
+			}
+			else
+			{
+				$this->errormsg = 'Keine Bisverwendung mit ZA-Pflicht';
+				return false;
+			}
+		}
+	}
+
+	/** Check if there is an existing timesheet
+	 *
+	 * @param string $uid UserID.
+	 * @return boolean	True when there is a timesheet
+	 */
+	public function checkIfUserHasTimesheet($uid)
+	{
+		if (isset($uid) && !empty($uid))
+		{
+			$qry = "
+			SELECT *
+			FROM addon.tbl_casetime_timesheet
+			WHERE uid = ". $this->db_add_param($uid). "
+			";
+
+			if ($this->db_query($qry))
+			{
+				$num_rows = $this->db_num_rows();
+				if ($num_rows > 0)
+				{
+					return true;
+				}
+				else
+				{
+					return false;
+				}
+			}
+			else
+				return false;
+		}
+	}
+
+	/** Insert new timesheet
+	 *
+	 * @param string $uid UserID.
+	 * @param date $datum Date of Timesheet.
+	 * @return boolean	True when inserted successfully
+	 */
+	public function insertTimeSheet($uid, $datum)
+	{
+		$qry = "
+			INSERT INTO addon.tbl_casetime_timesheet (uid, datum, insertvon)
+			VALUES (". $this->db_add_param($uid). ",". $this->db_add_param($datum). ",'tsdaemon')
+		";
+
+		if ($this->db_query($qry))
+		{
+				return true;
+		}
+		else
+		{
+			$this->errormsg = 'Timesheet konnte nicht eingefügt werden';
+			return false;
+		}
+	}
+
 	/**
 	 * Saves users if Monatsliste should be closed before the month has finished.
 	 * @param $timesheet_id
@@ -1440,6 +1544,41 @@ class Timesheet extends basis_db
 			}
 		}
 		return false; // No blocking errors found
+	}
+
+	/**
+	 * Checks if there are blocking Pausen errors
+	 * @param string $uid Mitarbeiter_uid.
+	 * @param string $month Timesheet month, e.g. 06.
+	 * @param string $year  Timesheet year, e.g. 2021.
+	 * @return bool false if no blocking pause errors were found, else the day of the error.
+	 */
+	public function hasBlockingErrorPause($uid, $month, $year)
+	{
+		$verwendung = new bisverwendung();
+		$datum = new datum();
+
+		//aktuelles Monat nach Pausenfehler checken
+		$start = $year. "-". $month. "-01";
+		$stamp = strtotime($start);
+		while (date("n", $stamp) == $month)
+		{
+			$day = date("Y-m-d", $stamp);
+			$za = new zeitaufzeichnung();
+			if ($za->checkPausenErrors($uid, $day))
+			{
+				$verwendung->getVerwendungDatum($uid, $day);
+				foreach ($verwendung->result as $v)
+				{
+					if ($v->azgrelevant)
+					{
+						return $day; // Blocking error found
+					}
+				}
+			}
+			$stamp = strtotime("+1 day", $stamp);
+		}
+		return false; // no blocking Pausenfehler found
 	}
 
 	/**
