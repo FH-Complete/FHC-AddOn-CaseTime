@@ -714,7 +714,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_date = null;
 		$obj->last_timesheet_sent = null;
 		$obj->last_timesheet_confirmed = null;
-		$obj->all_timesheets_notCreated = 0;
+		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = 0;
 		$obj->all_timesheets_notConfirmed = 0;
 		$obj->time_balance = $time_balance;
@@ -1044,7 +1044,7 @@ function sortEmployeesName($employee1, $employee2)
 					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
 					<?php $all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed; ?>
 					<td class='text-center <?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? 'danger' : '' ?>'>
-						<?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? $all_timesheets_notCreatedOrConfirmed : '-' ?>
+						<?php echo $all_timesheets_notCreatedOrConfirmed ?>
 					</td>
 
 					<!--balance of working hours on next account-->
@@ -1139,8 +1139,9 @@ function sortEmployeesName($employee1, $employee2)
 					<!--<td class='text-center'>-</td>-->
 
 					<!--amount of all timesheets not confirmed-->
-					<td class='text-center'>-</td>
-						<!--balance of working hours on next account-->
+                    <td class='text-center <?php echo ($employee->all_timesheets_notCreated != 0) ? 'danger' : '' ?>'>
+						<?php echo $employee->all_timesheets_notCreated ?>
+                    </td>
 
 						<td class='text-right<?php echo $zeitsaldoklasse ?>'>
                         <?php echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
