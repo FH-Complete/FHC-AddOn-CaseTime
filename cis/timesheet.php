@@ -251,12 +251,11 @@ $monat = new DateTime();
 while ($monat->format('Y-m') >= $monatslisteStartdatum->format('Y-m'))
 {
     $isZaPflichtig = $vbt->isZaPflichtig($uid, $monat->format('Y-m-t'));
+	$ts = new Timesheet($uid, $monat->format('m'), $monat->format('Y'));
 
     // Wenn im Monat zeitaufzeichnungspflichtig ist
     if ($isZaPflichtig)
     {
-        $ts = new Timesheet($uid, $monat->format('m'), $monat->format('Y'));
-
         /**
          * Vergangene nicht versendete / nicht erstellte Timesheet ermitteln.
          *
@@ -1702,10 +1701,10 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
             <tr>
             <?php $isZaPflichtig = $vbt->isZaPflichtig($uid, $monat->format('Y-m-t')); ?>
 
+            <?php $ts = new Timesheet($uid, $monat->format('m'), $monat->format('Y')); ?>
+
             <!--Zeitaufzeichnungspflichtig-->
             <?php if ($isZaPflichtig) :?>
-                <?php $ts = new Timesheet($uid, $monat->format('m'), $monat->format('Y')); ?>
-
                 <!--Timesheet vorhanden-->
                 <?php if (!is_null($ts->timesheet_id)) :?>
                     <!--for supervisors, personnel department & timesheet manager-->
