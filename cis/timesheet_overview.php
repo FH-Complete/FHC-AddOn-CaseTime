@@ -536,12 +536,9 @@ foreach($employee_uid_arr as $employee_uid)
     $vbt = new vertragsbestandteil();
     $azg = $vbt->isAzgRelevant($employee_uid);
 
-    // Flag if employee is zeitaufzeichnungspflichtig
+    // Flag if employee is (actually) zeitaufzeichnungspflichtig
     $vbt = new vertragsbestandteil();
-    $result = $vbt->getZaPflichtig($employee_uid);
-
-    // Mindestens eine Zeitaufzeichnungspflicht vorhanden
-    $isZeitaufzeichnungspflichtig = empty($result) ? false : true;  // bei mindestens 1 ZA Pflicht
+	$isZeitaufzeichnungspflichtig = $vbt->isZaPflichtig($employee_uid);
 
 	// Get time- & holiday balances and SaldoAllin
 	$time_balance = false;
@@ -954,6 +951,11 @@ function sortEmployeesName($employee1, $employee2)
 
 				<!--IF employee has AT LEAST ONE TIMESHEET-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
+
+<!--                --><?php
+//                    echo "<pre>"; print_r($employee->uid); echo "</pre>";
+//                    echo "<pre>"; print_r($employee->isZeitaufzeichnungspflichtig); echo "</pre>";
+//                ?>
 
 				<!--IF employee must not record times, color row grey-->
 				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>
