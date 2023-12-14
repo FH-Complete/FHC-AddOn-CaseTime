@@ -9,7 +9,6 @@ require_once(dirname(__FILE__). '/../../../include/basis_db.class.php');
 require_once(dirname(__FILE__). '/../../../include/datum.class.php');
 require_once(dirname(__FILE__). '/../../../include/dms.class.php');
 require_once(dirname(__FILE__). '/../../../include/functions.inc.php');
-require_once(dirname(__FILE__). '/../../../include/bisverwendung.class.php');
 require_once(dirname(__FILE__). '/../../../include/zeitaufzeichnung.class.php');
 require_once(dirname(__FILE__). '/../../../include/vertragsbestandteil.class.php');
 
@@ -1648,53 +1647,6 @@ class Timesheet extends basis_db
 		{
 			$this->errormsg = "UID muss vorhanden und nicht leer sein";
 			return false;
-		}
-	}
-
-	/** Check if there is no existing timesheet although user is zeitaufzeichnungsplichtig
-	 *
-	 * @param string $uid User ID.
-	 * @return string $beginn	Wenn vorhanden Datum der letzen Bisverwendung mit ZA-Pflicht
-	 * @return boolean	True when this constellation is the case
-	 */
-	public function getLastVerwendungZapflicht($uid)
-	{
-		if (isset($uid) && !empty($uid))
-		{
-			$date_golive = new DateTime('first day of '. CASETIME_TIMESHEET_GOLIVE);
-			$date_begin_zeitaufzeichnungspflicht = $date_golive->format('Y-m-d');
-			$date_begin_zeitaufzeichnungspflicht = "'$date_begin_zeitaufzeichnungspflicht'";
-
-			$qry = "
-			SELECT beginn
-			FROM bis.tbl_bisverwendung
-			WHERE mitarbeiter_uid = ". $this->db_add_param($uid). "
-			and zeitaufzeichnungspflichtig = TRUE
-			AND beginn < NOW()::date
-			-- nur wenn beginn NULL ist, wird Timesheet Golive Datum gesetzt
-			AND COALESCE(beginn, $date_begin_zeitaufzeichnungspflicht ::date) < NOW()::date
-			AND COALESCE(ende, NOW()::date) > $date_begin_zeitaufzeichnungspflicht ::date
-			order by bisverwendung_id DESC LIMIT 1;
-			";
-
-			if ($this->db_query($qry))
-			{
-				if ($row = $this->db_fetch_object())
-				{
-					$beginn = $row->beginn;
-					return $beginn;
-				}
-				else
-				{
-					$this->errormsg = 'Fehler beim Laden der Daten';
-					return false;
-				}
-			}
-			else
-			{
-				$this->errormsg = 'Keine Bisverwendung mit ZA-Pflicht';
-				return false;
-			}
 		}
 	}
 
