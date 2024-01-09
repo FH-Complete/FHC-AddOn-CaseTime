@@ -390,7 +390,8 @@ class Timesheet extends basis_db
 				AND
 					zeitsperretyp_kurzbz IN (\'DienstV\', \'Krank\', \'PflegeU\', \'CovidSB\',  \'CovidKS\')
 				AND
-					bisdatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date
+--					bisdatum BETWEEN date_trunc(\'month\', datum::date) AND datum::date
+					bisdatum >= date_trunc(\'month\', datum::date) AND vondatum <= datum::date
 
 				UNION
 				SELECT
@@ -413,7 +414,8 @@ class Timesheet extends basis_db
 				AND
 					aktivitaet_kurzbz IN (\'Arztbesuch\', \'Behoerde\', \'Dienstreise\', \'DienstreiseMT\')
 				AND
-					ende::date BETWEEN date_trunc(\'month\', datum::date) AND datum::date
+--					ende::date BETWEEN date_trunc(\'month\', datum::date) AND datum::date
+					ende::date >= date_trunc(\'month\', datum::date) AND start::date <= datum::date
 				ORDER BY
 					datum DESC
 				';
