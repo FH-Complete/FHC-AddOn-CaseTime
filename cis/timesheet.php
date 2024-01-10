@@ -138,16 +138,14 @@ if (isset($_GET['timesheet_id']))
 		$employee_uid = $timesheet->getUser($timesheet_id);
 
 		$mitarbeiter = new Mitarbeiter();
-		$mitarbeiter->getVorgesetzte($employee_uid);
-		$chef_arr = array();
-		$chef_arr = $mitarbeiter->vorgesetzte;
-		foreach ($chef_arr as $k => $v)
+		$mitarbeiter->getVorgesetzte($employee_uid, 1);
+
+        if (!empty($mitarbeiter->vorgesetzte))
 		{
-			$dirVor = $v;
+            $isVorgesetzterMitVertretungsfunktion = true;
+            $ben = new benutzer();
+            $ben->load($mitarbeiter->vorgesetzte[0]);
 		}
-		$isVorgesetzterMitVertretungsfunktion = true;
-		$ben = new benutzer();
-		$ben->load($dirVor);
 	}
 	else
 	{
