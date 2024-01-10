@@ -582,13 +582,7 @@ if (isset($_POST['submitTimesheet']))
 
 	// Check for blocking Pause Errors
 	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
-//echo "<pre>"; print_r('$hasMissingBestaetigung'); echo "</pre>";
-//echo "<pre>"; print_r($hasMissingBestaetigung); echo "</pre>";
-//echo "<pre>"; print_r('$hasCaseTimeError'); echo "</pre>";
-//echo "<pre>"; print_r($hasCaseTimeError); echo "</pre>";
-//echo "<pre>"; print_r('$hasBlockingPauseError'); echo "</pre>";
-//echo "<pre>"; print_r($hasBlockingPauseError); echo "</pre>";
-	// if document $ casetime server error check ok, prepare for email sending
+
 	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
 	{
 		$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
