@@ -1697,6 +1697,17 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php endif; ?>
 
 	<?php endif; ?><!-- /.end alert conditions for supervisors & hr-->
+
+
+    <!--IF is not Vorgesetzter of the timesheet month, Genehmigen-->
+	<?php if($isVorgesetzter && !$isVorgesetzter_imTimesheetMonat ): ?>
+        <div class="alert alert-info alert-dismissible text-center" role="alert">
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+            <b>Sie sind im <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year?> nicht (mehr) Vorgesetzte/r.</b><br><br>
+            Sie können diese Monatsliste daher nicht genehmigen oder retournieren.<br>
+            Sie haben jedoch noch lesenden Zugriff, um gegebenenfalls andere Monatslisten öffnen und genehmigen zu können.
+        </div>
+	<?php endif; ?>
 	<br><br>
 
 
