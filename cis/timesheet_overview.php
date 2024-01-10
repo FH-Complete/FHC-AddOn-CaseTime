@@ -92,6 +92,14 @@ if ((isset($_GET['onlyfix']) && $_GET['onlyfix'] == 'false') ||
 }
 $_SESSION['casetime/onlyfix'] = $showOnlyFixEmployees;
 
+// Flag MA, die im letzten Monat OE gewechselt oder DV beendet haben
+$showLastMonthBeendeteEmployees = false;
+if ((isset($_GET['lastMonthBeendete']) && $_GET['lastMonthBeendete'] == 'true') ||
+	(!isset($_GET['lastMonthBeendete']) && isset($_SESSION['casetime/lastMonthBeendete']) && $_SESSION['casetime/lastMonthBeendete'] == true))
+{
+	$showLastMonthBeendeteEmployees = true;
+}
+$_SESSION['casetime/lastMonthBeendete'] = $showLastMonthBeendeteEmployees;
 
 if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 	(!isset($_GET['submitAllMA']) && isset($_SESSION['casetime/submitAllMA']) && $_SESSION['casetime/submitAllMA'] == true))
@@ -104,14 +112,14 @@ if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 		$showcovidstatus = false;
 	}
 
-	$mitarbeiter->getUntergebene($uid, true, $showOnlyFixEmployees);
+	$mitarbeiter->getUntergebene($uid, true, $showOnlyFixEmployees, $showLastMonthBeendeteEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
 else
 {
 	$_SESSION['casetime/submitAllMA'] = false;	// save in session to be saved after changing to timesheet.php
-	$mitarbeiter->getUntergebene($uid, false, $showOnlyFixEmployees);
+	$mitarbeiter->getUntergebene($uid, false, $showOnlyFixEmployees, $showLastMonthBeendeteEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
@@ -127,7 +135,7 @@ if (!empty($untergebenen_arr))
 		$isVorgesetzter = true;
 
 		// check if Vorgesetzter manages child OEs
-		$mitarbeiter->getUntergebene($uid, true);
+		$mitarbeiter->getUntergebene($uid, true, true, $showLastMonthBeendeteEmployees);
 		if ($mitarbeiter->result['isIndirectSupervisor'])
 		{
 			$isVorgesetzter_indirekt = true;
@@ -221,6 +229,15 @@ needs the GUI to be displayed.-->
 		var params = new URLSearchParams(window.location.search);
 		var onlyfixemployees = $('#onlyfixemployees').is(':checked');
 		params.set('onlyfix', onlyfixemployees);
+		window.location.search = params.toString();
+	}
+
+	// show also Employees where Dienstverhältnis ended last month
+	function lastMonthBeendeteEmployees()
+	{
+		var params = new URLSearchParams(window.location.search);
+		var lastMonthBeendete = $('#lastMonthBeendete').is(':checked');
+		params.set('lastMonthBeendete', lastMonthBeendete);
 		window.location.search = params.toString();
 	}
 
@@ -897,7 +914,14 @@ function sortEmployeesName($employee1, $employee2)
 
 </script>
 	<!--************************************	TABLE with EMPLOYEES MONTHLIST INFORMATION	 -->
-
+    <input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
+		<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?>
+           onchange="fixOrAllEmployees()"/>
+    <label for="onlyfixemployess">&nbsp;nur fix Angestellte</label><br>
+    <input type="checkbox" id="lastMonthBeendete" name="lastMonthBeendete"
+		<?php echo ($showLastMonthBeendeteEmployees) ? ' checked="checked"' : ''; ?>
+           onchange="lastMonthBeendeteEmployees()"/>
+    <label for="lastMonthBeendete">&nbsp;auch letzten Monat ausgeschiedene Angestellte (Dienstverhältnis-Ende / OE-Wechsel) </label>
 	<table class="table table-condensed table-bordered tablesorter tablesort-active" id="tbl_monthlist_overview" role="grid">
 
 		<!--************************************	TABLE HEAD	 -->
