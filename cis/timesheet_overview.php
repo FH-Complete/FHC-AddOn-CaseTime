@@ -928,16 +928,10 @@ function sortEmployeesName($employee1, $employee2)
 		<thead class="text-center">
 			<tr class="table tablesorter-ignoreRow">
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
-				<td>
-					<input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
-						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?>
-						   onchange="fixOrAllEmployees()"/>
-					<label for="onlyfixemployess">&nbsp;nur fix Angestellte</label>
-				</td>
 				<td></td>
-				<td></td>
-				<td colspan="2" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
-				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
+                <td colspan="2" class="text-uppercase"><b>Zeitaufzeichnung <br><?php echo $monatsname[$sprache_index][(new DateTime())->format('m') - 1]. ' '. (new DateTime())->format('Y')?></b></td>
+				<td colspan="2" class="text-uppercase"><b>Monatslisten <br><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
+				<td colspan="1" class="text-uppercase"><b>Monatslisten <br>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
 				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
 			</tr>
