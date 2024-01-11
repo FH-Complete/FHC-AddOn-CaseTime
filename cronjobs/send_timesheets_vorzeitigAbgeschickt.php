@@ -116,23 +116,29 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 	{
 		// Get Vorgesetzte
 		$mitarbeiter = new Mitarbeiter();
-		$vorgesetzte_uid_arr = array();	// array with uid of one or more supervisors
+		$vorgesetzten_uid = '';
 		$timesheetDate = $timesheet_vorzeitigAbgeschickt->datum;
 
-		if ($mitarbeiter->getVorgesetzteMonatTimesheet($timesheet_vorzeitigAbgeschickt->uid, $timesheetDate))
+		if ($mitarbeiter->getVorgesetzteByDate($timesheet_vorzeitigAbgeschickt->uid, $timesheetDate, 1))
 		{
-			$vorgesetzte_uid_arr = $mitarbeiter->vorgesetzte;
+			if (!empty($mitarbeiter->vorgesetzte))
+			{
+				$vorgesetzten_uid = $mitarbeiter->vorgesetzte[0];
+			}
 		}
 		else
 		{
-			if ($vorgesetzter = $mitarbeiter->getLastVorgesetzter($timesheet_vorzeitigAbgeschickt->uid))
+			if ($mitarbeiter->getVorgesetzte($timesheet_vorzeitigAbgeschickt->uid, 1))
 			{
-				array_push($vorgesetzte_uid_arr, $vorgesetzter);
+				if (!empty($mitarbeiter->vorgesetzte))
+				{
+					$vorgesetzten_uid = $mitarbeiter->vorgesetzte[0];
+				}
 			}
 		}
 
 		// Send Sancho mail to HR
-		if (empty($vorgesetzte_uid_arr))
+		if ($vorgesetzten_uid == '')
 		{
 			$output = 'kein Vorgesetzter gefunden: mail an HR';
 
@@ -171,10 +177,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 					$uid_timesheetsError[]= $timesheet->uid;
 				}
 		}
-
-
-		// Send Mail to Vorgesetzte
-		foreach ($vorgesetzte_uid_arr as $vorgesetzten_uid)
+		else
 		{
 			$header_img = 'sancho_header_confirm_timesheet.jpg';
 			$benutzer = new Benutzer($vorgesetzten_uid);
