@@ -136,16 +136,6 @@ if (isset($_GET['timesheet_id']))
 	if ($timesheet->getUser($timesheet_id))
 	{
 		$employee_uid = $timesheet->getUser($timesheet_id);
-
-		$mitarbeiter = new Mitarbeiter();
-		$mitarbeiter->getVorgesetzte($employee_uid, 1);
-
-        if (!empty($mitarbeiter->vorgesetzte))
-		{
-            $isVorgesetzterMitVertretungsfunktion = true;
-            $ben = new benutzer();
-            $ben->load($mitarbeiter->vorgesetzte[0]);
-		}
 	}
 	else
 	{
@@ -168,6 +158,20 @@ if (isset($_GET['timesheet_id']))
         {
             $isVorgesetzter = true;
             $isVorgesetzter_imTimesheetMonat = true;  // darf Monatliste genehmigen/retournieren
+        }
+        else
+        {
+            $ma = new Mitarbeiter();
+			if($ma->getVorgesetzteByDate($mitarbeiter->vorgesetzte[0], $dateTimesheet->format('Y-m-d'), 1))
+			{
+                if ($uid == $ma->vorgesetzte[0])
+				{
+					$isVorgesetzterMitVertretungsfunktion = true;
+					$ben = new benutzer();
+					$ben->load($mitarbeiter->vorgesetzte[0]);
+                }
+
+            }
         }
 	}
 	else
