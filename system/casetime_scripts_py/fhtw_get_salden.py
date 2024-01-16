@@ -5,12 +5,17 @@ import sys, traceback
 import string
 import json
 import time
+import datetime
 from datetime import date
 
 from Products.PythonScripts.standard import html_quote
 
 # returns salden (Zeitsaldo, Urlaubsanspruch und Urlaubsstand) für die per POST übergebenen SACHBs:
 # {"STATUS": "OK", "RESULT": {"UID": {"UrlaubAktuell": 99, "UrlaubAnspruch": 25.0, "Zeitsaldo": 1},...}}
+
+# returns salden (Zeitsaldo, Urlaubsanspruch und Urla
+# ret_dict = {'STATUS':'', 'RESULT':{}}ubsstand, SALUESUM1) für die per POST übergebenen SACHBs:
+# {"STATUS": "OK", "RESULT": {"UID": {"UrlaubAktuell": 99, "UrlaubAnspruch": 25.0, "Zeitsaldo": 1, "AllInSaldo": 22.5},...}}
 
 def get_salden(self):
 
@@ -41,6 +46,9 @@ def get_salden(self):
         vars_dict['jahr'] = jahr
         vars_dict['sachb'] = s
         vars_dict['datum'] = time.strftime("%d.%m.%Y")
+
+	datumt1 = datetime.date(jahr, 9, 1)
+	vars_dict['datumt1'] = datumt1.strftime("%d.%m.%Y")
 
         sql_str_check = """select count(*) from flex_zeitmodelle where sachb = '%(sachb)s'""" % vars_dict
         erg_check = self.sql_execute(dbconn,sql_str_check)
@@ -82,7 +90,26 @@ def get_salden(self):
                 urlaubstage = 0
             data_dict["UrlaubAnspruch"] = urlaubstage
 
+            # AllInSalden holen
+	    # check allin
+	    #sql_check = """select * from sachbearbeiter where sachb = '%s'""" % foo
+	    sql_str_check = """select count(*) from (select * from flex_mitarbeiterklassen where sachb = '%(sachb)s' order by gueltig_ab desc limit 1) a where ma_klasse = 'ALLIN' AND (gueltig_ab <= '%(datumt1)s'::date OR gueltig_ab < '%(datum)s'::date)""" % vars_dict
+	    erg_check = self.sql_execute(dbconn,sql_str_check)
+	    if erg_check[1][0][0] == 0:
+	    	data_dict['AllInSaldo'] = '-'
+	    else:
+		sql_str = """select coalesce(maz.sachb, '%(sachb)s'), coalesce(sum(maz.stunden), 0) as summe from (select *, greatest(gueltig_ab, '%(datumt1)s'::date) as berechnen_ab from (select * from flex_mitarbeiterklassen where sachb = '%(sachb)s' order by gueltig_ab desc limit 1) a where ma_klasse = 'ALLIN' and (gueltig_ab <= '%(datumt1)s'::date or gueltig_ab < '%(datum)s'::date)) sbs left join ma_zeit maz on maz.sachb = sbs.sachb and maz.lohnart = 'SALUE1' and maz.buchdat between sbs.berechnen_ab and '%(datum)s'::date group by maz.sachb
+                """ % vars_dict
 
-        ret_dict['STATUS']='OK'
-        ret_dict['RESULT'][vars_dict['sachb']] = data_dict
+		erg = self.sql_execute(dbconn,sql_str)
+
+		error = erg[0]
+		saldoAllIn = erg[1][0][1]
+		if not saldoAllIn:
+		    saldoAllIn = 0
+            	    data_dict['AllInSaldo']  = saldoAllIn
+
+    	ret_dict['STATUS']='OK'
+    	ret_dict['RESULT'][vars_dict['sachb']] = data_dict
+
     return json.dumps(ret_dict, ensure_ascii=False, encoding='utf8')

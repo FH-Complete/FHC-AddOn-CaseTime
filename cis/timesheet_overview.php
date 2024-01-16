@@ -33,6 +33,7 @@ require_once('../../../include/globals.inc.php');
 require_once('../../../include/mitarbeiter.class.php');
 require_once('../include/functions.inc.php');
 require_once('../../../include/covid/covidhelper.class.php');
+require_once('../../../include/vertragsbestandteil.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees
 
@@ -91,6 +92,15 @@ if ((isset($_GET['onlyfix']) && $_GET['onlyfix'] == 'false') ||
 }
 $_SESSION['casetime/onlyfix'] = $showOnlyFixEmployees;
 
+// Flag MA, die im letzten Monat OE gewechselt oder DV beendet haben
+$showLastMonthBeendeteEmployees = false;
+if ((isset($_GET['lastMonthBeendete']) && $_GET['lastMonthBeendete'] == 'true') ||
+	(!isset($_GET['lastMonthBeendete']) && isset($_SESSION['casetime/lastMonthBeendete']) && $_SESSION['casetime/lastMonthBeendete'] == true))
+{
+	$showLastMonthBeendeteEmployees = true;
+}
+$_SESSION['casetime/lastMonthBeendete'] = $showLastMonthBeendeteEmployees;
+
 if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 	(!isset($_GET['submitAllMA']) && isset($_SESSION['casetime/submitAllMA']) && $_SESSION['casetime/submitAllMA'] == true))
 {
@@ -102,14 +112,14 @@ if ((isset($_GET['submitAllMA']) && $_GET['submitAllMA'] == 'true') ||
 		$showcovidstatus = false;
 	}
 
-	$mitarbeiter->getUntergebene($uid, true, $showOnlyFixEmployees);
+	$mitarbeiter->getUntergebene($uid, true, $showOnlyFixEmployees, $showLastMonthBeendeteEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
 else
 {
 	$_SESSION['casetime/submitAllMA'] = false;	// save in session to be saved after changing to timesheet.php
-	$mitarbeiter->getUntergebene($uid, false, $showOnlyFixEmployees);
+	$mitarbeiter->getUntergebene($uid, false, $showOnlyFixEmployees, $showLastMonthBeendeteEmployees);
 	$untergebenen_arr = array();
 	$untergebenen_arr = $mitarbeiter->untergebene;
 }
@@ -125,7 +135,7 @@ if (!empty($untergebenen_arr))
 		$isVorgesetzter = true;
 
 		// check if Vorgesetzter manages child OEs
-		$mitarbeiter->getUntergebene($uid, true);
+		$mitarbeiter->getUntergebene($uid, true, true, $showLastMonthBeendeteEmployees);
 		if ($mitarbeiter->result['isIndirectSupervisor'])
 		{
 			$isVorgesetzter_indirekt = true;
@@ -219,6 +229,15 @@ needs the GUI to be displayed.-->
 		var params = new URLSearchParams(window.location.search);
 		var onlyfixemployees = $('#onlyfixemployees').is(':checked');
 		params.set('onlyfix', onlyfixemployees);
+		window.location.search = params.toString();
+	}
+
+	// show also Employees where Dienstverhältnis ended last month
+	function lastMonthBeendeteEmployees()
+	{
+		var params = new URLSearchParams(window.location.search);
+		var lastMonthBeendete = $('#lastMonthBeendete').is(':checked');
+		params.set('lastMonthBeendete', lastMonthBeendete);
 		window.location.search = params.toString();
 	}
 
@@ -328,6 +347,7 @@ if (!empty($all_employee_uid_arr))
 	}
 }
 
+
 // *********************************  data for SUPERVISORS VIEW
 // covidstatus
 $covidhelper = new CovidHelper();
@@ -365,6 +385,7 @@ if (!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) && $_SESSION['
 
 	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
+
 }
 // * Get time- and holiday balances for ALL employees from CaseTime Server
 elseif($_SESSION['casetime/submitAllMA'] == true &&
@@ -392,7 +413,6 @@ elseif($_SESSION['casetime/submitAllMA'] == true &&
 
 	// store datetime in session var
 	$_SESSION['casetime/datetime'] = new DateTime();
-
 }
 else
 {
@@ -428,7 +448,7 @@ else
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
 	}
 }
-
+$isAllIn = false;
 foreach($employee_uid_arr as $employee_uid)
 {
 	// name of employee
@@ -440,124 +460,107 @@ foreach($employee_uid_arr as $employee_uid)
 	$timesheet = new Timesheet();
 	$timesheet_arr = $timesheet->loadAll($employee_uid);
 
-	$bis = new Bisverwendung();
-	$bis->getLastBisZAPflicht($employee_uid);
-	$now = new DateTime('today');
-	$now = $now->format('Y-m-d');
-	$ende = $bis-> result;
-	$endeBisLastZapflicht = null;
+    // Get last timesheet
+    $last_timesheet_id = !empty($timesheet_arr) ? $timesheet_arr[0]->timesheet_id : null;
+    $last_timesheet_date = !empty($timesheet_arr) ? new DateTime($timesheet_arr[0]->datum) : null;
 
-	foreach ($ende as $e)
-	{
-			$endeBisLastZapflicht =  $e->ende;
-			if (empty($endeBisLastZapflicht))
-				$endeBisLastZapflicht = $now;
-	}
+    // Get last sent timesheet
+    $result = $timesheet->getSent($employee_uid, 'DESC', 1);
+    $lastSentTimesheetDatum = $result == true && !empty($timesheet->result) ? new DateTime($timesheet->result[0]->datum) : null;    // Fixed errormsg Undefined offset on line 462
 
-	// data of MOST RECENT timesheet BEFORE the actual month
-	if (!empty($timesheet_arr))
-	{
-		$index = 0;
-		$cnt_isNotSent = 0;	// counts all timesheets not sent by the employee
-		$cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
-		$cnt_isNotCreated = 0;	// counts missing timesheets between last timesheet date and last months date
+    // Get last confirmed timesheet
+    $result = $timesheet->getConfirmed($employee_uid, 'DESC', 1);
+    $lastConfirmedTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
+    $lastConfirmedTimesheetDatum = !is_null($lastConfirmedTimesheet) ? new DateTime($lastConfirmedTimesheet->datum) : null;
 
-		// last timesheet date
-		$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[0]->datum); //set time to zero
+    // Erster VBT Zeitaufzeichnungspflicht
+    $vbt = new vertragsbestandteil();
+    $result = $vbt->getZaPflichtig($employee_uid, 'ASC', 1);
+    $ersteZaPflicht = $result == true ? $vbt->result[0] : null;
 
-		// count missing timesheets (until last month)
-		if ($last_timesheet_date < $date_last_month)
-		{
-			$endeBisLastZapflicht = new DateTime($endeBisLastZapflicht);
-			$now = new DateTime($now);
+    $cnt_isNotSent = 0;	        // counts all timesheets not sent by the employee
+    $cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
+    $cnt_isNotCreated = 0;	    // counts missing timesheets between last timesheet date and last months date
 
-			if(($endeBisLastZapflicht < $now) && ($last_timesheet_date <= $endeBisLastZapflicht))
-			{
-				$cnt_isNotCreated = ($endeBisLastZapflicht->diff($last_timesheet_date)->m);
-				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
-			}
-			elseif (($endeBisLastZapflicht <= $now) && ($last_timesheet_date > $endeBisLastZapflicht))
-			{
-				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
-			}
-			else
-			{
-				$cnt_isNotCreated = $date_last_month->diff($last_timesheet_date)->m;
-				$endeBisLastZapflicht = $endeBisLastZapflicht->format('Y-m-d');
-			}
-		}
-		$endeBisLastZapflicht = new DateTime($endeBisLastZapflicht);
+    // Monatsliste startet ab erster Zeitaufzeichnunsplficht (aber nicht vor GoLive-Datum)
+    $monatslisteStartdatum = getMonatslisteStartdatum($ersteZaPflicht);
 
-		// if employee has already created monthlist for actual month, go back to the one monthlist before
-		if ($last_timesheet_date > $date_last_month || ($last_timesheet_date > $endeBisLastZapflicht))
-		{
-			// start counting with -1 as actual month should not be considered
-			$cnt_isNotSent = -1;
-			$cnt_isNotConfirmed = -1;
+    $monat = new DateTime();
 
-			// go back one monthlist only if it exists
-			if (count($timesheet_arr) > 1)
-			{
-				$index = 1;
-				$last_timesheet_date = DateTime::createFromFormat('Y-m-d|', $timesheet_arr[$index]->datum);
-			}
-		}
-		$last_timesheet_id = $timesheet_arr[$index]->timesheet_id;
-		$last_timesheet_sent = (!is_null($timesheet_arr[$index]->abgeschicktamum)) ? new DateTime($timesheet_arr[$index]->abgeschicktamum) : null;
-		$last_timesheet_confirmed = (!is_null($timesheet_arr[$index]->genehmigtamum)) ? new DateTime ($timesheet_arr[$index]->genehmigtamum) : null;
-	}
+    while ($monat->format('Y-m') >= $monatslisteStartdatum->format('Y-m'))
+    {
+        $isZaPflichtig = $vbt->isZaPflichtig($employee_uid, $monat->format('Y-m-t'));
 
-	// data of ALL timesheets
-	foreach ($timesheet_arr as $timesheet)
-	{
-		if (is_null($timesheet->abgeschicktamum))
-		{
-			$cnt_isNotSent++;
-		}
+        // Wenn im Monat zeitaufzeichnungspflichtig ist
+        if ($isZaPflichtig)
+        {
+            $ts = new Timesheet($employee_uid, $monat->format('m'), $monat->format('Y'));
 
-		if (is_null($timesheet->genehmigtamum))
-		{
-			$cnt_isNotConfirmed++;
+            /**
+             * Vergangene nicht versendete / nicht erstellte Timesheet ermitteln.
+             *
+             * Aktuelles Monat nicht beruecksichtigen bei Ermittlung der unversendeten / nicht erstellten Timesheets.
+             *
+             * Wenn es mindestens ein genehmigtes Timesheet gibt, und davor noch Timesheets fehlen, dann nur die Timesheets
+             * NACH der Genehmigung auf 'fehlen' oder 'unversendet' prüfen.
+             **/
+            if ((is_null($lastConfirmedTimesheet) || $monat->format('Y-m') > (new DateTime($lastConfirmedTimesheet->datum))->format('Y-m')) &&
+                $monat->format('Y-m') != (new DateTime())->format('Y-m'))  // aktuelles Monat nicht beruecksichtigen
+            {
+                // Wenn Timesheet vorhanden ist
+                if (!is_null($ts->timesheet_id))
+                {
+                    // flag if at least one timesheet is not sent
+                    if (is_null($ts->abgeschicktamum))
+                    {
+                        $cnt_isNotSent++;
+                    }
 
-		}
-	}
+                    // flag if at least one timesheet is not confirmed
+                    if (is_null($ts->genehmigtamum))
+                    {
+                        $cnt_isNotConfirmed++;
+                    }
+                }
+                // Wenn kein Timesheet vorhanden ist
+                else
+                {
+                    $cnt_isNotCreated++;
+                }
+            }
+        }
+
+        // Monat erhöhen
+        $monat->sub(new DateInterval('P1M'));
+    }
 
 	// Flag if user has obligation to record times
-	$isZeitaufzeichnungspflichtig = false;
-    $azg = false;
-	// * only get active employee contracts to be checked for 'zeitaufzeichnungspflichtig'
-	$bisverwendung = new bisverwendung();
-	$now = new DateTime('today');
-	$bisverwendung->getVerwendungDatum($employee_uid, $now->format('Y-m-d'));
-	$verwendung_arr = $bisverwendung->result;
-	$vertragsstunden = 0;
-	$arrEchterDV= [103];
-	if (defined('DEFAULT_ECHTER_DIENSTVERTRAG') && DEFAULT_ECHTER_DIENSTVERTRAG != '')
-	{
-		$arrEchterDV = DEFAULT_ECHTER_DIENSTVERTRAG;
-	}
+	$isAllIn = false;
 
-	foreach($verwendung_arr as $verwendung)
-	{
-		if(in_array($verwendung->ba1code, $arrEchterDV))
-		{
-			$vertragsstunden = $verwendung->vertragsstunden;
-		}
-		if($verwendung->azgrelevant)
-        {
-            $azg = true;
-        }
-		if($verwendung->zeitaufzeichnungspflichtig)
-		{
-			$isZeitaufzeichnungspflichtig = true;
-			break;
-		}
+    // Flag if employee is karenziert
+	$vbt = new vertragsbestandteil();
+	$isKarenziert = $vbt->isKarenziert($employee_uid);
 
-	}
+	// Get employees active Wochenstunden
+	$vbt = new vertragsbestandteil();
+	$vertragsstunden = $vbt->getWochenstunden($employee_uid) ? $vbt->result[0]->wochenstunden : 0;
 
-	// Get time- & holiday balances
+	// Flag if employee has AllIn Contract
+	$vbt = new vertragsbestandteil();
+	$isAllin = $vbt->isAllin($employee_uid);
+
+    // Flag if employee is AZG-relevant
+    $vbt = new vertragsbestandteil();
+    $azg = $vbt->isAzgRelevant($employee_uid);
+
+    // Flag if employee is (actually) zeitaufzeichnungspflichtig
+    $vbt = new vertragsbestandteil();
+	$isZeitaufzeichnungspflichtig = $vbt->isZaPflichtig($employee_uid);
+
+	// Get time- & holiday balances and SaldoAllin
 	$time_balance = false;
 	$holiday = false;
+	$allInSaldo = false;
 
 	// * if uid is personnel manager or superleader, check the object-array with all time-
 	// and holiday balances and match with the actual employee
@@ -590,8 +593,16 @@ foreach($employee_uid_arr as $employee_uid)
 												? $time_holiday_balance_arr->{$uc_employee_uid}->UrlaubAnspruch
 												: '-'
 											);
+
+				//AllinSaldo
+				$allInSaldo = (
+					isset($time_holiday_balance_arr->{$uc_employee_uid}->AllInSaldo)
+					? $time_holiday_balance_arr->{$uc_employee_uid}->AllInSaldo
+					: false
+				);
 			}
 		}
+
 	}
 	else
 	{
@@ -600,7 +611,16 @@ foreach($employee_uid_arr as $employee_uid)
 
 		// holiday information
 		$holiday = getCastTimeUrlaubssaldo($employee_uid);	// object with int urlaubsanspruch, float resturlaub, float aktueller stand OR string error OR bool false
+
+		//request for allin
+		if($isAllIn)
+		{
+			$allInSaldo = false;
+			if(getCaseTimeSaldoAllIn($employee_uid))
+				$allInSaldo = getCaseTimeSaldoAllIn($employee_uid)->salue1sum;
+		}
 	}
+
 
 	// set css-class for time-balance field
 	if (!$vertragsstunden)
@@ -623,7 +643,6 @@ foreach($employee_uid_arr as $employee_uid)
 	else {
 			$zeitsaldoklasse = '';
 	}
-
 
 	// Get organisational unit of employee
 	$benutzer_fkt = new Benutzerfunktion();
@@ -668,6 +687,9 @@ foreach($employee_uid_arr as $employee_uid)
 
 	// Collect all employees data to push to overall employees array
 	$obj = new stdClass();
+
+	if(!isset($allInSaldo))
+			$allInSaldo = '';
 	// * full data of employee who has timesheets
 	if (!empty($timesheet_arr))
 	{
@@ -678,8 +700,8 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->nachname = $empl_nachname;
 		$obj->last_timesheet_id = $last_timesheet_id;
 		$obj->last_timesheet_date = $last_timesheet_date;
-		$obj->last_timesheet_sent = $last_timesheet_sent;
-		$obj->last_timesheet_confirmed = $last_timesheet_confirmed;
+		$obj->last_timesheet_sent = $lastSentTimesheetDatum;
+		$obj->last_timesheet_confirmed = $lastConfirmedTimesheetDatum;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = $cnt_isNotSent;
 		$obj->all_timesheets_notConfirmed = $cnt_isNotConfirmed;
@@ -690,9 +712,12 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_uid = $last_cntrl_uid;
 		$obj->last_cntrl_remark = $last_cntrl_remark;
 		$obj->azg = $azg;	// boolean
+		$obj->isAllIn = $isAllIn;
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig;	// boolean
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
+		$obj->salue1sum = $allInSaldo;
+        $obj->isKarenziert = $isKarenziert;
 	}
 	// * basic data of employee who has NO timesheets
 	else
@@ -706,7 +731,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_date = null;
 		$obj->last_timesheet_sent = null;
 		$obj->last_timesheet_confirmed = null;
-		$obj->all_timesheets_notCreated = 0;
+		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = 0;
 		$obj->all_timesheets_notConfirmed = 0;
 		$obj->time_balance = $time_balance;
@@ -716,9 +741,12 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_cntrl_uid = $last_cntrl_uid;	//empty
 		$obj->last_cntrl_remark = $last_cntrl_remark;	//empty
 		$obj->azg = $azg;	// boolean
+		$obj->isAllIn = $isAllIn;
 		$obj->isZeitaufzeichnungspflichtig = $isZeitaufzeichnungspflichtig; // boolean
 		$obj->vertragsstunden = $vertragsstunden;
 		$obj->zeitsaldoklasse = $zeitsaldoklasse;
+		$obj->salue1sum = $allInSaldo;
+		$obj->isKarenziert = $isKarenziert;
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
@@ -728,6 +756,27 @@ foreach($employee_uid_arr as $employee_uid)
 usort($employees_data_arr, "sortEmployeesName");
 
 // *********************************	FUNCTIONS
+function getMonatslisteStartdatum($ersteZaPflicht)
+{
+
+    // Wenn Zeitaufzeichnungspflicht hat
+    if (!is_null($ersteZaPflicht))
+    {
+        // Wenn erste Zeitaufzeichnungspflichtmonat >= GoLive-Monat liegt...
+        if ((new DateTime($ersteZaPflicht->von))->format('Y-m') >= (new DateTime(CASETIME_TIMESHEET_GOLIVE))->format('Y-m'))
+        {
+            return new DateTime($ersteZaPflicht->von);  // ...vondatum der ersten Zeitaufzeichnungspflicht setzen
+        }
+        else
+        {
+            return new DateTime(CASETIME_TIMESHEET_GOLIVE);  // ...ansonsten GoLive Datum setzen
+        }
+    }
+
+    // Wenn erste Zeitaufzeichnungspflichtmonat in der Zukunft liegt oder es gar keine Zeitaufzeichnungspflicht gibt
+    return new DateTime();  // aktuelles Datum setzen
+}
+
 function sortEmployeesName($employee1, $employee2)
 {
     return strcmp($employee1->nachname, $employee2->nachname);
@@ -865,31 +914,34 @@ function sortEmployeesName($employee1, $employee2)
 
 </script>
 	<!--************************************	TABLE with EMPLOYEES MONTHLIST INFORMATION	 -->
-
+    <input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
+		<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?>
+           onchange="fixOrAllEmployees()"/>
+    <label for="onlyfixemployess">&nbsp;nur fix Angestellte</label><br>
+    <input type="checkbox" id="lastMonthBeendete" name="lastMonthBeendete"
+		<?php echo ($showLastMonthBeendeteEmployees) ? ' checked="checked"' : ''; ?>
+           onchange="lastMonthBeendeteEmployees()"/>
+    <label for="lastMonthBeendete">&nbsp;auch letzten Monat ausgeschiedene Angestellte (Dienstverhältnis-Ende / OE-Wechsel) </label>
 	<table class="table table-condensed table-bordered tablesorter tablesort-active" id="tbl_monthlist_overview" role="grid">
 
 		<!--************************************	TABLE HEAD	 -->
 		<thead class="text-center">
 			<tr class="table tablesorter-ignoreRow">
 				<td><button type="button" id="btn_toggle_oe" class="btn btn-default btn-xs" onclick="toggleParentOE()">OE-Hierarchie anzeigen</button></td>
-				<td>
-					<input type="checkbox" id="onlyfixemployees" name="onlyfixemployees"
-						<?php echo ($showOnlyFixEmployees) ? ' checked="checked"' : ''; ?>
-						   onchange="fixOrAllEmployees()"/>
-					<label for="onlyfixemployess">&nbsp;nur fix Angestellte</label>
-				</td>
 				<td></td>
-                <td></td>
-				<td colspan="2" class="text-uppercase"><b><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
-				<td colspan="1" class="text-uppercase"><b>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
+                <td colspan="2" class="text-uppercase"><b>Zeitaufzeichnung <br><?php echo $monatsname[$sprache_index][(new DateTime())->format('m') - 1]. ' '. (new DateTime())->format('Y')?></b></td>
+				<td colspan="2" class="text-uppercase"><b>Monatslisten <br><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
+				<td colspan="1" class="text-uppercase"><b>Monatslisten <br>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
 				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
 			</tr>
 			<tr>
 				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>
-				<th>AZG anwendbar</th>
-                <th>Zeitaufzeichnungspflichtig</th>
+
+				<?php echo (!$isAllIn) ? '<th>AZG anwendbar</th>' : '' ?>
+				<?php echo ($isAllIn) ? '<th>All In</th>' : '' ?>
+				<th>Zeitaufzeichnungspflichtig</th>
 				<!--<th>Status</th>-->
 				<th>Abgeschickt am</th>
 				<th>Genehmigt am</th>
@@ -900,7 +952,7 @@ function sortEmployeesName($employee1, $employee2)
 				</th>
 				<th>Zeitsaldo
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
+						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit <?php echo ($isAllIn) ? '/ Allin Summe Studienjahr' : '' ?>&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
 				</th>
 				<th data-toggle="tooltip" title="Verfügbare Urlaubstage / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
@@ -917,6 +969,11 @@ function sortEmployeesName($employee1, $employee2)
 
 				<!--IF employee has AT LEAST ONE TIMESHEET-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
+
+<!--                --><?php
+//                    echo "<pre>"; print_r($employee->uid); echo "</pre>";
+//                    echo "<pre>"; print_r($employee->isZeitaufzeichnungspflichtig); echo "</pre>";
+//                ?>
 
 				<!--IF employee must not record times, color row grey-->
 				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>
@@ -935,28 +992,41 @@ function sortEmployeesName($employee1, $employee2)
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if ($employee->azg): ?>
+					<?php if (!$isAllIn): ?>
+						<?php if ($employee->azg): ?>
+							<td class='text-center'>ja</td>
+						<?php else: ?>
+							<td class='text-center'>nein</td>
+						<?php endif; ?>
+					<?php endif; ?>
+
+					<?php if ($isAllIn): ?>
+						<?php if ($employee->isAllIn): ?>
+							<td class='text-center'>ja</td>
+						<?php else: ?>
+							<td class='text-center'>nein
+							</td>
+						<?php endif; ?>
+					<?php endif; ?>
+
+					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
 						<td class='text-center'>ja</td>
 					<?php else: ?>
 						<td class='text-center'>nein</td>
 					<?php endif; ?>
 
-					<?php if ($employee->isZeitaufzeichnungspflichtig): ?>
-                        <td class='text-center'>ja</td>
-					<?php else: ?>
-                        <td class='text-center'>nein</td>
-					<?php endif; ?>
+
 
 					<!--status-->
 					<!-- * only consider if timesheet date is date of last month -->
 <!--					<?php /*if ($date_last_month == $employee->last_timesheet_date): */?>
 
 						<!-- * status text if confirmed-->
-						<?php /*if (!is_null($employee->last_timesheet_confirmed)): */?>
+						<?php /*if (!is_null($employee->lastConfirmedTimesheetDatum)): */?>
 							<!--<td class='text-center'>genehmigt</td>-->
 
 						<!-- * status text if sent-->
-						<?php /*elseif (!is_null($employee->last_timesheet_sent)): */?>
+						<?php /*elseif (!is_null($employee->lastSentTimesheetDatum)): */?>
 							<!--<td class='text-center'>abgeschickt</td>-->
 
 						<!-- * status text if created-->
@@ -992,14 +1062,21 @@ function sortEmployeesName($employee1, $employee2)
 					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
 					<?php $all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed; ?>
 					<td class='text-center <?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? 'danger' : '' ?>'>
-						<?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? $all_timesheets_notCreatedOrConfirmed : '-' ?>
+						<?php echo $all_timesheets_notCreatedOrConfirmed ?>
 					</td>
 
 					<!--balance of working hours on next account-->
-					<td class='text-center<?php echo $employee->zeitsaldoklasse ?>'><?php
+					<td class='text-right<?php echo $employee->zeitsaldoklasse ?>'>
+                    <?php echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
+                    <?php
 					echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
-					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';
-					?></td>
+					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -'; ?>
+					<?php if ($isAllIn): ?>
+						<?php if ($employee->isAllIn): ?>
+							<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
+						<?php endif; ?>
+					<?php endif; ?>
+						</td>
 
 					<!--overtime hours-->
 					<!--<td class='text-center'>5,0 h</td>-->
@@ -1041,11 +1118,22 @@ function sortEmployeesName($employee1, $employee2)
 						<td><?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><?php echo $employee->nachname. ' '. $employee->vorname ?></td>
 					<?php endif; ?>
 
-                    <!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if ($employee->azg): ?>
-                        <td class='text-center'>ja</td>
-					<?php else: ?>
-                        <td class='text-center'>nein</td>
+					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
+					<?php if (!$isAllIn): ?>
+						<?php if ($employee->azg): ?>
+							<td class='text-center'>ja</td>
+						<?php else: ?>
+							<td class='text-center'>nein</td>
+						<?php endif; ?>
+					<?php endif; ?>
+
+					<?php if ($isAllIn): ?>
+						<?php if ($employee->isAllIn): ?>
+							<td class='text-center'>ja</td>
+						<?php else: ?>
+							<td class='text-center'>nein
+							</td>
+						<?php endif; ?>
 					<?php endif; ?>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
@@ -1054,6 +1142,7 @@ function sortEmployeesName($employee1, $employee2)
 					<?php else: ?>
 						<td class='text-center'>nein</td>
 					<?php endif; ?>
+
 
 					<!--status-->
 					<!--<td class='text-center'>nicht angelegt</td>-->
@@ -1068,13 +1157,21 @@ function sortEmployeesName($employee1, $employee2)
 					<!--<td class='text-center'>-</td>-->
 
 					<!--amount of all timesheets not confirmed-->
-					<td class='text-center'>-</td>
-						<!--balance of working hours on next account-->
+                    <td class='text-center <?php echo ($employee->all_timesheets_notCreated != 0) ? 'danger' : '' ?>'>
+						<?php echo $employee->all_timesheets_notCreated ?>
+                    </td>
 
-						<td class='text-center<?php echo $zeitsaldoklasse ?>'><?php
-						echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
-						echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';
-						?></td>
+						<td class='text-right<?php echo $zeitsaldoklasse ?>'>
+                        <?php echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
+                        <?php
+                            echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
+                            echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';?>
+						<?php if ($isAllIn): ?>
+							<?php if ($employee->isAllIn): ?>
+								<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
+							<?php endif; ?>
+						<?php endif; ?>
+						</td>
 						<!--overtime hours-->
 						<!--<td class='text-center'>-</td>-->
 						<!--holidays cosumed-->

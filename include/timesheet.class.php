@@ -9,8 +9,8 @@ require_once(dirname(__FILE__). '/../../../include/basis_db.class.php');
 require_once(dirname(__FILE__). '/../../../include/datum.class.php');
 require_once(dirname(__FILE__). '/../../../include/dms.class.php');
 require_once(dirname(__FILE__). '/../../../include/functions.inc.php');
-require_once(dirname(__FILE__). '/../../../include/bisverwendung.class.php');
 require_once(dirname(__FILE__). '/../../../include/zeitaufzeichnung.class.php');
+require_once(dirname(__FILE__). '/../../../include/vertragsbestandteil.class.php');
 
 /**
  * Description of casetime_timesheet
@@ -354,6 +354,365 @@ class Timesheet extends basis_db
 		}
 
 	}
+
+    /**
+     * Get confirmed timesheets only.
+     *
+     * DESC and limit 1 to retrieve last confirmed timesheet only.
+     * ASC and limit 1 to retrieve frist confirmed timesheet only.
+     *
+     * @param $uid
+     * @param string $order
+     * @param null $limit
+     * @return array|bool
+     */
+    public function getConfirmed($uid, $order = 'DESC', $limit = null)
+    {
+        if ($order !== 'ASC' && $order !== 'DESC')
+        {
+            $this->errormsg = 'Fehler beim Laden der Daten';
+            return false;
+        }
+
+        if (isset($uid) && !empty($uid))
+        {
+            $qry = '
+				SELECT
+					timesheet_id,
+					uid,
+					datum,
+					insertamum,
+					insertvon,
+					abgeschicktamum,
+					genehmigtamum,
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen,
+					vorzeitig_abgeschickt
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					uid ='. $this->db_add_param($uid). '
+                AND genehmigtamum IS NOT NULL
+				ORDER BY
+					datum ' . $order;
+
+
+            if (!is_null($limit))
+            {
+                $qry .= ' LIMIT ' . $this->db_add_param($limit, FHC_INTEGER);
+            }
+
+            if ($result = $this->db_query($qry))
+            {
+                $this->result = array();
+
+                if ($this->db_num_rows($result) > 0) {
+                    while ($row = $this->db_fetch_object()) {
+                        $obj = new stdClass();
+
+                        $obj->timesheet_id = $row->timesheet_id;
+                        $obj->uid = $row->uid;
+                        $obj->datum = $row->datum;
+                        $obj->insertamum = $row->insertamum;
+                        $obj->insertvon = $row->insertvon;
+                        $obj->abgeschicktamum = $row->abgeschicktamum;
+                        $obj->genehmigtamum = $row->genehmigtamum;
+                        $obj->genehmigtvon = $row->genehmigtvon;
+                        $obj->kontrolliertamum = $row->kontrolliertamum;
+                        $obj->kontrolliertvon = $row->kontrolliertvon;
+                        $obj->kontroll_notizen = $row->kontroll_notizen;
+                        $obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
+
+                        $this->result[] = $obj;
+                    }
+
+                    return $this->result;
+                }
+
+                return true;
+            }
+            else
+            {
+                $this->errormsg = "Fehler in der Abfrage zum Genehmigen der timesheets.";
+                return false;
+            }
+        }
+        else
+        {
+            $this->errormsg = "UID muss vorhanden und nicht leer sein";
+            return false;
+        }
+    }
+
+    /**
+     * Get unconfirmed timesheets only.
+     *
+     * DESC and limit 1 to retrieve last unconfirmed timesheet only.
+     * ASC and limit 1 to retrieve frist unconfirmed timesheet only.
+     *
+     * @param $uid
+     * @param string $order
+     * @param null $limit
+     * @return array|bool
+     */
+    public function getUnconfirmed($uid, $order = 'DESC', $limit = null)
+    {
+        if ($order !== 'ASC' && $order !== 'DESC')
+        {
+            $this->errormsg = 'Fehler beim Laden der Daten';
+            return false;
+        }
+
+        if (isset($uid) && !empty($uid))
+        {
+            $qry = '
+				SELECT
+					timesheet_id,
+					uid,
+					datum,
+					insertamum,
+					insertvon,
+					abgeschicktamum,
+					genehmigtamum,
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen,
+					vorzeitig_abgeschickt
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					uid ='. $this->db_add_param($uid). '
+                AND genehmigtamum IS NULL
+				ORDER BY
+					datum ' . $order;
+
+
+            if (!is_null($limit))
+            {
+                $qry .= ' LIMIT ' . $this->db_add_param($limit, FHC_INTEGER);
+            }
+
+            if ($result = $this->db_query($qry))
+            {
+                if ($this->db_num_rows($result) > 0) {
+                    $this->result = array();
+                    while ($row = $this->db_fetch_object()) {
+                        $obj = new stdClass();
+
+                        $obj->timesheet_id = $row->timesheet_id;
+                        $obj->uid = $row->uid;
+                        $obj->datum = $row->datum;
+                        $obj->insertamum = $row->insertamum;
+                        $obj->insertvon = $row->insertvon;
+                        $obj->abgeschicktamum = $row->abgeschicktamum;
+                        $obj->genehmigtamum = $row->genehmigtamum;
+                        $obj->genehmigtvon = $row->genehmigtvon;
+                        $obj->kontrolliertamum = $row->kontrolliertamum;
+                        $obj->kontrolliertvon = $row->kontrolliertvon;
+                        $obj->kontroll_notizen = $row->kontroll_notizen;
+                        $obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
+
+                        $this->result[] = $obj;
+                    }
+
+                    return $this->result;
+                }
+
+                return true;
+            }
+            else
+            {
+                $this->errormsg = "Fehler in der Abfrage zum Genehmigen der timesheets.";
+                return false;
+            }
+        }
+        else
+        {
+            $this->errormsg = "UID muss vorhanden und nicht leer sein";
+            return false;
+        }
+    }
+
+    /**
+     * Get sent timesheets only.
+     *
+     * DESC and limit 1 to retrieve last sent timesheet only.
+     * ASC and limit 1 to retrieve frist sent timesheet only.
+     * @param $uid
+     * @param string $order
+     * @param null $limit
+     * @return array|bool
+     */
+    public function getSent($uid, $order = 'DESC', $limit = null)
+    {
+        if ($order !== 'ASC' && $order !== 'DESC')
+        {
+            $this->errormsg = 'Fehler beim Laden der Daten';
+            return false;
+        }
+
+        if (isset($uid) && !empty($uid))
+        {
+            $qry = '
+				SELECT
+					timesheet_id,
+					uid,
+					datum,
+					insertamum,
+					insertvon,
+					abgeschicktamum,
+					genehmigtamum,
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen,
+					vorzeitig_abgeschickt
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					uid ='. $this->db_add_param($uid). '
+                AND abgeschicktamum IS NOT NULL
+				ORDER BY
+					datum ' . $order;
+
+
+            if (!is_null($limit))
+            {
+                $qry .= ' LIMIT ' . $this->db_add_param($limit, FHC_INTEGER);
+            }
+
+            if ($result = $this->db_query($qry))
+            {
+                if ($this->db_num_rows($result) > 0) {
+                    $this->result = array();
+                    while ($row = $this->db_fetch_object()) {
+                        $obj = new stdClass();
+
+                        $obj->timesheet_id = $row->timesheet_id;
+                        $obj->uid = $row->uid;
+                        $obj->datum = $row->datum;
+                        $obj->insertamum = $row->insertamum;
+                        $obj->insertvon = $row->insertvon;
+                        $obj->abgeschicktamum = $row->abgeschicktamum;
+                        $obj->genehmigtamum = $row->genehmigtamum;
+                        $obj->genehmigtvon = $row->genehmigtvon;
+                        $obj->kontrolliertamum = $row->kontrolliertamum;
+                        $obj->kontrolliertvon = $row->kontrolliertvon;
+                        $obj->kontroll_notizen = $row->kontroll_notizen;
+                        $obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
+
+                        $this->result[] = $obj;
+                    }
+
+                    return $this->result;
+                }
+
+                return true;
+            }
+            else
+            {
+                $this->errormsg = "Fehler in der Abfrage zum Genehmigen der timesheets.";
+                return false;
+            }
+        }
+        else
+        {
+            $this->errormsg = "UID muss vorhanden und nicht leer sein";
+            return false;
+        }
+    }
+
+    /**
+     * Get unsent timesheets only.
+     *
+     * DESC and limit 1 to retrieve last unsent timesheet only.
+     * ASC and limit 1 to retrieve frist unsent timesheet only.
+     * @param $uid
+     * @param string $order
+     * @param null $limit
+     * @return array|bool
+     */
+    public function getUnsent($uid, $order = 'DESC', $limit = null)
+    {
+        if ($order !== 'ASC' && $order !== 'DESC')
+        {
+            $this->errormsg = 'Fehler beim Laden der Daten';
+            return false;
+        }
+
+        if (isset($uid) && !empty($uid))
+        {
+            $qry = '
+				SELECT
+					timesheet_id,
+					uid,
+					datum,
+					insertamum,
+					insertvon,
+					abgeschicktamum,
+					genehmigtamum,
+					genehmigtvon,
+					kontrolliertamum,
+					kontrolliertvon,
+					kontroll_notizen,
+					vorzeitig_abgeschickt
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+					uid ='. $this->db_add_param($uid). '
+                AND abgeschicktamum IS NULL
+				ORDER BY
+					datum ' . $order;
+
+
+            if (!is_null($limit))
+            {
+                $qry .= ' LIMIT ' . $this->db_add_param($limit, FHC_INTEGER);
+            }
+
+            if ($result = $this->db_query($qry))
+            {
+                if ($this->db_num_rows($result) > 0) {
+                    $this->result = array();
+                    while ($row = $this->db_fetch_object()) {
+                        $obj = new stdClass();
+
+                        $obj->timesheet_id = $row->timesheet_id;
+                        $obj->uid = $row->uid;
+                        $obj->datum = $row->datum;
+                        $obj->insertamum = $row->insertamum;
+                        $obj->insertvon = $row->insertvon;
+                        $obj->abgeschicktamum = $row->abgeschicktamum;
+                        $obj->genehmigtamum = $row->genehmigtamum;
+                        $obj->genehmigtvon = $row->genehmigtvon;
+                        $obj->kontrolliertamum = $row->kontrolliertamum;
+                        $obj->kontrolliertvon = $row->kontrolliertvon;
+                        $obj->kontroll_notizen = $row->kontroll_notizen;
+                        $obj->vorzeitig_abgeschickt = $row->vorzeitig_abgeschickt;
+
+                        $this->result[] = $obj;
+                    }
+
+                    return $this->result;
+                }
+
+                return true;
+            }
+            else
+            {
+                $this->errormsg = "Fehler in der Abfrage zum Genehmigen der timesheets.";
+                return false;
+            }
+        }
+        else
+        {
+            $this->errormsg = "UID muss vorhanden und nicht leer sein";
+            return false;
+        }
+    }
 
 	/** Get all times and reasons of absence which need to be reported. (of all users timesheets)
 	 *
@@ -1291,52 +1650,6 @@ class Timesheet extends basis_db
 		}
 	}
 
-	/** Check if there is no existing timesheet although user is zeitaufzeichnungsplichtig
-	 *
-	 * @param string $uid User ID.
-	 * @return string $beginn	Wenn vorhanden Datum der letzen Bisverwendung mit ZA-Pflicht
-	 * @return boolean	True when this constellation is the case
-	 */
-	public function getLastVerwendungZapflicht($uid)
-	{
-		if (isset($uid) && !empty($uid))
-		{
-			$date_golive = new DateTime('first day of '. CASETIME_TIMESHEET_GOLIVE);
-			$date_begin_zeitaufzeichnungspflicht = $date_golive->format('Y-m-d');
-			$date_begin_zeitaufzeichnungspflicht = "'$date_begin_zeitaufzeichnungspflicht'";
-
-			$qry = "
-			SELECT beginn
-			FROM bis.tbl_bisverwendung
-			WHERE mitarbeiter_uid = ". $this->db_add_param($uid). "
-			and zeitaufzeichnungspflichtig = TRUE
-			AND beginn < NOW()::date
-			AND COALESCE(beginn, $date_begin_zeitaufzeichnungspflicht ::date) < NOW()::date
-			AND COALESCE(ende, NOW()::date) > $date_begin_zeitaufzeichnungspflicht ::date
-			order by bisverwendung_id DESC LIMIT 1;
-			";
-
-			if ($this->db_query($qry))
-			{
-				if ($row = $this->db_fetch_object())
-				{
-					$beginn = $row->beginn;
-					return $beginn;
-				}
-				else
-				{
-					$this->errormsg = 'Fehler beim Laden der Daten';
-					return false;
-				}
-			}
-			else
-			{
-				$this->errormsg = 'Keine Bisverwendung mit ZA-Pflicht';
-				return false;
-			}
-		}
-	}
-
 	/** Check if there is an existing timesheet
 	 *
 	 * @param string $uid UserID.
@@ -1555,7 +1868,6 @@ class Timesheet extends basis_db
 	 */
 	public function hasBlockingErrorPause($uid, $month, $year)
 	{
-		$verwendung = new bisverwendung();
 		$datum = new datum();
 
 		//aktuelles Monat nach Pausenfehler checken
@@ -1567,14 +1879,13 @@ class Timesheet extends basis_db
 			$za = new zeitaufzeichnung();
 			if ($za->checkPausenErrors($uid, $day))
 			{
-				$verwendung->getVerwendungDatum($uid, $day);
-				foreach ($verwendung->result as $v)
-				{
-					if ($v->azgrelevant)
-					{
-						return $day; // Blocking error found
-					}
-				}
+                $vbt = new vertragsbestandteil();
+                $isAzgrelevant = $vbt->isAzgRelevant($uid, $day);
+
+                if ($isAzgrelevant)
+                {
+                    return $day; // Blocking error found
+                }
 			}
 			$stamp = strtotime("+1 day", $stamp);
 		}
