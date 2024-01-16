@@ -10,6 +10,9 @@ from datetime import date
 
 from Products.PythonScripts.standard import html_quote
 
+# returns salden (Zeitsaldo, Urlaubsanspruch und Urlaubsstand) für die per POST übergebenen SACHBs:
+# {"STATUS": "OK", "RESULT": {"UID": {"UrlaubAktuell": 99, "UrlaubAnspruch": 25.0, "Zeitsaldo": 1},...}}
+
 # returns salden (Zeitsaldo, Urlaubsanspruch und Urla
 # ret_dict = {'STATUS':'', 'RESULT':{}}ubsstand, SALUESUM1) für die per POST übergebenen SACHBs:
 # {"STATUS": "OK", "RESULT": {"UID": {"UrlaubAktuell": 99, "UrlaubAnspruch": 25.0, "Zeitsaldo": 1, "AllInSaldo": 22.5},...}}
@@ -83,7 +86,7 @@ def get_salden(self):
 
             error = erg[0]
             urlaubstage = erg[1][0][0]
-			if not urlaubstage:
+            if not urlaubstage:
                 urlaubstage = 0
             data_dict["UrlaubAnspruch"] = urlaubstage
 
@@ -105,7 +108,6 @@ def get_salden(self):
 		if not saldoAllIn:
 		    saldoAllIn = 0
             	    data_dict['AllInSaldo']  = saldoAllIn
-            	#    data_dict['AllInSaldo']  = 99.99
 
     	ret_dict['STATUS']='OK'
     	ret_dict['RESULT'][vars_dict['sachb']] = data_dict
