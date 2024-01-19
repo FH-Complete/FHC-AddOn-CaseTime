@@ -153,33 +153,33 @@ if (isset($_GET['timesheet_id']))
 	$mitarbeiter = new Mitarbeiter();
 	if ($mitarbeiter->getVorgesetzteByDate($employee_uid, $dateTimesheet->format('Y-m-d'), 1))
 	{
-        // Check if logged User is Vorgesetzter im Timesheet Monat
-        if ($uid == $mitarbeiter->vorgesetzte[0])
-        {
-            $isVorgesetzter = true;
-            $isVorgesetzter_imTimesheetMonat = true;  // darf Monatliste genehmigen/retournieren
-        }
-        else
-        {
-            $ma = new Mitarbeiter();
+		// Check if logged User is Vorgesetzter im Timesheet Monat
+		if ($uid == $mitarbeiter->vorgesetzte[0])
+		{
+			$isVorgesetzter = true;
+			$isVorgesetzterMitVertretungsfunktion = true;
+			$isVorgesetzter_imTimesheetMonat = true;  // darf Monatliste genehmigen/retournieren
+		}
+		else
+		{
+			$ma = new Mitarbeiter();
 			if($ma->getVorgesetzteByDate($mitarbeiter->vorgesetzte[0], $dateTimesheet->format('Y-m-d'), 1))
 			{
-                if ($uid == $ma->vorgesetzte[0])
+				if ($uid == $ma->vorgesetzte[0])
 				{
 					$isVorgesetzterMitVertretungsfunktion = true;
 					$ben = new benutzer();
 					$ben->load($mitarbeiter->vorgesetzte[0]);
-                }
-
-            }
-        }
+				}
+			}
+		}
 	}
 	else
 	{
 		echo $mitarbeiter->errormsg;
 	}
 
-    // Get Vorgesetzter
+	// Get Vorgesetzter
 	$mitarbeiter = new Mitarbeiter();
 	if ($mitarbeiter->getVorgesetzte($employee_uid, 1))
     {
@@ -1036,7 +1036,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<div class="panel panel-default">
 		<div class="panel-body text-danger">
 			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
-			<b>Sie sind INDIREKT VORGESETZT. </b>Sie können Monatlisten einsehen, aber nicht genehmigen oder retournieren.
+			<b>Sie sind INDIREKT VORGESETZT. </b>Sie können Monatlisten einsehen, aber nicht genehmigen oder retournieren.</b>
 		</div>
 	</div>
 	<?php endif; ?>
@@ -1048,7 +1048,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<div class="panel-body text-danger">
 			<i class="fa fa-info-circle fa-lg" aria-hidden="true"></i>
 			<b>Sie sind INDIREKT VORGESETZT.
-			<br>Sie können in Vertretung für <?php echo $db->convert_html_chars($ben->vorname).' '.$db->convert_html_chars($ben->nachname); ?> Monatlisten einsehen, genehmigen und retournieren.
+			<br>Sie können in Vertretung für <?php echo $db->convert_html_chars($ben->vorname).' '.$db->convert_html_chars($ben->nachname); ?> Monatlisten einsehen, genehmigen und retournieren.</b>
 		</div>
 	</div>
 	<?php endif; ?>
@@ -1114,12 +1114,12 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 					?>
 			</div>
 			<div class="panel-body col-xs-4 text-right">
-				<br><br>
-				<tr>
+				<br>
+
 					<a role="button"
 					   class="btn btn-default pull-right"
 					   onclick="showHomeofficeTage();">Homeofficetage anzeigen</a><br><br><br>
-				</tr>
+
 			</div>
 		</div>
 
@@ -1299,6 +1299,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 							<?php echo ($isSent || !$isZaPflichtigOnSelDate || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt || !$isCurrentMonth)
 								? ' disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."'
 								: '' ?>
+						>
 						<span class="form-check-label" for="vorzeitigAbgeschickt"> Vor Monatsende abschließen</span>
 					</div>
 				</form>
@@ -1314,24 +1315,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<div class="panel-heading">
 			<span class="panel-title h2">Vorgesetztensicht</span>
 		</div>
-
-		<!--panel: CONFIRM timesheet-->
-		<!-- <div class="row">
-			<div class="panel-body col-xs-8">
-				<span class="text-uppercase text-info"><b>Monatsliste genehmigen</b></span><br><br>
-				Prüfen Sie die Zeiterfassung Ihres Mitarbeiters, indem Sie die Monatsliste herunterladen.<br>
-				Prüfen Sie die Abwesenheitsbestätigungen, indem Sie auf die einzelnen Dokumentenlinks klicken.<br>
-				Sobald Sie die Monatsliste genehmigt haben, wird der Status in der unteren Tabelle "Alle Monatslisten" auf grün gesetzt.<br><br>
-			</div>
-			<form id="formTimesheetConfirmation" method="POST" action="">
-				<input type="hidden" name="checkbox_overtime_arr" value="" />
-				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ((!$isSent && !$isTimesheetManager) || $isConfirmed || !$hasFormerUnconfirmedTimesheet || ($isVorgesetzter_indirekt && !$isVorgesetzter) ) ? 'disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
-							name="submitTimesheetConfirmation" class="btn btn-primary pull-right"
-							onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\nfür <php echo $full_name ?> sicher genehmigen?');">Monatsliste genehmigen</button>
-				</div>
-			</form>
-		</div> -->
 
 		<div class="row">
 			<div class="panel-body col-xs-8">
