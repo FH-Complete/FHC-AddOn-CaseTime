@@ -466,12 +466,21 @@ foreach($employee_uid_arr as $employee_uid)
 
     // Get last sent timesheet
     $result = $timesheet->getSent($employee_uid, 'DESC', 1);
-    $lastSentTimesheetDatum = $result == true && !empty($timesheet->result) ? new DateTime($timesheet->result[0]->datum) : null;    // Fixed errormsg Undefined offset on line 462
+    $lastSentTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
+    $lastSentTimesheetDatum = null;
+	if(!is_null($lastSentTimesheet) && (new DateTime($lastSentTimesheet->datum) == $date_last_month))
+	{
+	  $lastSentTimesheetDatum = new DateTime($lastSentTimesheet->abgeschicktamum);
+	}
 
     // Get last confirmed timesheet
     $result = $timesheet->getConfirmed($employee_uid, 'DESC', 1);
     $lastConfirmedTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
-    $lastConfirmedTimesheetDatum = !is_null($lastConfirmedTimesheet) ? new DateTime($lastConfirmedTimesheet->datum) : null;
+    $lastConfirmedTimesheetDatum = null;
+	if(!is_null($lastConfirmedTimesheet) && (new DateTime($lastConfirmedTimesheet->datum) == $date_last_month))
+	{
+	  $lastConfirmedTimesheetDatum = new DateTime($lastConfirmedTimesheet->genehmigtamum);
+	}
 
     // Erster VBT Zeitaufzeichnungspflicht
     $vbt = new vertragsbestandteil();
