@@ -466,7 +466,7 @@ foreach($employee_uid_arr as $employee_uid)
     $last_timesheet_date = !empty($timesheet_arr) ? new DateTime($timesheet_arr[0]->datum) : null;
 
     // Get last sent timesheet
-	$result = new timesheet();
+	$timesheet = new timesheet();
     $result = $timesheet->getSent($employee_uid, 'DESC', 1);
 
     $lastSentTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
@@ -480,7 +480,7 @@ foreach($employee_uid_arr as $employee_uid)
 	}
 
     // Get last confirmed timesheet
-	$result = new timesheet();
+	$timesheet = new timesheet();
     $result = $timesheet->getConfirmed($employee_uid, 'DESC', 1);
     $lastConfirmedTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
     $lastConfirmedTimesheetDatum = null;
