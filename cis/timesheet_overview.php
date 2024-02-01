@@ -449,6 +449,7 @@ else
 	}
 }
 $isAllIn = false;
+
 foreach($employee_uid_arr as $employee_uid)
 {
 	// name of employee
@@ -465,21 +466,29 @@ foreach($employee_uid_arr as $employee_uid)
     $last_timesheet_date = !empty($timesheet_arr) ? new DateTime($timesheet_arr[0]->datum) : null;
 
     // Get last sent timesheet
+	$result = new timesheet();
     $result = $timesheet->getSent($employee_uid, 'DESC', 1);
+
     $lastSentTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
     $lastSentTimesheetDatum = null;
+	$lastSentTimesheetDatumMonat = null;
 	if(!is_null($lastSentTimesheet) && (new DateTime($lastSentTimesheet->datum) == $date_last_month))
 	{
-	  $lastSentTimesheetDatum = new DateTime($lastSentTimesheet->abgeschicktamum);
+		$lastSentTimesheetDatum = new DateTime($lastSentTimesheet->abgeschicktamum);
+		$lastSentTimesheetDatumMonat = new DateTime($lastSentTimesheet->datum);
+
 	}
 
     // Get last confirmed timesheet
+	$result = new timesheet();
     $result = $timesheet->getConfirmed($employee_uid, 'DESC', 1);
     $lastConfirmedTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
     $lastConfirmedTimesheetDatum = null;
+	$lastConfirmedTimesheetDatumMonat = null;
 	if(!is_null($lastConfirmedTimesheet) && (new DateTime($lastConfirmedTimesheet->datum) == $date_last_month))
 	{
-	  $lastConfirmedTimesheetDatum = new DateTime($lastConfirmedTimesheet->genehmigtamum);
+		$lastConfirmedTimesheetDatum = new DateTime($lastConfirmedTimesheet->genehmigtamum);
+		$lastConfirmedTimesheetDatumMonat = new DateTime($lastConfirmedTimesheet->datum);
 	}
 
     // Erster VBT Zeitaufzeichnungspflicht
@@ -640,9 +649,9 @@ foreach($employee_uid_arr as $employee_uid)
 	{
 		$zeitsaldoklasse = '';
 	}
-	elseif (isset($vertragsstunden) && isset($time_balance))
+	elseif (isset($vertragsstunden) && isset($time_balance) && $time_balance!==false)
 	{
-		if ($time_balance > $vertragsstunden * 3 or $time_balance < $vertragsstunden * -1)
+		if ($time_balance > $vertragsstunden * 3 || $time_balance < $vertragsstunden * -1)
 			$zeitsaldoklasse = ' danger';
 		elseif ($time_balance > $vertragsstunden * 1.5)
 			$zeitsaldoklasse = ' warning';
@@ -710,7 +719,9 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_id = $last_timesheet_id;
 		$obj->last_timesheet_date = $last_timesheet_date;
 		$obj->last_timesheet_sent = $lastSentTimesheetDatum;
+		$obj->lastSentTimesheetDatumMonat = $lastSentTimesheetDatumMonat;
 		$obj->last_timesheet_confirmed = $lastConfirmedTimesheetDatum;
+		$obj->lastConfirmedTimesheetDatumMonat = $lastConfirmedTimesheetDatumMonat;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = $cnt_isNotSent;
 		$obj->all_timesheets_notConfirmed = $cnt_isNotConfirmed;
@@ -739,7 +750,9 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_id = null;
 		$obj->last_timesheet_date = null;
 		$obj->last_timesheet_sent = null;
+		$obj->lastSentTimesheetDatumMonat = null;
 		$obj->last_timesheet_confirmed = null;
+		$obj->lastConfirmedTimesheetDatumMonat = null;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = 0;
 		$obj->all_timesheets_notConfirmed = 0;
@@ -792,131 +805,7 @@ function sortEmployeesName($employee1, $employee2)
 }
 ?>
 
-<!--<!DOCTYPE html>
-<html>
-<head>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-	<link rel="stylesheet" type="text/css" href="../../../vendor/twbs/bootstrap3/dist/css/bootstrap.min.css">
-	<link href="../../../vendor/fortawesome/font-awesome44/css/font-awesome.min.css" rel="stylesheet" type="text/css"/>
-	<link href="../../../vendor/mottie/tablesorter/dist/css/theme.default.min.css" rel="stylesheet">
-	<link href="../../../vendor/mottie/tablesorter/dist/css/jquery.tablesorter.pager.min.css" rel="stylesheet">
-	<link href="../../../public/css/sbadmin2/tablesort_bootstrap.css" rel="stylesheet">
-	<script type="text/javascript" src="../../../vendor/components/jquery/jquery.min.js"></script>
-	<script type="text/javascript" src="../../../vendor/components/jqueryui/jquery-ui.min.js"></script>
-	<script type="text/javascript" src="../../../vendor/twbs/bootstrap3/dist/js/bootstrap.min.js"></script>
-	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/jquery.tablesorter.min.js"></script>
-	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/jquery.tablesorter.widgets.min.js"></script>
-	<script type="text/javascript" src="../../../vendor/mottie/tablesorter/dist/js/extras/jquery.tablesorter.pager.min.js"></script>
-	<title>Timesheet Überblick</title>
-	<style>
-		.row {
-			margin-left: 0px;
-			margin-right: 0px;
-		}
-		.table>tbody>tr>td {
-			border-top: none;
-		}
-		.btn {
-			width: 185px;
-		}
-		.inactive {
-			pointer-events: none;
-			cursor: default;
-			text-decoration: none;
-			color: grey;
-		}
-	</style>
-	<script>
-	$(document).ready(function()
-	{
-		// init tablesorter
-		$("#tbl_monthlist_overview").tablesorter(
-			{
-				theme: "default",
-				headerTemplate: '{content} {icon}',
-				widgets: ["filter"],
-				widgetOptions:
-					{
-						filter_saveFilters : true,
-						filter_searchFiltered: false
-					}
-			}
-		);
-	});
-
-	// **************************** FUNCTIONS
-
-	// toggle organisational units (single or hiararchy)
-	function toggleParentOE()
-	{
-		if ($('.oe').is(':visible'))
-		{
-			$('.oe').css('display', 'none');
-			$('.oe_parents').css('display', 'inline');
-			$('#btn_toggle_oe').text('Direkte OE anzeigen');
-		}
-		else
-		{
-			$('.oe').css('display', 'inline');
-			$('.oe_parents').css('display', 'none');
-			$('#btn_toggle_oe').text('OE-Hierarchie anzeigen');
-		}
-	}
-	</script>
-</head>
-
-<body class="main" style="font-family: Arial, Helvetica, sans-serif; font-size: 13px;">
-
-	<h3>Verwaltung Zeitaufzeichnung - Monatslisten</h3>
-	<br><br>
-	<h4>Übersicht Monatslisten</h4>-->
-
-	<!--************************************	TEXTUAL INFORMATION	 -->
-<!--
-	<?php if($isVorgesetzter): ?>
-		Überblick über die Zeiterfassung des letzten Monats Ihrer MitarbeiterInnen sowie über deren Zeitsaldo und konsumierten Urlaubstage.<br>
-		Wenn Sie noch Monatslisten genehmigen müssen, wird dies in der Spalte "Nicht genehmigt" rot angezeigt.<br>
-		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen und zu verwalten.
-	<?php elseif ($isPersonal): ?>
-		Überblick über die Zeiterfassung des letzten Monats aller fix angestellten und aktiven MitarbeiterInnen.<br>
-		In der Spalte "Letzte Kontrolle" sehen Sie wann Sie zuletzt eine Monatsliste als "kontrolliert" gespeichert haben.<br>
-		Klicken Sie auf einen Namen um die Monatslisten der entsprechenden Person einzusehen, Genehmigungen aufzuheben oder Kontrollnotizen zu setzen.<br>
-	<?php endif; ?>
-	<br><br>
-	<?php if($isVorgesetzter_indirekt): ?>
-		<div class="well">
-			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
-				<label>Wählen Sie Ihre Ansicht:</label>
-				<div class="btn-group col-xs-offset-1">
-					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
-							name="submitAllMA" value="false">Meine direkten Mitarbeiter
-					</button>
-					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
-							name="submitAllMA" value="true">Alle meine Mitarbeiter
-					</button>
-				</div>
-			</form>
-		</div>
-		<br>
-	<?php endif; ?>
-		<?php if($isPersonal && $isVorgesetzter): ?>
-		<div class="well">
-			<form class="form" method="GET" action="<?php echo $_SERVER['PHP_SELF'] ?>">
-				<label>Wählen Sie Ihre Ansicht:</label>
-				<div class="btn-group col-xs-offset-1">
-					<button type="submit" class="btn <?php echo (!$showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
-							name="submitAllMA" value="false">Meine direkten Mitarbeiter
-					</button>
-					<button type="submit" class="btn <?php echo ($showAllMA) ? 'btn-primary active' : 'btn-default' ?>"
-							name="submitAllMA" value="true">Alle Mitarbeiter
-					</button>
-				</div>
-			</form>
-		</div>
-		<br>
-	<?php endif; ?>
-	-->
-	<script>
+<script>
 
 	// hide progress bar when site is done
 	$("#progressbar_div").toggleClass("hidden");
@@ -972,17 +861,11 @@ function sortEmployeesName($employee1, $employee2)
 			</tr>
 		</thead>
 
-		<!--************************************	TABLE BODY	 -->
 		<tbody>
 			<?php foreach ($employees_data_arr as $employee): ?>
 
 				<!--IF employee has AT LEAST ONE TIMESHEET-->
 				<?php if (isset($employee->last_timesheet_id)): ?>
-
-<!--                --><?php
-//                    echo "<pre>"; print_r($employee->uid); echo "</pre>";
-//                    echo "<pre>"; print_r($employee->isZeitaufzeichnungspflichtig); echo "</pre>";
-//                ?>
 
 				<!--IF employee must not record times, color row grey-->
 				<tr <?php echo (!$employee->isZeitaufzeichnungspflichtig) ? 'class="active"' : '' ?>>
@@ -1024,33 +907,10 @@ function sortEmployeesName($employee1, $employee2)
 						<td class='text-center'>nein</td>
 					<?php endif; ?>
 
-
-
-					<!--status-->
-					<!-- * only consider if timesheet date is date of last month -->
-<!--					<?php /*if ($date_last_month == $employee->last_timesheet_date): */?>
-
-						<!-- * status text if confirmed-->
-						<?php /*if (!is_null($employee->lastConfirmedTimesheetDatum)): */?>
-							<!--<td class='text-center'>genehmigt</td>-->
-
-						<!-- * status text if sent-->
-						<?php /*elseif (!is_null($employee->lastSentTimesheetDatum)): */?>
-							<!--<td class='text-center'>abgeschickt</td>-->
-
-						<!-- * status text if created-->
-						<?php /*else: */?>
-							<!--<td class='text-center'>angelegt</td>-->
-						<?php /*endif; */?>
-
-					<!-- * status text if NO created timesheet for the last month-->
-					<?php /*else: */?>
-						<!--<td class='text-center'>nicht angelegt</td>-->
-					<?php /*endif; */?>
-
 					<!--sending date-->
 					<!-- * only consider if timesheet date is date of last month -->
-					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
+					<?php if ($date_last_month == $employee->lastSentTimesheetDatumMonat):?>
+
 						<td class='text-center'>
 							<?php echo (!is_null($employee->last_timesheet_sent)) ? $employee->last_timesheet_sent->format('d.m.Y') : '-' ?>
 						</td>
@@ -1060,7 +920,7 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--confirmation date-->
 					<!-- * only consider if timesheet date is date of last month -->
-					<?php if ($date_last_month == $employee->last_timesheet_date): ?>
+					<?php if ($date_last_month == $employee->lastConfirmedTimesheetDatumMonat): ?>
 						<td class='text-center'>
 							<?php echo (!is_null($employee->last_timesheet_confirmed)) ? $employee->last_timesheet_confirmed->format('d.m.Y') : '-' ?>
 						</td>
