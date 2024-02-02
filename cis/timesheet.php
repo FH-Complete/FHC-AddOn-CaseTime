@@ -443,7 +443,9 @@ if ($timesheet->new && $isZaPflichtigOnSelDate)
 		if (!$hasFormerMissingTimesheet)
 		{
 			$timesheet->uid = $uid;
-			$timesheet->datum = $date_selected->format('Y-m-d'); 	//saved with last day (=t)of month
+			$last_day_of_month = clone $date_selected;
+			$last_day_of_month->modify('last day of this month');
+			$timesheet->datum = $last_day_of_month->format('Y-m-d'); 	//saved with last day (=t)of month
 			$timesheet->insertvon = (isset($_GET['create'])) ? get_uid() : $uid;
 
 			// if saving succeeded, last inserted timesheet_id is returned
