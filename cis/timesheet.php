@@ -596,7 +596,7 @@ if (isset($_POST['submitTimesheet']))
 			$benutzer = new Benutzer($mitarbeiter->vorgesetzte[0]);
 			$vorgesetzter_vorname = $benutzer->vorname;    // string first name of supervisor
 
-			$to = $vorgesetzten_uid. '@'. DOMAIN;	// email of supervisor
+			$to = $benutzer->uid. '@'. DOMAIN;	// email of supervisor
 			$subject =
 				'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
 				$year. ' von '. $full_name;
