@@ -151,16 +151,20 @@ if (isset($_GET['timesheet_id']))
     // Get Vorgesetzten of Timesheet Monat
 	$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 	$mitarbeiter = new Mitarbeiter();
-	if ($mitarbeiter->getVorgesetzteByDate($employee_uid, $dateTimesheet->format('Y-m-d'), 1))
+	if ($mitarbeiter->getVorgesetzteByDate($employee_uid, $dateTimesheet->format('Y-m-d')))
 	{
 		// Check if logged User is Vorgesetzter im Timesheet Monat
-		if ($uid == $mitarbeiter->vorgesetzte[0])
+		foreach( $mitarbeiter->vorgesetzte as $tmpvorgesetzter )
 		{
-			$isVorgesetzter = true;
-			$isVorgesetzterMitVertretungsfunktion = true;
-			$isVorgesetzter_imTimesheetMonat = true;  // darf Monatliste genehmigen/retournieren
+			if ($uid == $tmpvorgesetzter)
+			{
+				$isVorgesetzter = true;
+				$isVorgesetzterMitVertretungsfunktion = true;
+				$isVorgesetzter_imTimesheetMonat = true;  // darf Monatliste genehmigen/retournieren
+			}
 		}
-		else
+
+		if(!$isVorgesetzter)
 		{
 			$ma = new Mitarbeiter();
 			if($ma->getVorgesetzteByDate($mitarbeiter->vorgesetzte[0], $dateTimesheet->format('Y-m-d'), 1))

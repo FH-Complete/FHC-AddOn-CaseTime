@@ -878,4 +878,118 @@ function formatZeitsaldo($zeitsaldo)
 	return $stunden . "h:" . $minuten . "m";
 }
 
+function getNotConfirmedTimesheetCount($uid)
+{
+	$db = new basis_db();
+	$casetime_golive = CASETIME_TIMESHEET_GOLIVE;
+	$sql = <<<EOSQL
+		SELECT 
+			((tscount - tsconfirmedcount) + (tstotalcount - tscount)) AS tstotalnotconfirmed
+		FROM (
+			SELECT 
+				(EXTRACT('YEAR' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon))) * 12 + EXTRACT('MONTH' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)))) AS tstotalcount, 
+				age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)) AS tsage, 
+				count(ts.timesheet_id) AS tscount, 
+				count(ts.abgeschicktamum) AS tssentcount, 
+				count(ts.genehmigtamum) AS tsconfirmedcount 
+			FROM (
+				SELECT 
+					uid, 
+					CASE
+					  WHEN vb.von IS NULL OR vb.von < i.zavon THEN i.zavon 
+					  ELSE vb.von 
+					END AS tsvon,
+					CASE
+					  WHEN vb.bis IS NULL OR vb.bis > i.zabis THEN i.zabis 
+					  ELSE vb.bis 
+					END AS tsbis,
+					vb.* 
+				FROM (
+					SELECT 
+						uid, 
+						COALESCE(DATE_TRUNC('month', datum)::date, '{$casetime_golive}'::date) AS zavon, 
+						DATE_TRUNC('month', NOW()::date)::date AS zabis 
+					FROM 
+						addon.tbl_casetime_timesheet ts 
+					WHERE 
+						uid = {$db->db_add_param($uid)} AND genehmigtamum IS NOT NULL 
+					ORDER BY 
+						datum DESC 
+					LIMIT 1
+				) i 
+				JOIN 
+					hr.tbl_dienstverhaeltnis dv ON dv.mitarbeiter_uid = i.uid 
+				JOIN 
+					hr.tbl_vertragsbestandteil vb ON dv.dienstverhaeltnis_id = vb.dienstverhaeltnis_id AND vb.vertragsbestandteiltyp_kurzbz = 'zeitaufzeichnung' AND COALESCE(vb.von, '1970-01-01'::date) <= i.zabis AND COALESCE(vb.bis, '2170-12-31'::date) >= i.zabis 
+				JOIN 
+					hr.tbl_vertragsbestandteil_zeitaufzeichnung vbza ON vb.vertragsbestandteil_id = vbza.vertragsbestandteil_id AND vbza.zeitaufzeichnung = TRUE 
+			) u 
+			LEFT JOIN 
+				addon.tbl_casetime_timesheet ts ON u.uid = ts.uid AND ts.datum BETWEEN tsvon AND tsbis
+			GROUP BY 
+				u.vertragsbestandteil_id, u.tsvon, u.tsbis 
+		) r
+EOSQL;
+	
+/*	
+		SELECT 
+			tsnotconfirmed + tsnotcreated AS tstotalnotconfirmed 
+		FROM (
+			SELECT 
+				tscount - tsconfirmedcount AS tsnotconfirmed, tstotalcount - tscount AS tsnotcreated 
+			FROM (
+				SELECT 
+					SUM(tscount) AS tscount, SUM(tssentcount) AS tssentcount, SUM(tsconfirmedcount) AS tsconfirmedcount, SUM(tstotalcount) AS tstotalcount 
+				FROM (
+					SELECT 
+						*, (EXTRACT('YEAR' FROM age(u.tsbis, u.tsvon)) * 12 + EXTRACT('MONTH' FROM age(u.tsbis, u.tsvon))) AS tstotalcount 
+					FROM (
+						SELECT 
+							CASE
+							  WHEN vb.von IS NULL OR vb.von < '{$casetime_golive}'::date THEN '{$casetime_golive}'::date 
+							  ELSE DATE_TRUNC('month', vb.von)::date 
+							END AS tsvon,
+							CASE
+							  WHEN vb.bis IS NULL OR vb.bis > NOW()::date THEN DATE_TRUNC('month', NOW())::date 
+							  ELSE DATE_TRUNC('month', vb.bis)::date 
+							END AS tsbis,
+							vb.von, vb.bis, vbz.zeitaufzeichnung, vbz.azgrelevant, vbz.homeoffice, 
+							count(ts.timesheet_id) AS tscount, count(ts.abgeschicktamum) AS tssentcount, count(ts.genehmigtamum) AS tsconfirmedcount 
+						FROM 
+							hr.tbl_vertragsbestandteil vb 
+						JOIN 
+							hr.tbl_dienstverhaeltnis dv USING (dienstverhaeltnis_id) 
+						JOIN 
+							hr.tbl_vertragsbestandteil_zeitaufzeichnung vbz USING (vertragsbestandteil_id) 
+						LEFT JOIN 
+							addon.tbl_casetime_timesheet ts ON dv.mitarbeiter_uid = ts.uid AND ts.datum BETWEEN COALESCE(vb.von, '1970-01-01'::date) AND COALESCE(vb.bis, '2170-12-31'::date) 
+						WHERE 
+							dv.mitarbeiter_uid = {$db->db_add_param($uid)} AND vbz.zeitaufzeichnung = TRUE  AND COALESCE(vb.bis, DATE_TRUNC('month', NOW())::date) > '{$casetime_golive}'::date  
+						GROUP BY
+								vb.von, vb.bis, vbz.zeitaufzeichnung, vbz.azgrelevant, vbz.homeoffice
+						ORDER BY 
+							vb.von DESC
+					) u
+				) t
+			) q
+		) r;
+*/
+
+	if ($result = $db->db_query($sql))
+	{
+		$db->result = '';
+		if ($row = $db->db_fetch_object($result))
+		{
+			$db->result = $row->tstotalnotconfirmed;
+			var_dump($row->tstotalnotconfirmed);
+
+		}
+		return $db->result;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 ?>
