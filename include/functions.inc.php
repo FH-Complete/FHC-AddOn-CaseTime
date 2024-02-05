@@ -908,11 +908,18 @@ function getNotConfirmedTimesheetCount($uid)
 					SELECT 
 						uid, 
 						COALESCE(DATE_TRUNC('month', datum)::date, '{$casetime_golive}'::date) AS zavon, 
-						DATE_TRUNC('month', NOW()::date)::date AS zabis 
+						DATE_TRUNC('month', NOW()::date)::date AS zabis,
+						datum
 					FROM 
 						addon.tbl_casetime_timesheet ts 
 					WHERE 
 						uid = {$db->db_add_param($uid)} AND genehmigtamum IS NOT NULL 
+					UNION
+					SELECT
+						{$db->db_add_param($uid)} AS uid,
+						'{$casetime_golive}'::date AS zavon,
+						DATE_TRUNC('month', NOW()::date)::date AS zabis,
+						'{$casetime_golive}'::date AS datum
 					ORDER BY 
 						datum DESC 
 					LIMIT 1
