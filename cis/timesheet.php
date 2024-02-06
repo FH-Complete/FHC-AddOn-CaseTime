@@ -133,11 +133,7 @@ if (isset($_GET['timesheet_id']))
 	$month = $timesheet_date->format('m');
 
 	// Get the uid of the timesheet_id
-	if ($timesheet->getUser($timesheet_id))
-	{
-		$employee_uid = $timesheet->getUser($timesheet_id);
-	}
-	else
+	if (!$employee_uid = $timesheet->getUser($timesheet_id))
 	{
 		die($this->errormsg);
 	}
@@ -148,77 +144,22 @@ if (isset($_GET['timesheet_id']))
 		$personnel_manager_uid = $uid;	// keep personnel managers uid
 	}
 
-    // Get Vorgesetzten of Timesheet Monat
+	// Get Vorgesetzten of Timesheet Monat
 	$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 	$mitarbeiter = new Mitarbeiter();
-	if ($mitarbeiter->getVorgesetzteByDate($employee_uid, $dateTimesheet->format('Y-m-d')))
+	if ($mitarbeiter->isVorgesetzterByDate($uid, $employee_uid, $dateTimesheet->format('Y-m-01'), $dateTimesheet->format('Y-m-d')))
 	{
-		// Check if logged User is Vorgesetzter im Timesheet Monat
-		foreach( $mitarbeiter->vorgesetzte as $tmpvorgesetzter )
-		{
-			if ($uid == $tmpvorgesetzter)
-			{
-				$isVorgesetzter = true;
-				$isVorgesetzterMitVertretungsfunktion = true;
-				$isVorgesetzter_imTimesheetMonat = true;  // darf Monatliste genehmigen/retournieren
-			}
-		}
-
-		if(!$isVorgesetzter)
-		{
-			$ma = new Mitarbeiter();
-			if($ma->getVorgesetzteByDate($mitarbeiter->vorgesetzte[0], $dateTimesheet->format('Y-m-d'), 1))
-			{
-				if ($uid == $ma->vorgesetzte[0])
-				{
-					$isVorgesetzterMitVertretungsfunktion = true;
-					$ben = new benutzer();
-					$ben->load($mitarbeiter->vorgesetzte[0]);
-				}
-			}
-		}
-	}
-	else
-	{
-		echo $mitarbeiter->errormsg;
+		$isVorgesetzter = true;
+		$isVorgesetzterMitVertretungsfunktion = true;
+		$isVorgesetzter_imTimesheetMonat = true;  // darf Monatliste genehmigen/retournieren
 	}
 
-	// Get Vorgesetzter
+	// Pruefen ob der eingeloggte User aktuell Vorgesetzter der Person ist
 	$mitarbeiter = new Mitarbeiter();
-	if ($mitarbeiter->getVorgesetzte($employee_uid, 1))
-    {
-		// Check if logged User is Vorgesetzter
-		if ($uid == $mitarbeiter->vorgesetzte[0])
-		{
-			$isVorgesetzter = true; // darf Monatsliste lesen
-		}
-    }
-	else
+	if ($mitarbeiter->isVorgesetzterByDate($uid, $employee_uid, date('Y-m-d'), date('Y-m-d')))
 	{
-		echo $mitarbeiter->errormsg;
+		$isVorgesetzter = true; // darf Monatsliste lesen
 	}
-
-    // Falls MA im letzten Monat Dienstverhältnis beendet oder die OE gewechselt hat,
-    // muss der Vorgesetzte vom letzten Monat noch berechtigt sein, die Monatslistenseite einen weiteren Monat zu öffnen,
-    // um die entsprechenden Timesheets genehmigen zu können.
-	$lastMonth = new DateTime('last day of last month');
-	$mitarbeiter = new Mitarbeiter();
-	if ($mitarbeiter->getVorgesetzteByDate($employee_uid, $lastMonth->format('Y-m-d'), 1))
-	{
-		// Check if logged User is Vorgesetzter
-		if ($uid == $mitarbeiter->vorgesetzte[0])
-		{
-			$isVorgesetzter = true;  // darf Monatsliste lesen
-		}
-	}
-	else
-	{
-		echo $mitarbeiter->errormsg;
-	}
-
-	// Check if uid is a supervisor on higher oe level
-	$mitarbeiter = new Mitarbeiter();
-	$isVorgesetzter_indirekt = $mitarbeiter->check_isVorgesetzter_indirekt($uid, $employee_uid);
 
 	// Check, if uid is timesheet manager
 	$isTimesheetManager = check_isTimesheetManager($uid, $employee_uid);
@@ -1282,7 +1223,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
 					<button type="submit" <?php echo ($isSent || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
-						echo (($isSent || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? 'title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+						echo (($isSent || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? ' title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" id="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo $vorgesetzter_imTimesheetMonat_full_name ?> verschicken?');">Monatsliste verschicken</button>
 				</div>
