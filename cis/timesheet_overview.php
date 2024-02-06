@@ -242,6 +242,9 @@ needs the GUI to be displayed.-->
 	}
 
 	// trigger loading effect of progress bar
+	var progressbarwidth = 1;
+	var employees_count = 1;
+	var employees_loaded = 0;
 	function triggerProgressbar()
 	{
 		var elem = document.getElementById("progressbar");
@@ -250,15 +253,12 @@ needs the GUI to be displayed.-->
 
 		function frame()
 		{
-			if (width >= 95)
-			{
-				clearInterval(id);
-			}
-			else
-			{
-				width++;
-				elem.style.width = width + '%';
-				elem.innerHTML = width + '%';
+			progressbarwidth = Math.ceil(employees_loaded * 100 / employees_count);
+			elem.style.width = progressbarwidth + '%';
+			elem.innerHTML = progressbarwidth + '%';
+			
+			if(progressbarwidth > 99) {
+				clearInterval(id);	
 			}
 		}
 	}
@@ -347,6 +347,19 @@ if (!empty($all_employee_uid_arr))
 	}
 }
 
+/*
+ * 2024-02-06 ma0080@technikum-wien.at
+ * initialize employee count for progress bar
+ * use double empolyee count since 50% is 
+ * fetching data from casetime and 50% is
+ * fetching data from FHC
+ */
+$employees_count = count($employee_uid_arr) * 2;
+$employees_loaded = 0;
+echo <<<EOJS
+<script>employees_count = {$employees_count};</script>
+
+EOJS;
 
 // *********************************  data for SUPERVISORS VIEW
 // covidstatus
@@ -354,6 +367,40 @@ $covidhelper = new CovidHelper();
 $covidhelper->fetchCovidStatus($employee_uid_arr);
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
+
+/*
+ * 2024-02-06 ma0080@technikum-wien.at
+ * load data from casetime in chunks to be able to 
+ * have a more accurate progress bar 
+ * output loading count via ob_flush after each chunk
+ */
+function loadCaseTimeSaldenChunked($employee_uid_arr) 
+{
+	global $employees_loaded;
+
+	$chunksize = 50;
+	$time_holiday_balance_arr = array();
+	$chunks = array_chunk($employee_uid_arr, $chunksize);
+	foreach($chunks as $chunk)
+	{
+		$part = array();
+		if( false !== ($part = getCaseTimeSalden($chunk)) )
+		{
+			$time_holiday_balance_arr = array_merge($time_holiday_balance_arr, (array)$part);
+		}
+
+		$employees_loaded += count($chunk);
+		echo <<<EOJS
+	<script>employees_loaded = {$employees_loaded};</script>
+
+EOJS;
+
+		ob_flush();
+		flush();
+	}
+	$time_holiday_balance_arr = (object) $time_holiday_balance_arr;
+	return $time_holiday_balance_arr;
+}
 
 /* Retrieve time- and holiday balances for direct/all employees
  * from CaseTime server OR
@@ -378,7 +425,7 @@ if (!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) && $_SESSION['
 	flush();
 
 	// get time and holiday balance times
-	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
+	$time_holiday_balance_arr = loadCaseTimeSaldenChunked($employee_uid_arr);
 
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_DIRECT'] = $time_holiday_balance_arr;
@@ -406,7 +453,7 @@ elseif($_SESSION['casetime/submitAllMA'] == true &&
 	flush();
 
 	// get time and holiday balance times
-	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
+	$time_holiday_balance_arr = loadCaseTimeSaldenChunked($employee_uid_arr);
 
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_ALL'] = $time_holiday_balance_arr;
@@ -428,6 +475,7 @@ else
 
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_DIRECT'];
+		$employees_loaded = count($employee_uid_arr); // set progress bar var since no casetime request is made
 	}
 	// * Set time- and holiday balances for ALL employees from $_SESSION variable
 	else
@@ -446,10 +494,12 @@ else
 
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
+		$employees_loaded = count($employee_uid_arr); // set progress bar var since no casetime request is made
 	}
 }
 $isAllIn = false;
 
+//$employees_loaded = 0;
 foreach($employee_uid_arr as $employee_uid)
 {
 	// name of employee
@@ -472,11 +522,12 @@ foreach($employee_uid_arr as $employee_uid)
     $lastSentTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
     $lastSentTimesheetDatum = null;
 	$lastSentTimesheetDatumMonat = null;
+	$lastSentTimesheetId = null;
 	if(!is_null($lastSentTimesheet) && (new DateTime($lastSentTimesheet->datum) == $date_last_month))
 	{
 		$lastSentTimesheetDatum = new DateTime($lastSentTimesheet->abgeschicktamum);
 		$lastSentTimesheetDatumMonat = new DateTime($lastSentTimesheet->datum);
-
+		$lastSentTimesheetId = $lastSentTimesheet->timesheet_id;
 	}
 
     // Get last confirmed timesheet
@@ -490,7 +541,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$lastConfirmedTimesheetDatum = new DateTime($lastConfirmedTimesheet->genehmigtamum);
 		$lastConfirmedTimesheetDatumMonat = new DateTime($lastConfirmedTimesheet->datum);
 	}
-
+	
     // Erster VBT Zeitaufzeichnungspflicht
     $vbt = new vertragsbestandteil();
     $result = $vbt->getZaPflichtig($employee_uid, 'ASC', 1);
@@ -499,7 +550,7 @@ foreach($employee_uid_arr as $employee_uid)
     $cnt_isNotSent = 0;	        // counts all timesheets not sent by the employee
     $cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
     $cnt_isNotCreated = 0;	    // counts missing timesheets between last timesheet date and last months date
-
+/*
     // Monatsliste startet ab erster Zeitaufzeichnunsplficht (aber nicht vor GoLive-Datum)
     $monatslisteStartdatum = getMonatslisteStartdatum($ersteZaPflicht);
 
@@ -513,7 +564,7 @@ foreach($employee_uid_arr as $employee_uid)
         if ($isZaPflichtig)
         {
             $ts = new Timesheet($employee_uid, $monat->format('m'), $monat->format('Y'));
-
+*/
             /**
              * Vergangene nicht versendete / nicht erstellte Timesheet ermitteln.
              *
@@ -522,6 +573,7 @@ foreach($employee_uid_arr as $employee_uid)
              * Wenn es mindestens ein genehmigtes Timesheet gibt, und davor noch Timesheets fehlen, dann nur die Timesheets
              * NACH der Genehmigung auf 'fehlen' oder 'unversendet' prüfen.
              **/
+/*	
             if ((is_null($lastConfirmedTimesheet) || $monat->format('Y-m') > (new DateTime($lastConfirmedTimesheet->datum))->format('Y-m')) &&
                 $monat->format('Y-m') != (new DateTime())->format('Y-m'))  // aktuelles Monat nicht beruecksichtigen
             {
@@ -551,7 +603,13 @@ foreach($employee_uid_arr as $employee_uid)
         // Monat erhöhen
         $monat->sub(new DateInterval('P1M'));
     }
-
+*/	
+	$all_timesheets_notCreatedOrConfirmed = 0;
+	if( $tstotalnotconfirmedcount = getNotConfirmedTimesheetCount($employee_uid) ) 
+	{
+		$all_timesheets_notCreatedOrConfirmed = $tstotalnotconfirmedcount;
+	}
+	
 	// Flag if user has obligation to record times
 	$isAllIn = false;
 
@@ -579,7 +637,7 @@ foreach($employee_uid_arr as $employee_uid)
 	$time_balance = false;
 	$holiday = false;
 	$allInSaldo = false;
-
+	
 	// * if uid is personnel manager or superleader, check the object-array with all time-
 	// and holiday balances and match with the actual employee
 	if ($isPersonal || $isVorgesetzter || $isVorgesetzter_indirekt)
@@ -639,7 +697,6 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 	}
 
-
 	// set css-class for time-balance field
 	if (!$vertragsstunden)
 	{
@@ -661,7 +718,7 @@ foreach($employee_uid_arr as $employee_uid)
 	else {
 			$zeitsaldoklasse = '';
 	}
-
+	
 	// Get organisational unit of employee
 	$benutzer_fkt = new Benutzerfunktion();
 	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
@@ -681,7 +738,7 @@ foreach($employee_uid_arr as $employee_uid)
 			$employee_oe_parent_withType_arr[] = "<b>". $oe_parent->oe_typ_bezeichnung. "</b> ". $oe_parent->oe_bezeichnung;
 		}
 	}
-
+	
 	// Extra data for personnel department
 	$last_cntrl_timesheet_id = '';	// timesheet_id of last controlled timesheet
 	$last_cntrl_date = '';	// date of last controlled timesheet
@@ -702,7 +759,7 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 
 	}
-
+	
 	// Collect all employees data to push to overall employees array
 	$obj = new stdClass();
 
@@ -720,11 +777,13 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_date = $last_timesheet_date;
 		$obj->last_timesheet_sent = $lastSentTimesheetDatum;
 		$obj->lastSentTimesheetDatumMonat = $lastSentTimesheetDatumMonat;
+		$obj->lastSentTimesheetId = $lastSentTimesheetId;
 		$obj->last_timesheet_confirmed = $lastConfirmedTimesheetDatum;
 		$obj->lastConfirmedTimesheetDatumMonat = $lastConfirmedTimesheetDatumMonat;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = $cnt_isNotSent;
 		$obj->all_timesheets_notConfirmed = $cnt_isNotConfirmed;
+		$obj->all_timesheets_notCreatedOrConfirmed = $all_timesheets_notCreatedOrConfirmed;
 		$obj->time_balance = $time_balance;
 		$obj->holiday = $holiday;
 		$obj->last_cntrl_timesheet_id = $last_cntrl_timesheet_id;
@@ -751,11 +810,13 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_date = null;
 		$obj->last_timesheet_sent = null;
 		$obj->lastSentTimesheetDatumMonat = null;
+		$obj->lastSentTimesheetId = null;
 		$obj->last_timesheet_confirmed = null;
 		$obj->lastConfirmedTimesheetDatumMonat = null;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
 		$obj->all_timesheets_notSent = 0;
 		$obj->all_timesheets_notConfirmed = 0;
+		$obj->all_timesheets_notCreatedOrConfirmed = 0;
 		$obj->time_balance = $time_balance;
 		$obj->holiday = $holiday;
 		$obj->last_cntrl_timesheet_id = $last_cntrl_timesheet_id; //empty
@@ -772,6 +833,14 @@ foreach($employee_uid_arr as $employee_uid)
 	}
 	// * push to employees array
 	$employees_data_arr []= $obj;
+	$employees_loaded++;
+	echo <<<EOJS
+	<script>employees_loaded = {$employees_loaded};</script>
+
+EOJS;
+	
+	ob_flush();
+	flush();
 }
 
 // sort employees array by employees family name
@@ -880,7 +949,12 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--employee name & link to latest timesheet-->
 					<td>
-						<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
+						<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?>
+						<a href="<?php 
+						    $link_timesheet_id = (($date_last_month == $employee->lastSentTimesheetDatumMonat) && intval($employee->lastSentTimesheetId) > 0 ) 
+							? $employee->lastSentTimesheetId 
+							: $employee->last_timesheet_id;
+						    echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id=' . $link_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
@@ -929,7 +1003,10 @@ function sortEmployeesName($employee1, $employee2)
 					<?php endif; ?>
 
 					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
-					<?php $all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed; ?>
+					<?php 
+						//$all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed; 
+						$all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreatedOrConfirmed; 
+					?>
 					<td class='text-center <?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? 'danger' : '' ?>'>
 						<?php echo $all_timesheets_notCreatedOrConfirmed ?>
 					</td>
