@@ -949,7 +949,12 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--employee name & link to latest timesheet-->
 					<td>
-						<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?><a href="<?php echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->last_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
+						<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?>
+						<a href="<?php 
+						    $link_timesheet_id = (($date_last_month == $employee->lastSentTimesheetDatumMonat) && intval($employee->lastSentTimesheetId) > 0 ) 
+							? $employee->lastSentTimesheetId 
+							: $employee->last_timesheet_id;
+						    echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id=' . $link_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
@@ -994,18 +999,7 @@ function sortEmployeesName($employee1, $employee2)
 							<?php echo (!is_null($employee->last_timesheet_confirmed)) ? $employee->last_timesheet_confirmed->format('d.m.Y') : '-' ?>
 						</td>
 					<?php else: ?>
-						<td class='text-center'>
-							<?php 
-								if(($date_last_month == $employee->lastSentTimesheetDatumMonat) && intval($employee->lastSentTimesheetId) > 0 )
-								{
-									echo '<a href="' . APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->lastSentTimesheetId . '">zur Genehmigung</a>';
-								}
-								else
-								{
-									echo '-';
-								}
-							?>
-						</td>
+						<td class='text-center'>-</td>
 					<?php endif; ?>
 
 					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
