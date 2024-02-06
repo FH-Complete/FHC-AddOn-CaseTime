@@ -522,11 +522,12 @@ foreach($employee_uid_arr as $employee_uid)
     $lastSentTimesheet = $result == true && !empty($timesheet->result) ? $timesheet->result[0] : null;
     $lastSentTimesheetDatum = null;
 	$lastSentTimesheetDatumMonat = null;
+	$lastSentTimesheetId = null;
 	if(!is_null($lastSentTimesheet) && (new DateTime($lastSentTimesheet->datum) == $date_last_month))
 	{
 		$lastSentTimesheetDatum = new DateTime($lastSentTimesheet->abgeschicktamum);
 		$lastSentTimesheetDatumMonat = new DateTime($lastSentTimesheet->datum);
-
+		$lastSentTimesheetId = $lastSentTimesheet->timesheet_id;
 	}
 
     // Get last confirmed timesheet
@@ -776,6 +777,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_date = $last_timesheet_date;
 		$obj->last_timesheet_sent = $lastSentTimesheetDatum;
 		$obj->lastSentTimesheetDatumMonat = $lastSentTimesheetDatumMonat;
+		$obj->lastSentTimesheetId = $lastSentTimesheetId;
 		$obj->last_timesheet_confirmed = $lastConfirmedTimesheetDatum;
 		$obj->lastConfirmedTimesheetDatumMonat = $lastConfirmedTimesheetDatumMonat;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
@@ -808,6 +810,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$obj->last_timesheet_date = null;
 		$obj->last_timesheet_sent = null;
 		$obj->lastSentTimesheetDatumMonat = null;
+		$obj->lastSentTimesheetId = null;
 		$obj->last_timesheet_confirmed = null;
 		$obj->lastConfirmedTimesheetDatumMonat = null;
 		$obj->all_timesheets_notCreated = $cnt_isNotCreated;
@@ -991,7 +994,18 @@ function sortEmployeesName($employee1, $employee2)
 							<?php echo (!is_null($employee->last_timesheet_confirmed)) ? $employee->last_timesheet_confirmed->format('d.m.Y') : '-' ?>
 						</td>
 					<?php else: ?>
-						<td class='text-center'>-</td>
+						<td class='text-center'>
+							<?php 
+								if(($date_last_month == $employee->lastSentTimesheetDatumMonat) && intval($employee->lastSentTimesheetId) > 0 )
+								{
+									echo '<a href="' . APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id='. $employee->lastSentTimesheetId . '">zur Genehmigung</a>';
+								}
+								else
+								{
+									echo '-';
+								}
+							?>
+						</td>
 					<?php endif; ?>
 
 					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
