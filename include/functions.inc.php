@@ -937,50 +937,6 @@ function getNotConfirmedTimesheetCount($uid)
 				u.vertragsbestandteil_id, u.tsvon, u.tsbis 
 		) r
 EOSQL;
-	
-/*	
-		SELECT 
-			tsnotconfirmed + tsnotcreated AS tstotalnotconfirmed 
-		FROM (
-			SELECT 
-				tscount - tsconfirmedcount AS tsnotconfirmed, tstotalcount - tscount AS tsnotcreated 
-			FROM (
-				SELECT 
-					SUM(tscount) AS tscount, SUM(tssentcount) AS tssentcount, SUM(tsconfirmedcount) AS tsconfirmedcount, SUM(tstotalcount) AS tstotalcount 
-				FROM (
-					SELECT 
-						*, (EXTRACT('YEAR' FROM age(u.tsbis, u.tsvon)) * 12 + EXTRACT('MONTH' FROM age(u.tsbis, u.tsvon))) AS tstotalcount 
-					FROM (
-						SELECT 
-							CASE
-							  WHEN vb.von IS NULL OR vb.von < '{$casetime_golive}'::date THEN '{$casetime_golive}'::date 
-							  ELSE DATE_TRUNC('month', vb.von)::date 
-							END AS tsvon,
-							CASE
-							  WHEN vb.bis IS NULL OR vb.bis > NOW()::date THEN DATE_TRUNC('month', NOW())::date 
-							  ELSE DATE_TRUNC('month', vb.bis)::date 
-							END AS tsbis,
-							vb.von, vb.bis, vbz.zeitaufzeichnung, vbz.azgrelevant, vbz.homeoffice, 
-							count(ts.timesheet_id) AS tscount, count(ts.abgeschicktamum) AS tssentcount, count(ts.genehmigtamum) AS tsconfirmedcount 
-						FROM 
-							hr.tbl_vertragsbestandteil vb 
-						JOIN 
-							hr.tbl_dienstverhaeltnis dv USING (dienstverhaeltnis_id) 
-						JOIN 
-							hr.tbl_vertragsbestandteil_zeitaufzeichnung vbz USING (vertragsbestandteil_id) 
-						LEFT JOIN 
-							addon.tbl_casetime_timesheet ts ON dv.mitarbeiter_uid = ts.uid AND ts.datum BETWEEN COALESCE(vb.von, '1970-01-01'::date) AND COALESCE(vb.bis, '2170-12-31'::date) 
-						WHERE 
-							dv.mitarbeiter_uid = {$db->db_add_param($uid)} AND vbz.zeitaufzeichnung = TRUE  AND COALESCE(vb.bis, DATE_TRUNC('month', NOW())::date) > '{$casetime_golive}'::date  
-						GROUP BY
-								vb.von, vb.bis, vbz.zeitaufzeichnung, vbz.azgrelevant, vbz.homeoffice
-						ORDER BY 
-							vb.von DESC
-					) u
-				) t
-			) q
-		) r;
-*/
 
 	if ($result = $db->db_query($sql))
 	{
@@ -988,7 +944,6 @@ EOSQL;
 		if ($row = $db->db_fetch_object($result))
 		{
 			$db->result = $row->tstotalnotconfirmed;
-			var_dump($row->tstotalnotconfirmed);
 
 		}
 		return $db->result;

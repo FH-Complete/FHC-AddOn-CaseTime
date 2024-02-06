@@ -260,19 +260,6 @@ needs the GUI to be displayed.-->
 			if(progressbarwidth > 99) {
 				clearInterval(id);	
 			}
-			
-			/*
-			if (width >= 95)
-			{
-				clearInterval(id);
-			}
-			else
-			{
-				width++;
-				elem.style.width = width + '%';
-				elem.innerHTML = width + '%';
-			}
-			 */
 		}
 	}
 	</script>
@@ -360,9 +347,15 @@ if (!empty($all_employee_uid_arr))
 	}
 }
 
-echo "UID Array count: " . count($employee_uid_arr) . "\n";
-
-$employees_count = count($employee_uid_arr);
+/*
+ * 2024-02-06 ma0080@technikum-wien.at
+ * initialize employee count for progress bar
+ * use double empolyee count since 50% is 
+ * fetching data from casetime and 50% is
+ * fetching data from FHC
+ */
+$employees_count = count($employee_uid_arr) * 2;
+$employees_loaded = 0;
 echo <<<EOJS
 <script>employees_count = {$employees_count};</script>
 
@@ -374,6 +367,40 @@ $covidhelper = new CovidHelper();
 $covidhelper->fetchCovidStatus($employee_uid_arr);
 // vars employees
 $employees_data_arr = array();	// array with timesheet data of all employees of supervisor
+
+/*
+ * 2024-02-06 ma0080@technikum-wien.at
+ * load data from casetime in chunks to be able to 
+ * have a more accurate progress bar 
+ * output loading count via ob_flush after each chunk
+ */
+function loadCaseTimeSaldenChunked($employee_uid_arr) 
+{
+	global $employees_loaded;
+
+	$chunksize = 50;
+	$time_holiday_balance_arr = array();
+	$chunks = array_chunk($employee_uid_arr, $chunksize);
+	foreach($chunks as $chunk)
+	{
+		$part = array();
+		if( false !== ($part = getCaseTimeSalden($chunk)) )
+		{
+			$time_holiday_balance_arr = array_merge($time_holiday_balance_arr, (array)$part);
+		}
+
+		$employees_loaded += count($chunk);
+		echo <<<EOJS
+	<script>employees_loaded = {$employees_loaded};</script>
+
+EOJS;
+
+		ob_flush();
+		flush();
+	}
+	$time_holiday_balance_arr = (object) $time_holiday_balance_arr;
+	return $time_holiday_balance_arr;
+}
 
 /* Retrieve time- and holiday balances for direct/all employees
  * from CaseTime server OR
@@ -398,7 +425,7 @@ if (!isset($_SESSION['casetime/time_holiday_balance_arr_DIRECT']) && $_SESSION['
 	flush();
 
 	// get time and holiday balance times
-	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
+	$time_holiday_balance_arr = loadCaseTimeSaldenChunked($employee_uid_arr);
 
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_DIRECT'] = $time_holiday_balance_arr;
@@ -426,7 +453,7 @@ elseif($_SESSION['casetime/submitAllMA'] == true &&
 	flush();
 
 	// get time and holiday balance times
-	$time_holiday_balance_arr = getCaseTimeSalden($employee_uid_arr);
+	$time_holiday_balance_arr = loadCaseTimeSaldenChunked($employee_uid_arr);
 
 	// store array in session var
 	$_SESSION['casetime/time_holiday_balance_arr_ALL'] = $time_holiday_balance_arr;
@@ -448,6 +475,7 @@ else
 
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_DIRECT'];
+		$employees_loaded = count($employee_uid_arr); // set progress bar var since no casetime request is made
 	}
 	// * Set time- and holiday balances for ALL employees from $_SESSION variable
 	else
@@ -466,15 +494,14 @@ else
 
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
+		$employees_loaded = count($employee_uid_arr); // set progress bar var since no casetime request is made
 	}
 }
 $isAllIn = false;
 
-$employees_loaded = 0;
+//$employees_loaded = 0;
 foreach($employee_uid_arr as $employee_uid)
 {
-	$start = microtime(true);
-	echo '<p>' . $employee_uid . ' beginn</pre>';
 	// name of employee
 	$benutzer = new Benutzer($employee_uid);
 	$empl_vorname = $benutzer->vorname;
@@ -514,10 +541,6 @@ foreach($employee_uid_arr as $employee_uid)
 		$lastConfirmedTimesheetDatumMonat = new DateTime($lastConfirmedTimesheet->datum);
 	}
 	
-    $ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 1 ' . $dur . '</p>';
-	
     // Erster VBT Zeitaufzeichnungspflicht
     $vbt = new vertragsbestandteil();
     $result = $vbt->getZaPflichtig($employee_uid, 'ASC', 1);
@@ -526,16 +549,12 @@ foreach($employee_uid_arr as $employee_uid)
     $cnt_isNotSent = 0;	        // counts all timesheets not sent by the employee
     $cnt_isNotConfirmed = 0;	// counts all timesheets not confirmed by supervisor
     $cnt_isNotCreated = 0;	    // counts missing timesheets between last timesheet date and last months date
-    
-	$ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 1b ' . $dur . '</p>';
-	
+/*
     // Monatsliste startet ab erster Zeitaufzeichnunsplficht (aber nicht vor GoLive-Datum)
     $monatslisteStartdatum = getMonatslisteStartdatum($ersteZaPflicht);
 
     $monat = new DateTime();
-/*
+
     while ($monat->format('Y-m') >= $monatslisteStartdatum->format('Y-m'))
     {
         $isZaPflichtig = $vbt->isZaPflichtig($employee_uid, $monat->format('Y-m-t'));
@@ -590,10 +609,6 @@ foreach($employee_uid_arr as $employee_uid)
 		$all_timesheets_notCreatedOrConfirmed = $tstotalnotconfirmedcount;
 	}
 	
-    $ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 1c ' . $dur . '</p>';
-	
 	// Flag if user has obligation to record times
 	$isAllIn = false;
 
@@ -621,10 +636,6 @@ foreach($employee_uid_arr as $employee_uid)
 	$time_balance = false;
 	$holiday = false;
 	$allInSaldo = false;
-
-    $ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 2 ' . $dur . '</p>';
 	
 	// * if uid is personnel manager or superleader, check the object-array with all time-
 	// and holiday balances and match with the actual employee
@@ -685,10 +696,6 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 	}
 
-    $ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 3 ' . $dur . '</p>';
-	
 	// set css-class for time-balance field
 	if (!$vertragsstunden)
 	{
@@ -710,10 +717,6 @@ foreach($employee_uid_arr as $employee_uid)
 	else {
 			$zeitsaldoklasse = '';
 	}
-
-	$ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 4 ' . $dur . '</p>';
 	
 	// Get organisational unit of employee
 	$benutzer_fkt = new Benutzerfunktion();
@@ -734,10 +737,6 @@ foreach($employee_uid_arr as $employee_uid)
 			$employee_oe_parent_withType_arr[] = "<b>". $oe_parent->oe_typ_bezeichnung. "</b> ". $oe_parent->oe_bezeichnung;
 		}
 	}
-
-	$ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 5 ' . $dur . '</p>';
 	
 	// Extra data for personnel department
 	$last_cntrl_timesheet_id = '';	// timesheet_id of last controlled timesheet
@@ -759,10 +758,6 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 
 	}
-	
-	$ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': 6 ' . $dur . '</p>';
 	
 	// Collect all employees data to push to overall employees array
 	$obj = new stdClass();
@@ -840,10 +835,6 @@ foreach($employee_uid_arr as $employee_uid)
 	<script>employees_loaded = {$employees_loaded};</script>
 
 EOJS;
-	
-	$ende = microtime(true);	
-	$dur = ($ende - $start) * 1000;
-	echo '<p>' . $employee_uid . ': ende : ' . $dur . '</p>';
 	
 	ob_flush();
 	flush();
