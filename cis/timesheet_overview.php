@@ -846,6 +846,9 @@ EOJS;
 	flush();
 }
 
+if(!defined('CASETIME_SHOW_ALLINSUMME') || CASETIME_SHOW_ALLINSUMME == false)
+	$isAllInVorhanden = false;
+
 // sort employees array by employees family name
 usort($employees_data_arr, "sortEmployeesName");
 
@@ -931,7 +934,7 @@ function sortEmployeesName($employee1, $employee2)
 					</i>
 				</th>
 				<?php if($isAllInVorhanden): ?>
-					<th data-toggle="tooltip" title="All-In Saldo Studienjahr">All-In Saldo
+					<th data-toggle="tooltip" title="All-In Summe Studienjahr">All-In Summe
 						<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
 							data-toggle="tooltip" title="Im Studienjahr bisher angefallene Überstunden die durch den All-In Vertrag abgdeckt sind">
 						</i>
