@@ -256,9 +256,9 @@ needs the GUI to be displayed.-->
 			progressbarwidth = Math.ceil(employees_loaded * 100 / employees_count);
 			elem.style.width = progressbarwidth + '%';
 			elem.innerHTML = progressbarwidth + '%';
-			
+
 			if(progressbarwidth > 99) {
-				clearInterval(id);	
+				clearInterval(id);
 			}
 		}
 	}
@@ -350,7 +350,7 @@ if (!empty($all_employee_uid_arr))
 /*
  * 2024-02-06 ma0080@technikum-wien.at
  * initialize employee count for progress bar
- * use double empolyee count since 50% is 
+ * use double empolyee count since 50% is
  * fetching data from casetime and 50% is
  * fetching data from FHC
  */
@@ -370,11 +370,11 @@ $employees_data_arr = array();	// array with timesheet data of all employees of 
 
 /*
  * 2024-02-06 ma0080@technikum-wien.at
- * load data from casetime in chunks to be able to 
- * have a more accurate progress bar 
+ * load data from casetime in chunks to be able to
+ * have a more accurate progress bar
  * output loading count via ob_flush after each chunk
  */
-function loadCaseTimeSaldenChunked($employee_uid_arr) 
+function loadCaseTimeSaldenChunked($employee_uid_arr)
 {
 	global $employees_loaded;
 
@@ -497,7 +497,7 @@ else
 		$employees_loaded = count($employee_uid_arr); // set progress bar var since no casetime request is made
 	}
 }
-$isAllIn = false;
+$isAllInVorhanden = false;
 
 //$employees_loaded = 0;
 foreach($employee_uid_arr as $employee_uid)
@@ -541,7 +541,7 @@ foreach($employee_uid_arr as $employee_uid)
 		$lastConfirmedTimesheetDatum = new DateTime($lastConfirmedTimesheet->genehmigtamum);
 		$lastConfirmedTimesheetDatumMonat = new DateTime($lastConfirmedTimesheet->datum);
 	}
-	
+
     // Erster VBT Zeitaufzeichnungspflicht
     $vbt = new vertragsbestandteil();
     $result = $vbt->getZaPflichtig($employee_uid, 'ASC', 1);
@@ -573,7 +573,7 @@ foreach($employee_uid_arr as $employee_uid)
              * Wenn es mindestens ein genehmigtes Timesheet gibt, und davor noch Timesheets fehlen, dann nur die Timesheets
              * NACH der Genehmigung auf 'fehlen' oder 'unversendet' prüfen.
              **/
-/*	
+/*
             if ((is_null($lastConfirmedTimesheet) || $monat->format('Y-m') > (new DateTime($lastConfirmedTimesheet->datum))->format('Y-m')) &&
                 $monat->format('Y-m') != (new DateTime())->format('Y-m'))  // aktuelles Monat nicht beruecksichtigen
             {
@@ -603,13 +603,13 @@ foreach($employee_uid_arr as $employee_uid)
         // Monat erhöhen
         $monat->sub(new DateInterval('P1M'));
     }
-*/	
+*/
 	$all_timesheets_notCreatedOrConfirmed = 0;
-	if( $tstotalnotconfirmedcount = getNotConfirmedTimesheetCount($employee_uid) ) 
+	if( $tstotalnotconfirmedcount = getNotConfirmedTimesheetCount($employee_uid) )
 	{
 		$all_timesheets_notCreatedOrConfirmed = $tstotalnotconfirmedcount;
 	}
-	
+
 	// Flag if user has obligation to record times
 	$isAllIn = false;
 
@@ -623,7 +623,10 @@ foreach($employee_uid_arr as $employee_uid)
 
 	// Flag if employee has AllIn Contract
 	$vbt = new vertragsbestandteil();
-	$isAllin = $vbt->isAllin($employee_uid);
+	$isAllIn = $vbt->isAllin($employee_uid);
+
+	if($isAllIn)
+		$isAllInVorhanden = true;
 
     // Flag if employee is AZG-relevant
     $vbt = new vertragsbestandteil();
@@ -637,7 +640,7 @@ foreach($employee_uid_arr as $employee_uid)
 	$time_balance = false;
 	$holiday = false;
 	$allInSaldo = false;
-	
+
 	// * if uid is personnel manager or superleader, check the object-array with all time-
 	// and holiday balances and match with the actual employee
 	if ($isPersonal || $isVorgesetzter || $isVorgesetzter_indirekt)
@@ -718,7 +721,7 @@ foreach($employee_uid_arr as $employee_uid)
 	else {
 			$zeitsaldoklasse = '';
 	}
-	
+
 	// Get organisational unit of employee
 	$benutzer_fkt = new Benutzerfunktion();
 	$benutzer_fkt->getBenutzerFunktionByUid($employee_uid, 'oezuordnung', date('Y-m-d'));
@@ -738,7 +741,7 @@ foreach($employee_uid_arr as $employee_uid)
 			$employee_oe_parent_withType_arr[] = "<b>". $oe_parent->oe_typ_bezeichnung. "</b> ". $oe_parent->oe_bezeichnung;
 		}
 	}
-	
+
 	// Extra data for personnel department
 	$last_cntrl_timesheet_id = '';	// timesheet_id of last controlled timesheet
 	$last_cntrl_date = '';	// date of last controlled timesheet
@@ -759,7 +762,7 @@ foreach($employee_uid_arr as $employee_uid)
 		}
 
 	}
-	
+
 	// Collect all employees data to push to overall employees array
 	$obj = new stdClass();
 
@@ -838,10 +841,13 @@ foreach($employee_uid_arr as $employee_uid)
 	<script>employees_loaded = {$employees_loaded};</script>
 
 EOJS;
-	
+
 	ob_flush();
 	flush();
 }
+
+if(!defined('CASETIME_SHOW_ALLINSUMME') || CASETIME_SHOW_ALLINSUMME == false)
+	$isAllInVorhanden = false;
 
 // sort employees array by employees family name
 usort($employees_data_arr, "sortEmployeesName");
@@ -872,6 +878,7 @@ function sortEmployeesName($employee1, $employee2)
 {
     return strcmp($employee1->nachname, $employee2->nachname);
 }
+
 ?>
 
 <script>
@@ -899,15 +906,15 @@ function sortEmployeesName($employee1, $employee2)
                 <td colspan="2" class="text-uppercase"><b>Zeitaufzeichnung <br><?php echo $monatsname[$sprache_index][(new DateTime())->format('m') - 1]. ' '. (new DateTime())->format('Y')?></b></td>
 				<td colspan="2" class="text-uppercase"><b>Monatslisten <br><?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
 				<td colspan="1" class="text-uppercase"><b>Monatslisten <br>bis <?php echo $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '. $date_last_month->format('Y')?></b></td>
-				<td colspan="2" class="text-uppercase"><b>Insgesamt</b></td>
+				<td colspan="<?php echo ($isAllInVorhanden ? 3 : 2);?>" class="text-uppercase"><b>Insgesamt</b></td>
 				<?php echo ($isPersonal) ? '<td class="text-uppercase">Letzte Kontrolle</td>' : '' ?>
 			</tr>
 			<tr>
 				<th style="width: 10%">Organisationseinheit</th>
 				<th>Mitarbeiter</th>
 
-				<?php echo (!$isAllIn) ? '<th>AZG anwendbar</th>' : '' ?>
-				<?php echo ($isAllIn) ? '<th>All In</th>' : '' ?>
+				<?php echo (!$isAllInVorhanden) ? '<th>AZG anwendbar</th>' : '' ?>
+				<?php echo ($isAllInVorhanden) ? '<th>All-In</th>' : '' ?>
 				<th>Zeitaufzeichnungspflichtig</th>
 				<!--<th>Status</th>-->
 				<th>Abgeschickt am</th>
@@ -919,13 +926,21 @@ function sortEmployeesName($employee1, $employee2)
 				</th>
 				<th>Zeitsaldo
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
-						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit <?php echo ($isAllIn) ? '/ Allin Summe Studienjahr' : '' ?>&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
+						data-toggle="tooltip" title="Aktueller Stand (Vortag) / Wochenarbeitszeit&#010;Gelb: 1,5-fache Wochenarbeitszeit überschritten&#010;Rot: 3-fache Wochenarbeitszeit überschritten&#010;oder 1-fache Wochenarbeitszeit im Minus">
 				</th>
 				<th data-toggle="tooltip" title="Verfügbare Urlaubstage / Urlaubsanspruch">Urlaubstage
 					<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
 						data-toggle="tooltip" title="Verfügbare Urlaubstage / Urlaubsanspruch&#010;Diese Anzeige berücksichtigt alle freigegebenen Urlaubstage">
 					</i>
 				</th>
+				<?php if($isAllInVorhanden): ?>
+					<th data-toggle="tooltip" title="All-In Summe Studienjahr">All-In Summe
+						<i class="fa fa-question-circle-o" aria-hidden="true" style="white-space: pre-line;"
+							data-toggle="tooltip" title="Im Studienjahr bisher angefallene Überstunden die durch den All-In Vertrag abgdeckt sind">
+						</i>
+					</th>
+				<?php endif; ?>
+
 				<?php echo ($isPersonal) ? '<th>Kontrolliert am</th>' : '' ?>
 			</tr>
 		</thead>
@@ -950,15 +965,15 @@ function sortEmployeesName($employee1, $employee2)
 					<!--employee name & link to latest timesheet-->
 					<td>
 						<?php echo ($showcovidstatus) ? $covidhelper->getIconHtml($employee->uid) : ''; ?>
-						<a href="<?php 
-						    $link_timesheet_id = (($date_last_month == $employee->lastSentTimesheetDatumMonat) && intval($employee->lastSentTimesheetId) > 0 ) 
-							? $employee->lastSentTimesheetId 
+						<a href="<?php
+						    $link_timesheet_id = (($date_last_month == $employee->lastSentTimesheetDatumMonat) && intval($employee->lastSentTimesheetId) > 0 )
+							? $employee->lastSentTimesheetId
 							: $employee->last_timesheet_id;
 						    echo APP_ROOT. 'addons/casetime/cis/timesheet.php?timesheet_id=' . $link_timesheet_id ?>"><?php echo $employee->nachname. ' '. $employee->vorname ?></a>
 					</td>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if (!$isAllIn): ?>
+					<?php if (!$isAllInVorhanden): ?>
 						<?php if ($employee->azg): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -966,7 +981,7 @@ function sortEmployeesName($employee1, $employee2)
 						<?php endif; ?>
 					<?php endif; ?>
 
-					<?php if ($isAllIn): ?>
+					<?php if ($isAllInVorhanden): ?>
 						<?php if ($employee->isAllIn): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -1003,9 +1018,9 @@ function sortEmployeesName($employee1, $employee2)
 					<?php endif; ?>
 
 					<!--amount of all timesheets not created AND not confirmed (includes not sent ones)-->
-					<?php 
-						//$all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed; 
-						$all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreatedOrConfirmed; 
+					<?php
+						//$all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreated + $employee->all_timesheets_notConfirmed;
+						$all_timesheets_notCreatedOrConfirmed = $employee->all_timesheets_notCreatedOrConfirmed;
 					?>
 					<td class='text-center <?php echo (!empty($all_timesheets_notCreatedOrConfirmed)) ? 'danger' : '' ?>'>
 						<?php echo $all_timesheets_notCreatedOrConfirmed ?>
@@ -1013,15 +1028,11 @@ function sortEmployeesName($employee1, $employee2)
 
 					<!--balance of working hours on next account-->
 					<td class='text-right<?php echo $employee->zeitsaldoklasse ?>'>
-                    <?php echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
+                    <?php //echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
                     <?php
-					echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
-					echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -'; ?>
-					<?php if ($isAllIn): ?>
-						<?php if ($employee->isAllIn): ?>
-							<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
-						<?php endif; ?>
-					<?php endif; ?>
+					echo (is_float($employee->time_balance)) ? number_format($employee->time_balance,2,',','') : '-';
+					echo (isset($employee->vertragsstunden)) ? ' / '.number_format($employee->vertragsstunden,2,',','') : ' / -'; ?>
+
 						</td>
 
 					<!--overtime hours-->
@@ -1031,6 +1042,14 @@ function sortEmployeesName($employee1, $employee2)
 					<td class='text-center'>
 						<?php echo (is_object($employee->holiday)) ? $employee->holiday->AktuellerStand. ' / '. $employee->holiday->Urlaubsanspruch : '-' ?>
 					</td>
+
+					<?php if ($isAllInVorhanden): ?>
+						<td class='text-center'>
+						<?php if ($employee->isAllIn): ?>
+							<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? $employee->salue1sum : '';?>
+						<?php endif; ?>
+						</td>
+					<?php endif; ?>
 
 					<!--controlling date (displayed ONLY for personal department)-->
 					<?php if ($isPersonal): ?>
@@ -1065,7 +1084,7 @@ function sortEmployeesName($employee1, $employee2)
 					<?php endif; ?>
 
 					<!--obligated to record times (zeitaufzeichnungspflichtig)-->
-					<?php if (!$isAllIn): ?>
+					<?php if (!$isAllInVorhanden): ?>
 						<?php if ($employee->azg): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -1073,7 +1092,7 @@ function sortEmployeesName($employee1, $employee2)
 						<?php endif; ?>
 					<?php endif; ?>
 
-					<?php if ($isAllIn): ?>
+					<?php if ($isAllInVorhanden): ?>
 						<?php if ($employee->isAllIn): ?>
 							<td class='text-center'>ja</td>
 						<?php else: ?>
@@ -1110,9 +1129,9 @@ function sortEmployeesName($employee1, $employee2)
 						<td class='text-right<?php echo $zeitsaldoklasse ?>'>
                         <?php echo ($employee->isKarenziert) ? '<span class="badge bg-secondary">Karenziert&nbsp;</span>' : ''; ?>
                         <?php
-                            echo (is_float($employee->time_balance)) ? $employee->time_balance : '-';
-                            echo (isset($employee->vertragsstunden)) ? ' / '.$employee->vertragsstunden : ' / -';?>
-						<?php if ($isAllIn): ?>
+                            echo (is_float($employee->time_balance)) ? number_format($employee->time_balance,2,',','') : '-';
+                            echo (isset($employee->vertragsstunden)) ? ' / '.number_format($employee->vertragsstunden,2,',','') : ' / -';?>
+						<?php if ($isAllInVorhanden): ?>
 							<?php if ($employee->isAllIn): ?>
 								<?php echo (isset($employee->salue1sum) && (is_float($employee->salue1sum))) ? ' / '.$employee->salue1sum : ' / -';?>
 							<?php endif; ?>

@@ -116,29 +116,29 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 	{
 		// Get Vorgesetzte
 		$mitarbeiter = new Mitarbeiter();
-		$vorgesetzten_uid = '';
+		$vorgesetzte = array();
 		$timesheetDate = $timesheet_vorzeitigAbgeschickt->datum;
 
-		if ($mitarbeiter->getVorgesetzteByDate($timesheet_vorzeitigAbgeschickt->uid, $timesheetDate, 1))
+		if ($mitarbeiter->getVorgesetzteByDate($timesheet_vorzeitigAbgeschickt->uid, $timesheetDate))
 		{
 			if (!empty($mitarbeiter->vorgesetzte))
 			{
-				$vorgesetzten_uid = $mitarbeiter->vorgesetzte[0];
+				$vorgesetzte = $mitarbeiter->vorgesetzte;
 			}
 		}
 		else
 		{
-			if ($mitarbeiter->getVorgesetzte($timesheet_vorzeitigAbgeschickt->uid, 1))
+			if ($mitarbeiter->getVorgesetzte($timesheet_vorzeitigAbgeschickt->uid))
 			{
 				if (!empty($mitarbeiter->vorgesetzte))
 				{
-					$vorgesetzten_uid = $mitarbeiter->vorgesetzte[0];
+					$vorgesetzte = $mitarbeiter->vorgesetzte;
 				}
 			}
 		}
 
 		// Send Sancho mail to HR
-		if ($vorgesetzten_uid == '')
+		if (empty($vorgesetzte))
 		{
 			$output = 'kein Vorgesetzter gefunden: mail an HR';
 
@@ -179,25 +179,33 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		}
 		else
 		{
-			$header_img = 'sancho_header_confirm_timesheet.jpg';
-			$benutzer = new Benutzer($vorgesetzten_uid);
-			$vorgesetzter_vorname = $benutzer->vorname;
-			$to = $vorgesetzten_uid. '@'. DOMAIN;
+			$senderror = false;
 
-			$subject =
-				'Monatsliste '. $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '.
-				$date_last_month->format('Y'). ' von '. $full_name;
+			foreach($vorgesetzte as $vorgesetzten_uid)
+			{
+				$header_img = 'sancho_header_confirm_timesheet.jpg';
+				$benutzer = new Benutzer($vorgesetzten_uid);
+				$vorgesetzter_vorname = $benutzer->vorname;
+				$to = $vorgesetzten_uid. '@'. DOMAIN;
 
-			// Set mail template fields
-			$fields = array(
-				'firstName' => $vorgesetzter_vorname,
-				'employee' => $first_name,
-				'date_monthlist' => $monatsname[$sprache_index][$date_last_month->format('m') - 1]. " ". $date_last_month->format('Y'),
-				'link' => CIS_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_vorzeitigAbgeschickt->timesheet_id
-			);
+				$subject =
+					'Monatsliste '. $monatsname[$sprache_index][$date_last_month->format('m') - 1]. ' '.
+					$date_last_month->format('Y'). ' von '. $full_name;
 
-			// Send Sancho mail to Vorgesetzte
-			if (sendSanchoMail('Sancho_Content_confirmTimesheet', $fields, $to, $subject, $header_img))
+				// Set mail template fields
+				$fields = array(
+					'firstName' => $vorgesetzter_vorname,
+					'employee' => $first_name,
+					'date_monthlist' => $monatsname[$sprache_index][$date_last_month->format('m') - 1]. " ". $date_last_month->format('Y'),
+					'link' => CIS_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_vorzeitigAbgeschickt->timesheet_id
+				);
+
+				// Send Sancho mail to Vorgesetzte
+				if (!sendSanchoMail('Sancho_Content_confirmTimesheet', $fields, $to, $subject, $header_img))
+					$senderror = true;
+			}
+
+			if (!$senderror)
 			{
 				$send_date = new DateTime();
 				$timesheet = new Timesheet();
