@@ -70,6 +70,16 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 	$full_name = $benutzer->getFullName();	// string full name of user
 	$first_name = $benutzer->vorname;
 
+	// Check if any unsent timesheets before last month
+	$hasFormerUnsentTimesheets = $timesheet->hasFormerUnsentTimesheetsBeforeLastMonth(
+		$timesheet_vorzeitigAbgeschickt->uid
+	);
+
+	// Check if any missing timesheet before last month
+	$hasFormerMissingTimesheets = $timesheet->hasFormerMissingTimesheetsBeforeLastMonth(
+		$timesheet_vorzeitigAbgeschickt->uid
+	);
+
 	// Check for blocking casetime errors
 	$hasCaseTimeError = $timesheet->hasCaseTimeError(
 		$timesheet_vorzeitigAbgeschickt->uid,
@@ -103,12 +113,16 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		$date_last_month
 	);
 
-	// If no casetime error
+	// If has no former unsent timesheet
+	// and no former missing timesheet
+	// and no casetime error
 	// and no Pausenfehler
 	// and no Bestaetigung is missing
 	// and no Casetime Inserts or Changes were made today
 	// and is synced with Casetime
-	if (!$hasCaseTimeError
+	if (!$hasFormerUnsentTimesheets
+		&& !$hasFormerMissingTimesheets
+		&& !$hasCaseTimeError
 		&& !$hasBlockingPauseError
 		&& !$hasMissingBestaetigung
 		&& !$hasCaseTimeChanges_today
@@ -217,7 +231,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		}
 	}
 	// Elseif casetime error or Pausenerror exist or at least one Bestaetigung is missing
-	elseif ($hasCaseTimeError || $hasBlockingPauseError || $hasMissingBestaetigung)
+	elseif ($hasFormerUnsentTimesheets || $hasFormerMissingTimesheets || $hasCaseTimeError || $hasBlockingPauseError || $hasMissingBestaetigung)
 	{
 		// Reset vorzeitig_abgeschickt to FALSE
 		$timesheet = new Timesheet();
@@ -265,7 +279,7 @@ $nl = "\n";
 echo $nl. "Fertig.";
 echo $nl. "Anzahl Monatslisten an Vorgesetzte abgeschickt: ". $cnt_timesheetsVersendet;
 echo $nl. "Anzahl Monatslisten an HR - fehlender Vorgesetzter: ".$cnt_timesheetsAnHrVersendet++;
-echo $nl. "Anzahl Monatslisten, wegen CasetimeError/fehlende Dokumente, nicht abgeschickt: ". $cnt_timesheetsNichtVersendet;
+echo $nl. "Anzahl Monatslisten, wegen CasetimeError/fehlende Dokumente/fehlender oder nicht abgeschickter Monatslisten (noch vor letztem Monat): ". $cnt_timesheetsNichtVersendet;
 echo $nl. "Anzahl Monatslisten fehlerhaft: ". $cnt_timesheetsError;
 
 if ($cnt_timesheetsError > 0)
