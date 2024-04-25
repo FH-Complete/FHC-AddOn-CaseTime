@@ -1256,8 +1256,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				<form id="form-vorzeitigAbgeschickt" class="pull-right">
 					<input type="hidden" id="timesheet_id" name="timesheet_id" value="<?php echo $timesheet_id; ?>">
 					<div class="form-check pull-right">
-						<input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
-							<?php echo ($isSent || !$isZaPflichtigOnSelDate || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt || !$isCurrentMonth)
+                        <input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
+							<?php echo ($isSent || $hasFormerUnsentTimesheet || $hasFormerMissingTimesheet || !$isZaPflichtigOnSelDate || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt || !$isCurrentMonth)
 								? ' disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."'
 								: '' ?>
 						>
