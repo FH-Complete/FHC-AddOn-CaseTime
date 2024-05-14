@@ -2059,4 +2059,73 @@ class Timesheet extends basis_db
 		$this->result = $missing_bestaetigung_arr;
 		return false;
 	}
+
+	/**
+	 * Checks if user has unsent timesheet(s). The check considers all months before the last month.
+	 *
+	 * @param $uid
+	 * @return bool
+	 */
+	public function hasFormerUnsentTimesheetsBeforeLastMonth($uid)
+	{
+		$qry = '
+			SELECT 1
+			FROM addon.tbl_casetime_timesheet
+			WHERE 
+				uid = '. $this->db_add_param($this->db_escape($uid)). '
+				 -- Filter to only consider months before the last month
+				AND datum < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')
+				-- Filter only not sent ones
+				AND abgeschicktamum IS NULL; 
+		';
+
+		if ($result = $this->db_query($qry))
+		{
+			return $this->db_num_rows($result) > 0;  // True if former unsent timesheets was found
+		}
+
+	}
+
+	/**
+	 * Checks if user has any missing timesheet(s). The check considers all months before the last month.
+	 *
+	 * @param $uid
+	 * @return bool
+	 */
+	public function hasFormerMissingTimesheetsBeforeLastMonth($uid)
+	{
+		$qry = '
+			SELECT 1
+			FROM (
+			     -- Subquery to generate series of all months between the minimum and maximum months of given uid
+				SELECT
+					generate_series(
+						DATE_TRUNC(\'month\', MIN(datum))::date,
+						DATE_TRUNC(\'month\', MAX(datum))::date,
+						\'1 month\'::interval
+					) AS month
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE uid = '. $this->db_add_param($this->db_escape($uid)). '
+			) AS all_months
+			LEFT JOIN (
+			 	-- Subquery to get distinct months present of given uid
+				SELECT DISTINCT
+					DATE_TRUNC(\'month\', datum)::date AS month
+				FROM
+					addon.tbl_casetime_timesheet
+			WHERE uid = '. $this->db_add_param($this->db_escape($uid)). '
+			) AS existing_months ON all_months.month = existing_months.month
+			WHERE
+				-- Filter to find months that are missing
+				existing_months.month IS NULL
+				-- Filter to only consider months before the last month
+				AND all_months.month < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')::date;
+		';
+
+		if ($result = $this->db_query($qry))
+		{
+			return $this->db_num_rows($result) > 0; // True if former missing timesheets was found
+		}
+	}
 }

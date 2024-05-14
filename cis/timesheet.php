@@ -189,11 +189,16 @@ $hasVorgesetzten = false;
 
 $dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 
-if ($mitarbeiter->getVorgesetzteByDate($uid, $dateTimesheet->format('Y-m-d'), 1))
+if ($mitarbeiter->getVorgesetzteByDate($uid, $dateTimesheet->format('Y-m-d')))
 {
-    $benutzer = new Benutzer($mitarbeiter->vorgesetzte[0]);
-	$vorgesetzter_imTimesheetMonat_full_name = $benutzer->getFullName();	// string full name of supervisor
-    $hasVorgesetzten = true;
+	foreach($mitarbeiter->vorgesetzte as $row_vorgesetzte)
+	{
+		if($vorgesetzter_imTimesheetMonat_full_name!='')
+			$vorgesetzter_imTimesheetMonat_full_name.=', ';
+    	$benutzer = new Benutzer($row_vorgesetzte);
+		$vorgesetzter_imTimesheetMonat_full_name .= $benutzer->getFullName();	// string full name of supervisor
+    	$hasVorgesetzten = true;
+	}
 }
 else
 {
@@ -520,7 +525,7 @@ if (isset($_POST['submitTimesheet']))
 	$timesheet = new Timesheet();
 
 	// Check for blocking casetime errors
-  $hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
+	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
 
 	// Check for missing Bestaetigungen
 	$hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
@@ -538,29 +543,38 @@ if (isset($_POST['submitTimesheet']))
 	{
 		$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 
-		if ($mitarbeiter->getVorgesetzteByDate($uid, $dateTimesheet->format('Y-m-d'), 1))
-        {
-			$benutzer = new Benutzer($mitarbeiter->vorgesetzte[0]);
-			$vorgesetzter_vorname = $benutzer->vorname;    // string first name of supervisor
+		if ($mitarbeiter->getVorgesetzteByDate($uid, $dateTimesheet->format('Y-m-d')))
+		{
+			$senderror = false;
+			foreach($mitarbeiter->vorgesetzte as $row_vorgesetzte)
+			{
+				$benutzer = new Benutzer($row_vorgesetzte);
+				$vorgesetzter_vorname = $benutzer->vorname;    // string first name of supervisor
 
-			$to = $benutzer->uid. '@'. DOMAIN;	// email of supervisor
-			$subject =
-				'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
-				$year. ' von '. $full_name;
+				$to = $benutzer->uid. '@'. DOMAIN;	// email of supervisor
+				$subject =
+					'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
+					$year. ' von '. $full_name;
 
-			// Set vars to be used in mail content template
-			$template_data = array(
-				'firstName' => $vorgesetzter_vorname,
-				'employee' => $first_name,
-				'date_monthlist' => $monatsname[$sprache_index][$month - 1]. " ". $year,
-				'link' => APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_id
-			);
+				// Set vars to be used in mail content template
+				$template_data = array(
+					'firstName' => $vorgesetzter_vorname,
+					'employee' => $first_name,
+					'date_monthlist' => $monatsname[$sprache_index][$month - 1]. " ". $year,
+					'link' => APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_id
+				);
 
-			// Sancho header image
-			$header_img = 'sancho_header_confirm_timesheet.jpg';
+				// Sancho header image
+				$header_img = 'sancho_header_confirm_timesheet.jpg';
 
-			// Send email in Sancho design to supervisor
-			if (sendSanchoMail('Sancho_Content_confirmTimesheet', $template_data, $to, $subject, $header_img))
+				// Send email in Sancho design to supervisor
+				if (!sendSanchoMail('Sancho_Content_confirmTimesheet', $template_data, $to, $subject, $header_img))
+				{
+					$senderror = true;
+				}
+			}
+
+			if(!$senderror)
 			{
 				$send_date = new DateTime();
 				$timesheet = new Timesheet();
@@ -1242,8 +1256,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 				<form id="form-vorzeitigAbgeschickt" class="pull-right">
 					<input type="hidden" id="timesheet_id" name="timesheet_id" value="<?php echo $timesheet_id; ?>">
 					<div class="form-check pull-right">
-						<input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
-							<?php echo ($isSent || !$isZaPflichtigOnSelDate || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt || !$isCurrentMonth)
+                        <input type="checkbox" class="form-check-input" id="vorzeitigAbgeschickt" name="vorzeitig_abgeschickt" <?php echo ($timesheet_vorzeitig_abgeschickt == 't') ? ' checked ' : ''; ?>
+							<?php echo ($isSent || $hasFormerUnsentTimesheet || $hasFormerMissingTimesheet || !$isZaPflichtigOnSelDate || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $isVorgesetzter_indirekt || !$isCurrentMonth)
 								? ' disabled data-toggle="tooltip" title="Information zur Sperre weiter unten in der Messagebox."'
 								: '' ?>
 						>
