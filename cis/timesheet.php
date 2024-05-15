@@ -516,87 +516,95 @@ if (isset($_POST['action']) && isset($_POST['method']))
 }
 
 // *********************************	EMAIL SENDING (and document check)
-$hasCaseTimeError = false;
+$curlError = ''; // casetime server connecting error
+$hasCaseTimeBlockingError = false;
 $hasMissingBestaetigung = false;
 $hasBlockingPauseError = false;
 $missing_bestaetigungen = '';
 if (isset($_POST['submitTimesheet']))
 {
-	$timesheet = new Timesheet();
+    // Check for casetime server connecting (curl) error
+    $result = getCaseTimeErrors($uid);
+	$curlError = is_string($result) ? $result : ''; // curl error comes as string
 
-	// Check for blocking casetime errors
-	$hasCaseTimeError = $timesheet->hasCaseTimeError($uid, $month, $year);
-
-	// Check for missing Bestaetigungen
-	$hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
-
-	// Retrieve amount of missing Bestaetigungen by type
-	if ($hasMissingBestaetigung)
+    if (!$curlError)
 	{
-		$missing_bestaetigungen = $timesheet->result;
-	}
+        $timesheet = new Timesheet();
 
-	// Check for blocking Pause Errors
-	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
+        // Check for blocking casetime errors
+        $hasCaseTimeBlockingError = $timesheet->hasCaseTimeBlockingError($uid, $month, $year);
 
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
-	{
-		$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
+        // Check for missing Bestaetigungen
+        $hasMissingBestaetigung = $timesheet->hasMissingBestaetigung($uid, $timesheet_id);
 
-		if ($mitarbeiter->getVorgesetzteByDate($uid, $dateTimesheet->format('Y-m-d')))
-		{
-			$senderror = false;
-			foreach($mitarbeiter->vorgesetzte as $row_vorgesetzte)
-			{
-				$benutzer = new Benutzer($row_vorgesetzte);
-				$vorgesetzter_vorname = $benutzer->vorname;    // string first name of supervisor
+        // Retrieve amount of missing Bestaetigungen by type
+        if ($hasMissingBestaetigung)
+        {
+            $missing_bestaetigungen = $timesheet->result;
+        }
 
-				$to = $benutzer->uid. '@'. DOMAIN;	// email of supervisor
-				$subject =
-					'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
-					$year. ' von '. $full_name;
+        // Check for blocking Pause Errors
+        $hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
 
-				// Set vars to be used in mail content template
-				$template_data = array(
-					'firstName' => $vorgesetzter_vorname,
-					'employee' => $first_name,
-					'date_monthlist' => $monatsname[$sprache_index][$month - 1]. " ". $year,
-					'link' => APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_id
-				);
+        if (!$hasMissingBestaetigung && !$hasCaseTimeBlockingError && !$hasBlockingPauseError)
+        {
+            $dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 
-				// Sancho header image
-				$header_img = 'sancho_header_confirm_timesheet.jpg';
+            if ($mitarbeiter->getVorgesetzteByDate($uid, $dateTimesheet->format('Y-m-d')))
+            {
+                $senderror = false;
+                foreach($mitarbeiter->vorgesetzte as $row_vorgesetzte)
+                {
+                    $benutzer = new Benutzer($row_vorgesetzte);
+                    $vorgesetzter_vorname = $benutzer->vorname;    // string first name of supervisor
 
-				// Send email in Sancho design to supervisor
-				if (!sendSanchoMail('Sancho_Content_confirmTimesheet', $template_data, $to, $subject, $header_img))
-				{
-					$senderror = true;
-				}
-			}
+                    $to = $benutzer->uid. '@'. DOMAIN;	// email of supervisor
+                    $subject =
+                        'Monatsliste '. $monatsname[$sprache_index][$month - 1]. ' '.
+                        $year. ' von '. $full_name;
 
-			if(!$senderror)
-			{
-				$send_date = new DateTime();
-				$timesheet = new Timesheet();
-				$timesheet->timesheet_id = $timesheet_id;
-				$timesheet->abgeschicktamum = $send_date->format('Y-m-d H:i:s');
+                    // Set vars to be used in mail content template
+                    $template_data = array(
+                        'firstName' => $vorgesetzter_vorname,
+                        'employee' => $first_name,
+                        'date_monthlist' => $monatsname[$sprache_index][$month - 1]. " ". $year,
+                        'link' => APP_ROOT. "addons/casetime/cis/timesheet.php?timesheet_id=". $timesheet_id
+                    );
 
-				// save sending date
-				if ($timesheet->save(true))
-				{
-					// reload page to refresh actual and all monthlist display vars
-					header('Location: '.$_SERVER['PHP_SELF']. '?year='. $year. '&month='. $month);
-				}
-				else
-				{
-					echo $timesheet->errormsg;
-				}
-			}
-			else
-			{
-				echo 'Mail konnte nicht versendet werden.';
-			}
-		}
+                    // Sancho header image
+                    $header_img = 'sancho_header_confirm_timesheet.jpg';
+
+                    // Send email in Sancho design to supervisor
+                    if (!sendSanchoMail('Sancho_Content_confirmTimesheet', $template_data, $to, $subject, $header_img))
+                    {
+                        $senderror = true;
+                    }
+                }
+
+                if(!$senderror)
+                {
+                    $send_date = new DateTime();
+                    $timesheet = new Timesheet();
+                    $timesheet->timesheet_id = $timesheet_id;
+                    $timesheet->abgeschicktamum = $send_date->format('Y-m-d H:i:s');
+
+                    // save sending date
+                    if ($timesheet->save(true))
+                    {
+                        // reload page to refresh actual and all monthlist display vars
+                        header('Location: '.$_SERVER['PHP_SELF']. '?year='. $year. '&month='. $month);
+                    }
+                    else
+                    {
+                        echo $timesheet->errormsg;
+                    }
+                }
+                else
+                {
+                    echo 'Mail konnte nicht versendet werden.';
+                }
+            }
+        }
 	}
 }
 
@@ -1487,8 +1495,19 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		</div>
 		<?php endif; ?>
 
-		<!-- IF there are casetime server errors that are defined as blocking errors -->
-		<?php if ($hasCaseTimeError && $isAllowed_sendTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
+        <!-- IF there are casetime server connecting (curl) errors -->
+        <?php if ($curlError):  ?>
+            <div class="alert alert-danger alert-dismissible text-center" role="alert">
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                <b>Verbindungsfehler zum Casetime-Server</b>
+                <br><br>Es ist ein Problem mit der Verbindung zum Casetime-Server aufgetreten.
+                <br>Bitte versuchen Sie es zu einem späteren Zeitpunkt erneut.
+                <br>[ <?php echo $curlError  ?> ]
+            </div>
+        <?php endif; ?>
+
+		<!-- IF there are casetime server blocking errors -->
+		<?php if ($hasCaseTimeBlockingError && $isAllowed_sendTimesheet && $isSyncedWithCaseTime_today && !$hasCaseTimeChanges_today): ?>
 		<div class="alert alert-danger alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>

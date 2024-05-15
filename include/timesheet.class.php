@@ -1841,7 +1841,7 @@ class Timesheet extends basis_db
 	 * @return bool         True, if casetime blocking errors were found.
 	 * @throws Exception
 	 */
-	public function hasCaseTimeError($uid, $month, $year)
+	public function hasCaseTimeBlockingError($uid, $month, $year)
 	{
 		$casetime_error_arr = getCaseTimeErrors($uid);
 		$blocking_error_arr = unserialize(CASETIME_BLOCKING_ERR);

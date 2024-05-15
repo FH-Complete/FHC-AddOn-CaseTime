@@ -81,7 +81,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 	);
 
 	// Check for blocking casetime errors
-	$hasCaseTimeError = $timesheet->hasCaseTimeError(
+	$hasCaseTimeBlockingError = $timesheet->hasCaseTimeBlockingError(
 		$timesheet_vorzeitigAbgeschickt->uid,
 		$date_last_month->format('m'),
 		$date_last_month->format('Y'));
@@ -122,7 +122,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 	// and is synced with Casetime
 	if (!$hasFormerUnsentTimesheets
 		&& !$hasFormerMissingTimesheets
-		&& !$hasCaseTimeError
+		&& !$hasCaseTimeBlockingError
 		&& !$hasBlockingPauseError
 		&& !$hasMissingBestaetigung
 		&& !$hasCaseTimeChanges_today
@@ -239,7 +239,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 		}
 	}
 	// Elseif casetime error or Pausenerror exist or at least one Bestaetigung is missing
-	elseif ($hasFormerUnsentTimesheets || $hasFormerMissingTimesheets || $hasCaseTimeError || $hasBlockingPauseError || $hasMissingBestaetigung)
+	elseif ($hasFormerUnsentTimesheets || $hasFormerMissingTimesheets || $hasCaseTimeBlockingError || $hasBlockingPauseError || $hasMissingBestaetigung)
 	{
 		// Reset vorzeitig_abgeschickt to FALSE
 		$timesheet = new Timesheet();
