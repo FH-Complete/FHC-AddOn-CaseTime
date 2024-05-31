@@ -1827,8 +1827,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
                 <!--                    <td>--><?php //echo (is_null($ts->genehmigtamum)) ? 'Nicht genehmigt' : 'Genehmigt' ?><!--</td>-->
 
             <!--Monat erhöhen-->
-            <?php $monat->sub(new DateInterval('P1M')); ?>
-
+			<?php $monat->modify('last day of last month'); ?>
             </tr>
         <?php endwhile; ?>
         </tbody>
