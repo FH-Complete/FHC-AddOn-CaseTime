@@ -2071,12 +2071,12 @@ class Timesheet extends basis_db
 		$qry = '
 			SELECT 1
 			FROM addon.tbl_casetime_timesheet
-			WHERE 
+			WHERE
 				uid = '. $this->db_add_param($this->db_escape($uid)). '
 				 -- Filter to only consider months before the last month
 				AND datum < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')
 				-- Filter only not sent ones
-				AND abgeschicktamum IS NULL; 
+				AND abgeschicktamum IS NULL;
 		';
 
 		if ($result = $this->db_query($qry))
@@ -2120,7 +2120,19 @@ class Timesheet extends basis_db
 				-- Filter to find months that are missing
 				existing_months.month IS NULL
 				-- Filter to only consider months before the last month
-				AND all_months.month < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')::date;
+				AND all_months.month < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')::date
+				AND EXISTS(
+				SELECT
+				1
+				FROM
+					hr.tbl_dienstverhaeltnis
+					JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
+					JOIN hr.tbl_vertragsbestandteil_zeitaufzeichnung USING(vertragsbestandteil_id)
+				WHERE
+					mitarbeiter_uid='. $this->db_add_param($this->db_escape($uid)). '
+					AND tbl_vertragsbestandteil_zeitaufzeichnung.zeitaufzeichnung=true
+					AND all_months.month between tbl_vertragsbestandteil.von AND COALESCE(tbl_vertragsbestandteil.bis,\'2999-12-31\')
+				)
 		';
 
 		if ($result = $this->db_query($qry))
