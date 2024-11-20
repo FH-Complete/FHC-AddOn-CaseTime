@@ -453,15 +453,11 @@ $timesheet_bestaetigungen_arr = $timesheet->result;
 $hasCaseTimeChanges_today = false;	// true if has inserted/updated Zeitaufzeichnung today
 $isSyncedWithCaseTime_today = true;	// false if has deleted Zeitaufzeichnung/Zeitsperre today
 
-// * no check if selected month is actual month as sending monthsheet is not allowed anyway
-if ($date_selected != $date_actual)
-{
-	$timesheet = new Timesheet();
-	$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday($uid, $date_selected);
+$timesheet = new Timesheet();
+$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday($uid, $date_selected);
 
-	$timesheet = new Timesheet();
-	$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes($uid, $date_selected);
-}
+$timesheet = new Timesheet();
+$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes($uid, $date_selected);
 
 // *********************************	AJAX REQUESTS
 // Delete single Bestätigung (on ajax call)
@@ -502,9 +498,15 @@ if (isset($_POST['action']) && isset($_POST['method']))
 				$result = false;
 				$timesheet = new Timesheet();
 
-				if ($timesheet->saveVorzeitigAbgeschickt($_POST['timesheet_id'], $_POST['vorzeitig_abgeschickt']))
+				if($timesheet->load_byID($_POST['timesheet_id']))
 				{
-					$result = true;
+					if($timesheet->uid == $uid)
+					{
+						if ($timesheet->saveVorzeitigAbgeschickt($_POST['timesheet_id'], $_POST['vorzeitig_abgeschickt']))
+						{
+							$result = true;
+						}
+					}
 				}
 
 				// return true if update was done successfully
@@ -539,7 +541,8 @@ if (isset($_POST['submitTimesheet']))
 	// Check for blocking Pause Errors
 	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
 
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
+	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError
+		&& $date_selected != $date_actual && !$hasCaseTimeChanges_today && $isSyncedWithCaseTime_today)
 	{
 		$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 
@@ -676,6 +679,9 @@ if (isset($_POST['submitTimesheetSendBack']))
 	// save confirmation
 	if ($timesheet->save(true))
 	{
+		// Vorzeitig abschicken zuruecksetzen wenn die Monatsliste vom Vorgesetzten zurueckgeschickt wird
+		$timesheet->resetVorzeitigAbgeschickt($timesheet_id);
+		
 		// reload page to refresh actual and all monthlist display vars
 		header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
 	}
@@ -870,6 +876,30 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			$("#timesheetSaveSuccess").hide();
 		}, 3500);
 	}
+
+	//uncheck vorzeitigesAbschicken bei cancelConfirmation
+	function resetVorzeitigesAbschicken(timesheet_id)
+	{
+		$.ajax({
+			type: 'POST',
+			dataType: 'json',
+			cache: false,
+			async: false,
+			data: {
+				action: 'ajax',
+				method: 'saveVorzeitigAbgeschickt',
+				timesheet_id: timesheet_id,
+				vorzeitig_abgeschickt: false
+			},
+			success: function (result) {
+				if(!result)
+				{
+					alert('Fehler beim Reset Vorzeitiges Abschicken');
+				}
+			}
+		});
+	}
+
 
 	// Get overtime checkbox values from one form and pass to hidden field of the submitting form
 	// NOTE: workaround to use values of 2 forms by submitting only one
@@ -1350,12 +1380,44 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 
 				</p>
 			</div>
+			<!-- Variante mit Modal -->
 			<div class="panel-body col-xs-4"><br>
 				<form class="form" method="POST" action="<?php echo $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id ?>">
-				<button type="submit" <?php echo (!$isSent || !$isConfirmed || !$hasFormerUnconfirmedTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>
-					name="submitTimesheetCancelConfirmation" class="btn btn-primary pull-right"
-					onclick="return confirm('Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\n für <?php echo $full_name ?> sicher aufheben?\nDabei werden zur Überarbeitung auch\ndie Genehmigungen ALLER MONATE DANACH wieder aufgehoben!');">Genehmigung aufheben</button>
-				</form>
+					<button
+					type="button"
+					class="btn btn-primary pull-right"
+					data-toggle="modal"
+					data-target="#modalCancelCon"
+					<?php echo (!$isSent || !$isConfirmed || !$hasFormerUnconfirmedTimesheet) ? 'disabled data-toggle="tooltip" title="Die Monatsliste ist bisher noch nicht genehmigt worden."' : '' ?>>
+					Genehmigung aufheben
+				</button>
+				<!-- Modal -->
+				<div class="modal fade" id="modalCancelCon" tabindex="-1" role="dialog" aria-labelledby="modalCancelConLabel">
+					<div class="modal-dialog" role="document">
+						<div class="modal-content">
+							<div class="modal-header">
+								<button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+								<h4 class="modal-title" id="modalCancelConLabel">Genehmigung wirklich aufheben?</h4>
+							</div>
+							<div class="modal-body">
+								Wollen Sie die Genehmigung der Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>
+								für <?php echo $full_name ?> sicher aufheben?
+								<br>Dabei werden zur Überarbeitung auch die Genehmigungen ALLER MONATE DANACH wieder aufgehoben!
+							</div>
+							<div class="modal-footer">
+								<button type="button" class="btn btn-default" data-dismiss="modal">Abbrechen</button>
+								<button
+								type="submit"
+								name="submitTimesheetCancelConfirmation"
+								class="btn btn-primary"
+								onclick="resetVorzeitigesAbschicken(<?php echo $timesheet_id;?>);">
+								OK
+							</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</form>
 			</div>
 		</div>
 
@@ -1424,7 +1486,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php endif; ?>
 
 		<!-- IF month of the timesheet is not over, timesheet should not be sent -->
-		<?php if (!$isAllowed_sendTimesheet && !$hasFormerMissingTimesheet && $isAllowed_createTimesheet && !$isFuture && $date_selected->format('Y-m') == $date_actual->format('Y-m')): ?>
+		<?php if (!$isFuture && $date_selected->format('Y-m') == $date_actual->format('Y-m')): ?>
 		<?php $date_next_month = new DateTime('first day of next month midnight'); ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -1434,7 +1496,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<?php endif; ?>
 
 		<!-- IF today inserted/updated/deleted times concerning the selected month -->
-		<?php if (!$isSyncedWithCaseTime_today || $hasCaseTimeChanges_today): ?>
+		<?php if ((!$isSyncedWithCaseTime_today || $hasCaseTimeChanges_today) && $date_selected->format('Y-m') != $date_actual->format('Y-m')): ?>
 		<div class="alert alert-warning alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Ab dem morgigen Tag können Sie Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> versenden!</b><br><br>
