@@ -498,9 +498,15 @@ if (isset($_POST['action']) && isset($_POST['method']))
 				$result = false;
 				$timesheet = new Timesheet();
 
-				if ($timesheet->saveVorzeitigAbgeschickt($_POST['timesheet_id'], $_POST['vorzeitig_abgeschickt']))
+				if($timesheet->load_byID($_POST['timesheet_id']))
 				{
-					$result = true;
+					if($timesheet->uid == $uid)
+					{
+						if ($timesheet->saveVorzeitigAbgeschickt($_POST['timesheet_id'], $_POST['vorzeitig_abgeschickt']))
+						{
+							$result = true;
+						}
+					}
 				}
 
 				// return true if update was done successfully
@@ -673,6 +679,9 @@ if (isset($_POST['submitTimesheetSendBack']))
 	// save confirmation
 	if ($timesheet->save(true))
 	{
+		// Vorzeitig abschicken zuruecksetzen wenn die Monatsliste vom Vorgesetzten zurueckgeschickt wird
+		$timesheet->resetVorzeitigAbgeschickt($timesheet_id);
+		
 		// reload page to refresh actual and all monthlist display vars
 		header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
 	}
