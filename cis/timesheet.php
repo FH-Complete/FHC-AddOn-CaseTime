@@ -453,15 +453,11 @@ $timesheet_bestaetigungen_arr = $timesheet->result;
 $hasCaseTimeChanges_today = false;	// true if has inserted/updated Zeitaufzeichnung today
 $isSyncedWithCaseTime_today = true;	// false if has deleted Zeitaufzeichnung/Zeitsperre today
 
-// * no check if selected month is actual month as sending monthsheet is not allowed anyway
-if ($date_selected != $date_actual)
-{
-	$timesheet = new Timesheet();
-	$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday($uid, $date_selected);
+$timesheet = new Timesheet();
+$hasCaseTimeChanges_today = $timesheet->hasNewOrChangedTimesToday($uid, $date_selected);
 
-	$timesheet = new Timesheet();
-	$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes($uid, $date_selected);
-}
+$timesheet = new Timesheet();
+$isSyncedWithCaseTime_today = $timesheet->hasDeletedTimes($uid, $date_selected);
 
 // *********************************	AJAX REQUESTS
 // Delete single Bestätigung (on ajax call)
@@ -539,7 +535,8 @@ if (isset($_POST['submitTimesheet']))
 	// Check for blocking Pause Errors
 	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
 
-	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError)
+	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError
+		&& $date_selected != $date_actual && !$hasCaseTimeChanges_today && $isSyncedWithCaseTime_today)
 	{
 		$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 
@@ -1480,7 +1477,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php endif; ?>
 
 		<!-- IF month of the timesheet is not over, timesheet should not be sent -->
-		<?php if (!$isAllowed_sendTimesheet && !$hasFormerMissingTimesheet && $isAllowed_createTimesheet && !$isFuture && $date_selected->format('Y-m') == $date_actual->format('Y-m')): ?>
+		<?php //if (!$isAllowed_sendTimesheet && !$hasFormerMissingTimesheet && $isAllowed_createTimesheet && !$isFuture && $date_selected->format('Y-m') == $date_actual->format('Y-m')): ?>
+		<?php if (!$isFuture && $date_selected->format('Y-m') == $date_actual->format('Y-m')): ?>
 		<?php $date_next_month = new DateTime('first day of next month midnight'); ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
@@ -1490,7 +1488,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 	<?php endif; ?>
 
 		<!-- IF today inserted/updated/deleted times concerning the selected month -->
-		<?php if (!$isSyncedWithCaseTime_today || $hasCaseTimeChanges_today): ?>
+		<?php if ((!$isSyncedWithCaseTime_today || $hasCaseTimeChanges_today) && $date_selected->format('Y-m') != $date_actual->format('Y-m')): ?>
 		<div class="alert alert-warning alert-dismissible text-center" role="alert">
 			<button type="button" class="close" data-dismiss="alert" aria-label="Close"><span aria-hidden="true">&times;</span></button>
 			<b>Ab dem morgigen Tag können Sie Ihre Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> versenden!</b><br><br>
@@ -1551,7 +1549,7 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			Die Zeiterfassung für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> oder den Monat davor ist nicht vollständig oder inkorrekt.<br>
 			Bitte überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
 			<?php
-			if($hasCaseTimeError) echo "Es sind Fehlermeldungen in der Zeitaufzeichnung vorhanden<br>";
+			if($hasCaseTimeError) echo "hasCaseTimeError?<br>";
 			if($isAllowed_sendTimesheet) echo "isAllowed_SendTimesheet?<br>";
 			if($isSyncedWithCaseTime_today) echo "isSyncedWithCaseTime_Today?<br>";
 			if(!$hasCaseTimeChanges_today) echo "HasCaseTimeChangesToday?<br>";
