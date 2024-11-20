@@ -1477,7 +1477,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<?php endif; ?>
 
 		<!-- IF month of the timesheet is not over, timesheet should not be sent -->
-		<?php //if (!$isAllowed_sendTimesheet && !$hasFormerMissingTimesheet && $isAllowed_createTimesheet && !$isFuture && $date_selected->format('Y-m') == $date_actual->format('Y-m')): ?>
 		<?php if (!$isFuture && $date_selected->format('Y-m') == $date_actual->format('Y-m')): ?>
 		<?php $date_next_month = new DateTime('first day of next month midnight'); ?>
 		<div class="alert alert-info alert-dismissible text-center" role="alert">
@@ -1548,12 +1547,6 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			<b>Die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> konnte nicht versendet werden!</b><br><br>
 			Die Zeiterfassung für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?> oder den Monat davor ist nicht vollständig oder inkorrekt.<br>
 			Bitte überarbeiten Sie erst Ihre Zeiterfassung für diesen Zeitraum und versenden Sie danach erneut Ihre Monatsliste.<br><br>
-			<?php
-			if($hasCaseTimeError) echo "hasCaseTimeError?<br>";
-			if($isAllowed_sendTimesheet) echo "isAllowed_SendTimesheet?<br>";
-			if($isSyncedWithCaseTime_today) echo "isSyncedWithCaseTime_Today?<br>";
-			if(!$hasCaseTimeChanges_today) echo "HasCaseTimeChangesToday?<br>";
-			?>
 			<a href="<?php echo APP_ROOT. 'cis/private/tools/zeitaufzeichnung.php' ?>" class="text-danger"><b>Zeitaufzeichnung jetzt bearbeiten</b></a>
 		</div>
 		<?php endif; ?>
