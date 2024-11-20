@@ -2061,6 +2061,82 @@ class Timesheet extends basis_db
 	}
 
 	/**
+	 * Resets the field abgeschicktamum for newer timesheets to reset sperrdate and enables user to correct date entries
+	 *
+	 * @param integer $timesheet_id
+	 * @return bool
+	 * @throws Exception
+	 */
+	public function resetSentData($timesheet_id)
+	{
+		$qry = '
+				UPDATE
+					addon.tbl_casetime_timesheet
+				SET
+					abgeschicktamum = NULL,
+					vorzeitig_abgeschickt = false
+				WHERE
+					timesheet_id = '. $this->db_add_param($timesheet_id);
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler bei reset von insertamum.';
+			return false;
+		}
+	}
+
+	/**
+	 * returns an array of newer timesheets which have been already  sent to superior
+	 *
+	 * @param integer $timesheet_id
+	 * @param String $uid
+	 * @return bool
+	 * @throws Exception
+	 */
+	function getNewerTimesheets($timesheet_id, $uid)
+	{
+		$qry = '
+				SELECT
+					timesheet_id
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+				    uid = '. $this->db_add_param($uid). '
+				AND
+				    abgeschicktamum is not null
+				AND
+					datum >
+				(
+					SELECT
+						datum
+					FROM
+						addon.tbl_casetime_timesheet
+					WHERE
+						timesheet_id = '. $this->db_add_param($timesheet_id). '
+				)';
+
+		if($this->db_query($qry))
+		{
+			$ids = array();
+			while ($row = $this->db_fetch_object())
+			{
+				$ids[] = $row->timesheet_id;
+			}
+
+			return $ids;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler bei der Abfrage getNewerTimesheets()';
+			return false;
+		}
+	}
+
+	/**
 	 * Checks if user has unsent timesheet(s). The check considers all months before the last month.
 	 *
 	 * @param $uid
