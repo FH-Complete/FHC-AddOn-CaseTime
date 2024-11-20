@@ -878,4 +878,80 @@ function formatZeitsaldo($zeitsaldo)
 	return $stunden . "h:" . $minuten . "m";
 }
 
+function getNotConfirmedTimesheetCount($uid)
+{
+	$db = new basis_db();
+	$casetime_golive = CASETIME_TIMESHEET_GOLIVE;
+	$sql = <<<EOSQL
+		SELECT 
+			((tscount - tsconfirmedcount) + (tstotalcount - tscount)) AS tstotalnotconfirmed
+		FROM (
+			SELECT 
+				(EXTRACT('YEAR' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon))) * 12 + EXTRACT('MONTH' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)))) AS tstotalcount, 
+				age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)) AS tsage, 
+				count(ts.timesheet_id) AS tscount, 
+				count(ts.abgeschicktamum) AS tssentcount, 
+				count(ts.genehmigtamum) AS tsconfirmedcount 
+			FROM (
+				SELECT 
+					uid, 
+					CASE
+					  WHEN vb.von IS NULL OR vb.von < i.zavon THEN i.zavon 
+					  ELSE vb.von 
+					END AS tsvon,
+					CASE
+					  WHEN vb.bis IS NULL OR vb.bis > i.zabis THEN i.zabis 
+					  ELSE vb.bis 
+					END AS tsbis,
+					vb.* 
+				FROM (
+					SELECT 
+						uid, 
+						COALESCE(DATE_TRUNC('month', datum)::date, '{$casetime_golive}'::date) AS zavon, 
+						DATE_TRUNC('month', NOW()::date)::date AS zabis,
+						datum
+					FROM 
+						addon.tbl_casetime_timesheet ts 
+					WHERE 
+						uid = {$db->db_add_param($uid)} AND genehmigtamum IS NOT NULL 
+					UNION
+					SELECT
+						{$db->db_add_param($uid)} AS uid,
+						'{$casetime_golive}'::date AS zavon,
+						DATE_TRUNC('month', NOW()::date)::date AS zabis,
+						'{$casetime_golive}'::date AS datum
+					ORDER BY 
+						datum DESC 
+					LIMIT 1
+				) i 
+				JOIN 
+					hr.tbl_dienstverhaeltnis dv ON dv.mitarbeiter_uid = i.uid 
+				JOIN 
+					hr.tbl_vertragsbestandteil vb ON dv.dienstverhaeltnis_id = vb.dienstverhaeltnis_id AND vb.vertragsbestandteiltyp_kurzbz = 'zeitaufzeichnung' AND COALESCE(vb.von, '1970-01-01'::date) <= i.zabis AND COALESCE(vb.bis, '2170-12-31'::date) >= i.zabis 
+				JOIN 
+					hr.tbl_vertragsbestandteil_zeitaufzeichnung vbza ON vb.vertragsbestandteil_id = vbza.vertragsbestandteil_id AND vbza.zeitaufzeichnung = TRUE 
+			) u 
+			LEFT JOIN 
+				addon.tbl_casetime_timesheet ts ON u.uid = ts.uid AND ts.datum BETWEEN tsvon AND tsbis
+			GROUP BY 
+				u.vertragsbestandteil_id, u.tsvon, u.tsbis 
+		) r
+EOSQL;
+
+	if ($result = $db->db_query($sql))
+	{
+		$db->result = '';
+		if ($row = $db->db_fetch_object($result))
+		{
+			$db->result = $row->tstotalnotconfirmed;
+
+		}
+		return $db->result;
+	}
+	else
+	{
+		return false;
+	}
+}
+
 ?>
