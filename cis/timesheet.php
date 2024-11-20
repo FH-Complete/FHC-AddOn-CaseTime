@@ -542,7 +542,7 @@ if (isset($_POST['submitTimesheet']))
 	$hasBlockingPauseError = $timesheet->hasBlockingErrorPause($uid, $month, $year);
 
 	if (!$hasMissingBestaetigung && !$hasCaseTimeError && !$hasBlockingPauseError
-		&& $date_selected != $date_actual && !$hasCaseTimeChanges_today && $isSyncedWithCaseTime_today)
+		&& $date_selected->format('Y-m') != $date_actual->format('Y-m') && !$hasCaseTimeChanges_today && $isSyncedWithCaseTime_today)
 	{
 		$dateTimesheet = new DateTime('last day of'.$year.'-'.$month.'.');
 
@@ -681,7 +681,7 @@ if (isset($_POST['submitTimesheetSendBack']))
 	{
 		// Vorzeitig abschicken zuruecksetzen wenn die Monatsliste vom Vorgesetzten zurueckgeschickt wird
 		$timesheet->resetVorzeitigAbgeschickt($timesheet_id);
-		
+
 		// reload page to refresh actual and all monthlist display vars
 		header('Location: '. $_SERVER['PHP_SELF']. '?timesheet_id='. $timesheet_id);
 	}
@@ -1266,8 +1266,8 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 			</div>
 			<form method="POST" action="">
 				<div class="panel-body col-xs-4"><br>
-					<button type="submit" <?php echo ($isSent || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt) ? 'disabled data-toggle="tooltip"' : '';
-						echo (($isSent || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? ' title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
+					<button type="submit" <?php echo ($isSent || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || $isVorgesetzter || $isPersonal || !$hasVorgesetzten || $hasCaseTimeChanges_today || !$isSyncedWithCaseTime_today || $isVorgesetzter_indirekt || $date_selected->format('Y-m') == $date_actual->format('Y-m')) ? 'disabled data-toggle="tooltip"' : '';
+						echo (($isSent || $timesheet_vorzeitig_abgeschickt == 't' || !$isAllowed_sendTimesheet || !$isSyncedWithCaseTime_today || $date_selected->format('Y-m') == $date_actual->format('Y-m')) && !$isVorgesetzter && !$isPersonal && !$isVorgesetzter_indirekt) ? ' title="Information zur Sperre weiter unten in der Messagebox."' : '' ?>
 						name="submitTimesheet" id="submitTimesheet" class="btn btn-default pull-right"
 						onclick="return confirm('Wollen Sie die Monatsliste für <?php echo $monatsname[$sprache_index][$month - 1]. ' '. $year ?>\njetzt an <?php echo $vorgesetzter_imTimesheetMonat_full_name ?> verschicken?');">Monatsliste verschicken</button>
 				</div>
