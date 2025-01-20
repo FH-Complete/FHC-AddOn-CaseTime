@@ -354,7 +354,7 @@ if (!empty($all_employee_uid_arr))
  * fetching data from casetime and 50% is
  * fetching data from FHC
  */
-$employees_count = count($employee_uid_arr) * 2;
+$employees_count = numberOfElements($employee_uid_arr) * 2;
 $employees_loaded = 0;
 echo <<<EOJS
 <script>employees_count = {$employees_count};</script>
@@ -389,7 +389,7 @@ function loadCaseTimeSaldenChunked($employee_uid_arr)
 			$time_holiday_balance_arr = array_merge($time_holiday_balance_arr, (array)$part);
 		}
 
-		$employees_loaded += count($chunk);
+		$employees_loaded += numberOfElements($chunk);
 		echo <<<EOJS
 	<script>employees_loaded = {$employees_loaded};</script>
 
@@ -475,7 +475,7 @@ else
 
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_DIRECT'];
-		$employees_loaded = count($employee_uid_arr); // set progress bar var since no casetime request is made
+		$employees_loaded = numberOfElements($employee_uid_arr); // set progress bar var since no casetime request is made
 	}
 	// * Set time- and holiday balances for ALL employees from $_SESSION variable
 	else
@@ -494,7 +494,7 @@ else
 
 		// set time and holiday balance times
 		$time_holiday_balance_arr = $_SESSION['casetime/time_holiday_balance_arr_ALL'];
-		$employees_loaded = count($employee_uid_arr); // set progress bar var since no casetime request is made
+		$employees_loaded = numberOfElements($employee_uid_arr); // set progress bar var since no casetime request is made
 	}
 }
 $isAllInVorhanden = false;

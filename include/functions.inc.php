@@ -19,6 +19,7 @@
  * 			Gerald Raab <gerald.raab@technikum-wien.at>
  */
 require_once(dirname(__FILE__).'/../../../include/benutzerberechtigung.class.php');
+require_once(dirname(__FILE__).'/../../../include/functions.inc.php');
 
 
 
@@ -889,9 +890,9 @@ function getNotConfirmedTimesheetCount($uid)
 			SELECT 
 				(EXTRACT('YEAR' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon))) * 12 + EXTRACT('MONTH' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)))) AS tstotalcount, 
 				age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)) AS tsage, 
-				count(ts.timesheet_id) AS tscount, 
-				count(ts.abgeschicktamum) AS tssentcount, 
-				count(ts.genehmigtamum) AS tsconfirmedcount 
+				numberOfElements(ts.timesheet_id) AS tscount, 
+				numberOfElements(ts.abgeschicktamum) AS tssentcount, 
+				numberOfElements(ts.genehmigtamum) AS tsconfirmedcount 
 			FROM (
 				SELECT 
 					uid, 
