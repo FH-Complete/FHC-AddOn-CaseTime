@@ -2061,6 +2061,82 @@ class Timesheet extends basis_db
 	}
 
 	/**
+	 * Resets the field abgeschicktamum for newer timesheets to reset sperrdate and enables user to correct date entries
+	 *
+	 * @param integer $timesheet_id
+	 * @return bool
+	 * @throws Exception
+	 */
+	public function resetSentData($timesheet_id)
+	{
+		$qry = '
+				UPDATE
+					addon.tbl_casetime_timesheet
+				SET
+					abgeschicktamum = NULL,
+					vorzeitig_abgeschickt = false
+				WHERE
+					timesheet_id = '. $this->db_add_param($timesheet_id);
+
+		if($this->db_query($qry))
+		{
+			return true;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler bei reset von insertamum.';
+			return false;
+		}
+	}
+
+	/**
+	 * returns an array of newer timesheets which have been already  sent to superior
+	 *
+	 * @param integer $timesheet_id
+	 * @param String $uid
+	 * @return bool
+	 * @throws Exception
+	 */
+	function getNewerTimesheets($timesheet_id, $uid)
+	{
+		$qry = '
+				SELECT
+					timesheet_id
+				FROM
+					addon.tbl_casetime_timesheet
+				WHERE
+				    uid = '. $this->db_add_param($uid). '
+				AND
+				    abgeschicktamum is not null
+				AND
+					datum >
+				(
+					SELECT
+						datum
+					FROM
+						addon.tbl_casetime_timesheet
+					WHERE
+						timesheet_id = '. $this->db_add_param($timesheet_id). '
+				)';
+
+		if($this->db_query($qry))
+		{
+			$ids = array();
+			while ($row = $this->db_fetch_object())
+			{
+				$ids[] = $row->timesheet_id;
+			}
+
+			return $ids;
+		}
+		else
+		{
+			$this->errormsg = 'Fehler bei der Abfrage getNewerTimesheets()';
+			return false;
+		}
+	}
+
+	/**
 	 * Checks if user has unsent timesheet(s). The check considers all months before the last month.
 	 *
 	 * @param $uid
@@ -2071,12 +2147,12 @@ class Timesheet extends basis_db
 		$qry = '
 			SELECT 1
 			FROM addon.tbl_casetime_timesheet
-			WHERE 
+			WHERE
 				uid = '. $this->db_add_param($this->db_escape($uid)). '
 				 -- Filter to only consider months before the last month
 				AND datum < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')
 				-- Filter only not sent ones
-				AND abgeschicktamum IS NULL; 
+				AND abgeschicktamum IS NULL;
 		';
 
 		if ($result = $this->db_query($qry))
@@ -2120,7 +2196,19 @@ class Timesheet extends basis_db
 				-- Filter to find months that are missing
 				existing_months.month IS NULL
 				-- Filter to only consider months before the last month
-				AND all_months.month < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')::date;
+				AND all_months.month < DATE_TRUNC(\'month\', CURRENT_DATE - INTERVAL \'1 month\')::date
+				AND EXISTS(
+				SELECT
+				1
+				FROM
+					hr.tbl_dienstverhaeltnis
+					JOIN hr.tbl_vertragsbestandteil USING(dienstverhaeltnis_id)
+					JOIN hr.tbl_vertragsbestandteil_zeitaufzeichnung USING(vertragsbestandteil_id)
+				WHERE
+					mitarbeiter_uid='. $this->db_add_param($this->db_escape($uid)). '
+					AND tbl_vertragsbestandteil_zeitaufzeichnung.zeitaufzeichnung=true
+					AND all_months.month between tbl_vertragsbestandteil.von AND COALESCE(tbl_vertragsbestandteil.bis,\'2999-12-31\')
+				)
 		';
 
 		if ($result = $this->db_query($qry))

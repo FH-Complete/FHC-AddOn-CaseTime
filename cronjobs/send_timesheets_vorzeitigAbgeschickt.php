@@ -267,7 +267,7 @@ foreach ($timesheets_vorzeitigAbgeschickt_arr as $timesheet_vorzeitigAbgeschickt
 			$fields,
 			$to,
 			$subject,
-			DEFAULT_SANCHO_HEADER_IMG, DEFAULT_SANCHO_FOOTER_IMG,
+			'', '',
 			'',
 			$cc)
 		)
