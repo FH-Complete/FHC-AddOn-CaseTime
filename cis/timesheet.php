@@ -39,6 +39,9 @@ require_once('../../../include/vertragsbestandteil.class.php');
 
 session_start();	// session to keep filter setting 'Alle meine Mitarbeiter' and show correct employees in timesheet_overview.php
 
+const ZEITSPERRE_BESTAETIGUNG_AB_3_TAGEN = ['Krank', 'PflegeU'];
+const ZEITSPERRE_OHNE_BESTAETIGUNG = ['DienstreiseMT'];
+
 $uid = get_uid();
 $db = new basis_db();
 $sprache_obj = new sprache();
@@ -340,6 +343,34 @@ function getMonatslisteStartdatum($ersteZaPflicht)
     return new DateTime();  // aktuelles Datum setzen
 }
 
+function getAbsencesToConfirm($timesheet_absences_arr){
+	$filtered = array_filter($timesheet_absences_arr, function ($item) {
+		// If krank or pflegeurlaub
+		if (in_array($item->abwesenheit_kurzbz, ZEITSPERRE_BESTAETIGUNG_AB_3_TAGEN, true)) {
+            $von = new DateTime($item->von);
+            $bis = new DateTime($item->bis);
+
+            // Calculate difference in days
+            $diff = $von->diff($bis)->days;
+
+            // Return only if the difference is > 2 days (for Bestaetigung upload ab 3 Tagen)
+            return $diff >= 2;
+		}
+        // Exclude if no Bestaetigung needed
+        elseif (in_array($item->abwesenheit_kurzbz, ZEITSPERRE_OHNE_BESTAETIGUNG, true))
+		{
+            return false;
+		}
+        // Return all others
+        else
+		{
+			return true;
+        }
+	});
+
+    return $filtered;
+}
+
 // *********************************	ACTUAL TIMESHEET (of month/year selected)
 $timesheet = new Timesheet($uid, $month, $year);
 $timesheet_id = $timesheet->timesheet_id;
@@ -434,6 +465,9 @@ $timesheet_absences_arr = array();
 $timesheet = new Timesheet();
 $timesheet->getAllAbsentTimes($uid, $timesheet_id);
 $timesheet_absences_arr = $timesheet->result;
+
+// Store absences of timesheet selected that need confirmation
+$timesheet_absences_to_confirm_arr = getAbsencesToConfirm($timesheet_absences_arr);
 
 // Get all Bestaetigungen
 $total_bestaetigungen_arr = array();
@@ -1124,24 +1158,21 @@ if (isset($_POST['submitTimesheetCancelConfirmation']))
 		<!--panel: UPLOAD documents-->
 		<div class="row panel-top-cstm" style="<?php echo ($isConfirmed || $isFuture || $hasFormerMissingTimesheet || !$isAllowed_createTimesheet) ? 'display: none;' : '' ?>">
 			<div class="panel-body col-xs-8">
-				<b>Upload von Dokumenten</b><br><br>
+				<b>Fehlzeiten und Bestätigungen</b><br><br>
 
 				<!--counter for displaying absence text only once-->
 				<?php $counter = 0; ?>
 
 				<!--loop through absent times-->
 				<?php foreach ($timesheet_absences_arr as $absence): ?>
-
-					<!--set absence text-->
-					<?php if ($counter == 0): ?>
-						Bitte laden Sie Bestätigungen für folgende Fehlzeiten (außer Dienstreisen) hoch:<br><br>
-						<?php $counter++ ?>
-					<?php endif; ?>
-
 					<!--find absences and times only for the actual timesheet-->
 					<ul>
 					<?php if ($absence->timesheet_id == $timesheet_id): ?>
-						<li><?php echo $absence->abwesenheitsgrund. ' von '. date_format(date_create($absence->von), 'd.m.Y'). ' - '. date_format(date_create($absence->bis), 'd.m.Y') ?></li>
+						<?php $counter++ ?>
+						<li>
+                            <?php echo $absence->abwesenheitsgrund. ' von '. date_format(date_create($absence->von), 'd.m.Y'). ' - '. date_format(date_create($absence->bis), 'd.m.Y') ?>
+                            <?php if (!in_array($absence->abwesenheit_kurzbz, array_column($timesheet_absences_to_confirm_arr, 'abwesenheit_kurzbz'))) echo '(keine Bestätigung erforderlich)' ?>
+                        </li>
 					</ul>
 					<?php endif; ?>
 
