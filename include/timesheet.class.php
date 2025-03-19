@@ -784,7 +784,7 @@ class Timesheet extends basis_db
 				AND
 					ende::date BETWEEN date_trunc(\'month\', datum::date) AND datum::date
 				ORDER BY
-					datum DESC
+					datum DESC, von
 				';
 
 			if ($this->db_query($qry))
