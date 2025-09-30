@@ -385,7 +385,7 @@ function AddonCaseTimeLoadZeitsaldo(uid,exportXLS)
 
 				$('#monatsliste').html(moli_dd);
 
-				if (exportXLS)
+				if (exportXLS && document.getElementById('monat'))
 				{
 					document.getElementById('monat').selectedIndex=MonatLetztes-1;
 					if (MonatLetztes == 12)
@@ -435,8 +435,20 @@ function AddonCaseTimeLoadSaldoAllin(uid)
 					else
 						color1='black';
 
+					var info_allin = 'All-In Summe Studienjahr: <span style="color:'+ color1 +'">' + result.salue1sum + '</span> Stunden ('+std_anzeigealt+')';
+
+					var saldo_17w = parseFloat(result.saldo17w);
+
+					if(saldo_17w >= 47.5)
+						color1='red';
+					else if (saldo_17w >= 45)
+						color1='orange';
+					else
+						color1='black';
+					var info_17w = '<br /><span style="margin-left: 50px">17-wöchige Durchrechnung:<span> <span style="color:'+ color1 +'">'+saldo_17w+'</span> Stunden';
+
 					$('#saldoAllin').css('margin-left','50px');
-					$('#saldoAllin').html('All-In Summe Studienjahr: <span style="color:'+ color1 +'">' + result.salue1sum + '</span> Stunden ('+std_anzeigealt+')' );
+					$('#saldoAllin').html(info_allin + info_17w );
 
 				}
 			},

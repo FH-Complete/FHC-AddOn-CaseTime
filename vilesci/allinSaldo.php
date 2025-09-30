@@ -50,6 +50,7 @@ if ($username != $uid)
   $retval = getCaseTimeSaldoAllIn($username);
   //echo "-18.66";
   //echo " {'STATUS': 'OK', 'RESULT': -23.3}";
+//echo '{"sachb":"OESI","salue1sum":0,"saldo17w":"45.88"}';
   echo json_encode($retval);
 
 ?>
