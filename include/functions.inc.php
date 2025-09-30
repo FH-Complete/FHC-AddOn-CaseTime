@@ -883,58 +883,58 @@ function getNotConfirmedTimesheetCount($uid)
 	$db = new basis_db();
 	$casetime_golive = CASETIME_TIMESHEET_GOLIVE;
 	$sql = <<<EOSQL
-		SELECT 
+		SELECT
 			((tscount - tsconfirmedcount) + (tstotalcount - tscount)) AS tstotalnotconfirmed
 		FROM (
-			SELECT 
-				(EXTRACT('YEAR' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon))) * 12 + EXTRACT('MONTH' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)))) AS tstotalcount, 
-				age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)) AS tsage, 
-				count(ts.timesheet_id) AS tscount, 
-				count(ts.abgeschicktamum) AS tssentcount, 
-				count(ts.genehmigtamum) AS tsconfirmedcount 
+			SELECT
+				(EXTRACT('YEAR' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon))) * 12 + EXTRACT('MONTH' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)))) AS tstotalcount,
+				age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)) AS tsage,
+				count(ts.timesheet_id) AS tscount,
+				count(ts.abgeschicktamum) AS tssentcount,
+				count(ts.genehmigtamum) AS tsconfirmedcount
 			FROM (
-				SELECT 
-					uid, 
+				SELECT
+					uid,
 					CASE
-					  WHEN vb.von IS NULL OR vb.von < i.zavon THEN i.zavon 
-					  ELSE vb.von 
+					  WHEN vb.von IS NULL OR vb.von < i.zavon THEN i.zavon
+					  ELSE vb.von
 					END AS tsvon,
 					CASE
-					  WHEN vb.bis IS NULL OR vb.bis > i.zabis THEN i.zabis 
-					  ELSE vb.bis 
+					  WHEN vb.bis IS NULL OR vb.bis > i.zabis THEN i.zabis
+					  ELSE vb.bis
 					END AS tsbis,
-					vb.* 
+					vb.*
 				FROM (
-					SELECT 
-						uid, 
-						COALESCE(DATE_TRUNC('month', datum)::date, '{$casetime_golive}'::date) AS zavon, 
+					SELECT
+						uid,
+						COALESCE(DATE_TRUNC('month', datum)::date, '{$casetime_golive}'::date) AS zavon,
 						DATE_TRUNC('month', NOW()::date)::date AS zabis,
 						datum
-					FROM 
-						addon.tbl_casetime_timesheet ts 
-					WHERE 
-						uid = {$db->db_add_param($uid)} AND genehmigtamum IS NOT NULL 
+					FROM
+						addon.tbl_casetime_timesheet ts
+					WHERE
+						uid = {$db->db_add_param($uid)} AND genehmigtamum IS NOT NULL
 					UNION
 					SELECT
 						{$db->db_add_param($uid)} AS uid,
 						'{$casetime_golive}'::date AS zavon,
 						DATE_TRUNC('month', NOW()::date)::date AS zabis,
 						'{$casetime_golive}'::date AS datum
-					ORDER BY 
-						datum DESC 
+					ORDER BY
+						datum DESC
 					LIMIT 1
-				) i 
-				JOIN 
-					hr.tbl_dienstverhaeltnis dv ON dv.mitarbeiter_uid = i.uid 
-				JOIN 
-					hr.tbl_vertragsbestandteil vb ON dv.dienstverhaeltnis_id = vb.dienstverhaeltnis_id AND vb.vertragsbestandteiltyp_kurzbz = 'zeitaufzeichnung' AND COALESCE(vb.von, '1970-01-01'::date) <= i.zabis AND COALESCE(vb.bis, '2170-12-31'::date) >= i.zabis 
-				JOIN 
-					hr.tbl_vertragsbestandteil_zeitaufzeichnung vbza ON vb.vertragsbestandteil_id = vbza.vertragsbestandteil_id AND vbza.zeitaufzeichnung = TRUE 
-			) u 
-			LEFT JOIN 
+				) i
+				JOIN
+					hr.tbl_dienstverhaeltnis dv ON dv.mitarbeiter_uid = i.uid
+				JOIN
+					hr.tbl_vertragsbestandteil vb ON dv.dienstverhaeltnis_id = vb.dienstverhaeltnis_id AND vb.vertragsbestandteiltyp_kurzbz = 'zeitaufzeichnung' AND COALESCE(vb.von, '1970-01-01'::date) <= i.zabis AND COALESCE(vb.bis, '2170-12-31'::date) >= i.zabis
+				JOIN
+					hr.tbl_vertragsbestandteil_zeitaufzeichnung vbza ON vb.vertragsbestandteil_id = vbza.vertragsbestandteil_id AND vbza.zeitaufzeichnung = TRUE
+			) u
+			LEFT JOIN
 				addon.tbl_casetime_timesheet ts ON u.uid = ts.uid AND ts.datum BETWEEN tsvon AND tsbis
-			GROUP BY 
-				u.vertragsbestandteil_id, u.tsvon, u.tsbis 
+			GROUP BY
+				u.vertragsbestandteil_id, u.tsvon, u.tsbis
 		) r
 EOSQL;
 
@@ -954,4 +954,43 @@ EOSQL;
 	}
 }
 
+/**
+ * Holt Sollstunden/Iststunden aus CaseTime für Essenszuschuss
+ * @param string $datum Monat der geholt werden soll YYYYMM
+ * @return false, wenn kein Result, sonst result im JSON format:
+ * zum Bsp: {"STATUS": "OK", "RESULT": {"sachb": "MA0100", "datun": "2025-07-01", "sollstunden": 7.7, "get_anwesenheitszeit": 5.2}}
+ */
+function getCaseTimeSollstunden($datum)
+{
+	$ch = curl_init();
+	$url = CASETIME_SERVER.'/sync/get_sollstunden';
+
+	$params = 'datum='.$datum;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT, "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+
+	if (curl_errno($ch))
+	{
+		curl_close($ch);
+		return 'Curl error: '. curl_error($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if (isset($data->STATUS) && $data->STATUS == 'OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return false;
+		}
+	}
 ?>
