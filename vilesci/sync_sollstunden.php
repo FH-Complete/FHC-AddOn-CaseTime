@@ -28,12 +28,52 @@ $uid = get_uid();
 $rechte = new benutzerberechtigung();
 $rechte->getBerechtigungen($uid);
 if(!$rechte->isBerechtigt('admin'))
- die('Sie haben keine Berechtigung fuer diese Seite');
+	die('Sie haben keine Berechtigung fuer diese Seite');
 
-  /**
-  * Sendet einen Request an den CaseTime Server um die Daten zu laden
-  */
-  $retval = getCaseTimeSollstunden('202507');
-  echo json_encode($retval);
+$db = new basis_db();
+
+/**
+ * Sendet einen Request an den CaseTime Server um die Daten zu laden
+ */
+
+$today = new DateTime();
+$lastMonth = $today->modify('-1 month');
+
+$casetimetoday = $lastMonth->format('Ym');
+$postgrestimetoday = $lastMonth->format('Y-m-d');
+
+$retval = getCaseTimeSollstunden($casetimetoday);
+
+if (is_array($retval) && (count($retval) !== 0))
+{
+	$delete_qry = "DELETE
+		FROM addon.tbl_casetime_zeitrohdaten
+		WHERE DATE_TRUNC('month', datum) = DATE_TRUNC('month', DATE ". $db->db_add_param($postgrestimetoday) .");";
+
+	if ($db->db_query($delete_qry))
+	{
+		foreach ($retval as $key => $value)
+		{
+			$uid = strtolower($value[0]);
+			$datum = DateTime::createFromFormat('d.m.Y', $value[1])->format('Y-m-d');
+			$sollstunden = str_replace(',', '.', $value[2]);
+			$iststunden = str_replace(',', '.', $value[3]);
+
+			$qry = "INSERT INTO addon.tbl_casetime_zeitrohdaten(uid, datum, sollstunden, iststunden)
+			VALUES (".
+				$db->db_add_param($uid) . ", ".
+				$db->db_add_param($datum) . ", ".
+				$db->db_add_param($sollstunden) . ", ".
+				$db->db_add_param($iststunden) . ");";
+
+			if (!$db->db_query($qry))
+			{
+				var_dump("Fehler beim syncen");
+				return true;
+			}
+		}
+	}
+}
+
 
 ?>

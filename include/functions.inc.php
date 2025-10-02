@@ -958,7 +958,7 @@ EOSQL;
  * Holt Sollstunden/Iststunden aus CaseTime für Essenszuschuss
  * @param string $datum Monat der geholt werden soll YYYYMM
  * @return false, wenn kein Result, sonst result im JSON format:
- * zum Bsp: {"STATUS": "OK", "RESULT": {"sachb": "MA0100", "datun": "2025-07-01", "sollstunden": 7.7, "get_anwesenheitszeit": 5.2}}
+ * zum Bsp: {"STATUS": "OK", "RESULT": {"sachb": "MA0100", "datum": "2025-07-01", "sollstunden": 7.7, "get_anwesenheitszeit": 5.2}}
  */
 function getCaseTimeSollstunden($datum)
 {
