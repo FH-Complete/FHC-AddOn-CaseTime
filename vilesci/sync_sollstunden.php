@@ -17,18 +17,23 @@
  *
  */
 
-require_once('../config.inc.php');
-require_once('../../../config/vilesci.config.inc.php');
-require_once('../include/functions.inc.php');
-require_once('../include/casetime.class.php');
-require_once('../../../include/benutzerberechtigung.class.php');
-require_once('../../../include/mitarbeiter.class.php');
+require_once(dirname(__FILE__). '/../config.inc.php');
+require_once(dirname(__FILE__). '/../../../config/vilesci.config.inc.php');
+require_once(dirname(__FILE__). '/../include/functions.inc.php');
+require_once(dirname(__FILE__). '/../include/casetime.class.php');
+require_once(dirname(__FILE__). '/../../../include/benutzerberechtigung.class.php');
+require_once(dirname(__FILE__). '/../../../include/mitarbeiter.class.php');
 
-$uid = get_uid();
-$rechte = new benutzerberechtigung();
-$rechte->getBerechtigungen($uid);
-if(!$rechte->isBerechtigt('admin'))
-	die('Sie haben keine Berechtigung fuer diese Seite');
+// Wenn das Script nicht ueber Commandline gestartet wird, muss eine
+// Authentifizierung stattfinden
+if(php_sapi_name() != 'cli')
+{
+	$uid = get_uid();
+	$rechte = new benutzerberechtigung();
+	$rechte->getBerechtigungen($uid);
+	if(!$rechte->isBerechtigt('admin'))
+		die('Sie haben keine Berechtigung fuer diese Seite');
+}
 
 $db = new basis_db();
 
@@ -43,7 +48,7 @@ $casetimetoday = $lastMonth->format('Ym');
 $postgrestimetoday = $lastMonth->format('Y-m-d');
 
 $retval = getCaseTimeSollstunden($casetimetoday);
-
+$anzahl = 0;
 if (is_array($retval) && (count($retval) !== 0))
 {
 	$delete_qry = "DELETE
@@ -68,12 +73,14 @@ if (is_array($retval) && (count($retval) !== 0))
 
 			if (!$db->db_query($qry))
 			{
-				var_dump("Fehler beim syncen");
-				return true;
+				echo "Fehler beim Speichern von $uid an $datum";
 			}
+			else
+				$anzahl++;
 		}
 	}
 }
+echo "<br>Sollstunden fuer $anzahl Eintraege im Monat $casetimetoday uebertragen.";
 
 
 ?>

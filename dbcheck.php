@@ -482,7 +482,7 @@ if(!$result = @$db->db_query("SELECT kontrolliertamum FROM addon.tbl_casetime_ti
 }
 
 // INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitaufzeichnung und SEQUENCE addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq
-if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitaufzeichnung' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
+if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitaufzeichnung' AND table_schema='addon' AND grantee='web' AND privilege_type='SELECT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
@@ -496,7 +496,7 @@ if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants 
 }
 
 // INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitsperre und SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq
-if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitsperre' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
+if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitsperre' AND table_schema='addon' AND grantee='web' AND privilege_type='SELECT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
@@ -592,7 +592,7 @@ if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_zeitrohdaten"))
 	if(!$db->db_query($qry))
 		echo '<strong>addon.tbl_casetime_zeitrohdaten: '.$db->db_last_error().'</strong><br>';
 	else
-		echo ' addon.tbl_casetime_zeitrohdaten: Tabelle addon.tbl_casetime_zeitrohdaten hinzugefuegt!<br>';
+		echo '<br>addon.tbl_casetime_zeitrohdaten: Tabelle addon.tbl_casetime_zeitrohdaten hinzugefuegt!<br>';
 
 }
 
