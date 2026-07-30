@@ -69,15 +69,18 @@ function saveData()
 			{
 				// Zeitmodelle für Mitarbeiter holen
 				echo "Holen der Zeitmodelle für ".$ma->mitarbeiter_uid."...\n";
-				$zeitmodelle_sachb = getWithCurl($url.'?sachb='.urlencode(strtoupper($ma->mitarbeiter_uid)));
+				$zeitmodelleSachb = getWithCurl($url.'?sachb='.urlencode(strtoupper($ma->mitarbeiter_uid)));
 
-				if (isset($zeitmodelle_sachb->STATUS) && $zeitmodelle_sachb->STATUS=='OK' && isset($zeitmodelle_sachb->RESULT))
+				if (isset($zeitmodelleSachb->STATUS) && $zeitmodelleSachb->STATUS=='OK' && isset($zeitmodelleSachb->RESULT))
 				{
-					$lastZeitmodell = end($zeitmodelle_sachb->RESULT);
+					$zeitmodelleCT = $zeitmodelleSachb->RESULT;
+					//$lastZeitmodell = end($zeitmodelleSachb->RESULT);
 
-					if ($lastZeitmodell && isset($lastZeitmodell[2]))
+					foreach ($zeitmodelleCT as $idx => $zeitmodellCT)
 					{
-						$zeitmodell_kurzbz = $lastZeitmodell[2];
+						$lastZmCt = $idx === count($zeitmodelleCT) - 1;
+
+						$zeitmodell_kurzbz = $zeitmodellCT[2];
 
 						// geliefertes Zeitmodell finden
 						$zm = getCaseTimeZeitmodellByBezeichnung($zeitmodelle->RESULT, $zeitmodell_kurzbz);
@@ -103,11 +106,15 @@ function saveData()
 						// Zeitaufzeichnung Vertragsbestandteile zu Zeitmodellen holen
 						$vertragsbestandteil_zeitaufzeichnung = new vertragsbestandteil_zeitaufzeichnung();
 						if ($vertragsbestandteil_zeitaufzeichnung->getFromStartdate(
-							$ma->mitarbeiter_uid, date_format(date_create($lastZeitmodell[1]), 'Y-m-d'), 'ASC')
+							$ma->mitarbeiter_uid, date_format(date_create($zeitmodellCT[1]), 'Y-m-d'), 'ASC')
 						) {
 							foreach($vertragsbestandteil_zeitaufzeichnung->result AS $vtb)
 							{
+								// Zeitmodell schon zugewiesen
 								if ($vtb->zeitmodell_id == $zeitmodell_id) continue;
+
+								// aktuellster Bestandteil sollte nur aktuellstem casetime Zeitmodell zugewiesen werden!
+								if ($vtb->bis == null && !$lastZmCt) continue;
 
 								// Zeitmodell Mitarbeitern zuweisen
 								$vtb->new = false;
@@ -119,14 +126,14 @@ function saveData()
 						}
 						else
 						{
-							echo "Kein Zeitaufzeichnung Vertragsbestandteil für ".$ma->mitarbeiter_uid." gefunden, Datum ".$lastZeitmodell[1]."\n";
+							echo "Kein Zeitaufzeichnung Vertragsbestandteil für ".$ma->mitarbeiter_uid." gefunden, Datum ".$zeitmodellCT[1]."\n";
 						}
 					}
 				}
 				else
 				{
 					echo "Fehler beim Holen des Zeitmodells von ".$ma->mitarbeiter_uid.": "
-					.(isset($zeitmodelle_sachb->RESULT) && is_string($zeitmodelle_sachb->RESULT) ? $zeitmodelle_sachb->RESULT : "")."\n";
+					.(isset($zeitmodelleSachb->RESULT) && is_string($zeitmodelleSachb->RESULT) ? $zeitmodelleSachb->RESULT : "")."\n";
 				}
 			}
 		}
