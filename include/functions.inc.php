@@ -745,36 +745,252 @@ function check_isTimesheetManager($uid, $employee_uid)
 }
 
 /**
-	 * Laedt alle Homeofficetage eines bestimmten Mitarbeiters für einen bestimmten Zeitraum
-	 * @param string $mitarbeiter_uid Uid des Mitarbeiters.
-	 * @param date $vondatum Startdatum im Format 'YYYY-MM-DD'.
-	 * @param date $bisdatum Bisdatum im Format 'YYYY-MM-DD'.
-	 * @return true wenn ok, false wenn Fehler
-	 */
-	function getHomeofficeTage($mitarbeiter_uid, $vondatum, $bisdatum)
+ * Laedt alle Homeofficetage eines bestimmten Mitarbeiters für einen bestimmten Zeitraum
+ * @param string $mitarbeiter_uid Uid des Mitarbeiters.
+ * @param date $vondatum Startdatum im Format 'YYYY-MM-DD'.
+ * @param date $bisdatum Bisdatum im Format 'YYYY-MM-DD'.
+ * @return true wenn ok, false wenn Fehler
+ */
+function getHomeofficeTage($mitarbeiter_uid, $vondatum, $bisdatum)
+{
+	$db = new basis_db();
+	$qry = "SELECT uid, homeofficetag FROM addon.vw_homeoffice_ma
+			WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
+			AND homeofficetag >=". $db->db_add_param($vondatum)."
+			AND homeofficetag <= ". $db->db_add_param($bisdatum);
+
+
+	if ($result = $db->db_query($qry))
 	{
-		$db = new basis_db();
-		$qry = "SELECT uid, homeofficetag FROM addon.vw_homeoffice_ma
-				WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
-				AND homeofficetag >=". $db->db_add_param($vondatum)."
-				AND homeofficetag <= ". $db->db_add_param($bisdatum);
-
-
-		if ($result = $db->db_query($qry))
+		$db->result = '';
+		while ($row = $db->db_fetch_object($result))
 		{
-			$db->result = '';
-			while ($row = $db->db_fetch_object($result))
-			{
-				$db->result[] = $row->homeofficetag;
+			$db->result[] = $row->homeofficetag;
+		}
+		return $db->result;
+	}
+	else
+	{
+		return false;
+	}
+}
 
-			}
-			return $db->result;
+/**
+ * Sendet einen Request an den CaseTime Server um den Zeitsaldo SALUE1 abzufragen
+ * @param string $uid Mitarbeiter-Uid Uid des Mitarbeiters.
+ * @return false, wenn kein Result, sonst result im JSON format:
+ * zum Bsp: {"STATUS": "OK", "RESULT": {"sachb": "MA0100", "salue1sum": 55.2}}
+ */
+function getCaseTimeSaldoAllIn($uid)
+{
+	$ch = curl_init();
+	$url = CASETIME_SERVER.'/sync/get_allin_salue1_sum';
+
+	//heutiges Datum
+        $tz  = new DateTimezone('Europe/Vienna');
+	$dt2 = new DateTime('today', $tz);
+
+	$datumt2  = $dt2->format('d.m.Y');
+        $curmonth = intval($dt2->format('m'));
+        $curyear  = intval($dt2->format('Y'));
+        $year = ($curmonth >= 9) ? $curyear : ($curyear - 1);
+
+	//Start Geschäftsjahr
+	$datumt1 = '01.09.'. $year;
+	$params = 'sachb='. $uid.'&datumt1='.$datumt1.'&datumt2='.$datumt2;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT, "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+
+	if (curl_errno($ch))
+	{
+		curl_close($ch);
+		return 'Curl error: '. curl_error($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if (isset($data->STATUS) && $data->STATUS == 'OK')
+		{
+			return $data->RESULT;
 		}
 		else
-		{
 			return false;
 		}
-
 	}
 
+/**
+ * Überprüft, ob im Zeitraum einer Zeitsperre eine abgeschickte Monatsliste vorhanden ist
+ * @param string $mitarbeiter_uid Uid des Mitarbeiters.
+ * @param date $vondatum Startdatum Zeitsperre im Format 'YYYY-MM-DD'.
+ * @param date $bisdatum Bisdatum Zeitsperre im Format 'YYYY-MM-DD'.
+ * @return date Monatslistendatum, wenn status Monatsliste abgeschickt, ansonsten false
+ */
+function checkStatusMonatsliste($mitarbeiter_uid, $vondatum, $bisdatum)
+{
+	$db = new basis_db();
+	$qry = "SELECT ts.datum FROM addon.tbl_casetime_timesheet ts
+			WHERE uid =". $db->db_add_param($mitarbeiter_uid)."
+			and (((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum
+			or ((date_trunc('MONTH', (date(".$db->db_add_param($vondatum)."))) + INTERVAL '1 MONTH - 1 day')::date) = ts.datum)
+			and ts.abgeschicktamum is not NULL";
+
+	if ($result = $db->db_query($qry))
+	{
+		$db->result = '';
+		while ($row = $db->db_fetch_object($result))
+		{
+			$db->result[] = $row->datum;
+
+		}
+		return $db->result;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/**
+ * Formatiert Zahl aus Zeitsaldo in Format h: min
+ * @param float $zeitsaldo Zeitsaldo in Minuten (zBsp: -1.93)
+ * @return string Zeitsaldo im Format hh:mm, (zBsp:- 1h:56m)
+ */
+function formatZeitsaldo($zeitsaldo)
+{
+	if ($zeitsaldo >= 0)
+	{
+		$stunden = floor($zeitsaldo);
+		$minuten = floor(($zeitsaldo - $stunden) * 60);
+	}
+	else if ($zeitsaldo < 0 )
+	{
+		$stunden = ceil($zeitsaldo);
+		$minuten = floor(($zeitsaldo - $stunden) * (-60));
+	}
+	return $stunden . "h:" . $minuten . "m";
+}
+
+function getNotConfirmedTimesheetCount($uid)
+{
+	$db = new basis_db();
+	$casetime_golive = CASETIME_TIMESHEET_GOLIVE;
+	$sql = <<<EOSQL
+		SELECT
+			((tscount - tsconfirmedcount) + (tstotalcount - tscount)) AS tstotalnotconfirmed
+		FROM (
+			SELECT
+				(EXTRACT('YEAR' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon))) * 12 + EXTRACT('MONTH' FROM age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)))) AS tstotalcount,
+				age(DATE_TRUNC('month', u.tsbis), DATE_TRUNC('month', u.tsvon)) AS tsage,
+				count(ts.timesheet_id) AS tscount,
+				count(ts.abgeschicktamum) AS tssentcount,
+				count(ts.genehmigtamum) AS tsconfirmedcount
+			FROM (
+				SELECT
+					uid,
+					CASE
+					  WHEN vb.von IS NULL OR vb.von < i.zavon THEN i.zavon
+					  ELSE vb.von
+					END AS tsvon,
+					CASE
+					  WHEN vb.bis IS NULL OR vb.bis > i.zabis THEN i.zabis
+					  ELSE vb.bis
+					END AS tsbis,
+					vb.*
+				FROM (
+					SELECT
+						uid,
+						COALESCE(DATE_TRUNC('month', datum)::date, '{$casetime_golive}'::date) AS zavon,
+						DATE_TRUNC('month', NOW()::date)::date AS zabis,
+						datum
+					FROM
+						addon.tbl_casetime_timesheet ts
+					WHERE
+						uid = {$db->db_add_param($uid)} AND genehmigtamum IS NOT NULL
+					UNION
+					SELECT
+						{$db->db_add_param($uid)} AS uid,
+						'{$casetime_golive}'::date AS zavon,
+						DATE_TRUNC('month', NOW()::date)::date AS zabis,
+						'{$casetime_golive}'::date AS datum
+					ORDER BY
+						datum DESC
+					LIMIT 1
+				) i
+				JOIN
+					hr.tbl_dienstverhaeltnis dv ON dv.mitarbeiter_uid = i.uid
+				JOIN
+					hr.tbl_vertragsbestandteil vb ON dv.dienstverhaeltnis_id = vb.dienstverhaeltnis_id AND vb.vertragsbestandteiltyp_kurzbz = 'zeitaufzeichnung' AND COALESCE(vb.von, '1970-01-01'::date) <= i.zabis AND COALESCE(vb.bis, '2170-12-31'::date) >= i.zabis
+				JOIN
+					hr.tbl_vertragsbestandteil_zeitaufzeichnung vbza ON vb.vertragsbestandteil_id = vbza.vertragsbestandteil_id AND vbza.zeitaufzeichnung = TRUE
+			) u
+			LEFT JOIN
+				addon.tbl_casetime_timesheet ts ON u.uid = ts.uid AND ts.datum BETWEEN tsvon AND tsbis
+			GROUP BY
+				u.vertragsbestandteil_id, u.tsvon, u.tsbis
+		) r
+EOSQL;
+
+	if ($result = $db->db_query($sql))
+	{
+		$db->result = '';
+		if ($row = $db->db_fetch_object($result))
+		{
+			$db->result = $row->tstotalnotconfirmed;
+
+		}
+		return $db->result;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+/**
+ * Holt Sollstunden/Iststunden aus CaseTime für Essenszuschuss
+ * @param string $datum Monat der geholt werden soll YYYYMM
+ * @return false, wenn kein Result, sonst result im JSON format:
+ * zum Bsp: {"STATUS": "OK", "RESULT": {"sachb": "MA0100", "datum": "2025-07-01", "sollstunden": 7.7, "get_anwesenheitszeit": 5.2}}
+ */
+function getCaseTimeSollstunden($datum)
+{
+	$ch = curl_init();
+	$url = CASETIME_SERVER.'/sync/get_sollstunden';
+
+	$params = 'datum='.$datum;
+
+	curl_setopt($ch, CURLOPT_URL, $url.'?'.$params); //Url together with parameters
+	curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1); //Return data instead printing directly in Browser
+	curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 7); //Timeout after 7 seconds
+	curl_setopt($ch, CURLOPT_USERAGENT, "FH-Complete CaseTime Addon");
+	curl_setopt($ch, CURLOPT_HEADER, 0);
+
+	$result = curl_exec($ch);
+
+	if (curl_errno($ch))
+	{
+		curl_close($ch);
+		return 'Curl error: '. curl_error($ch);
+	}
+	else
+	{
+		curl_close($ch);
+		$data = json_decode($result);
+
+		if (isset($data->STATUS) && $data->STATUS == 'OK')
+		{
+			return $data->RESULT;
+		}
+		else
+			return false;
+		}
+	}
 ?>

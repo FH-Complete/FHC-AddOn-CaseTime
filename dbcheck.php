@@ -482,7 +482,7 @@ if(!$result = @$db->db_query("SELECT kontrolliertamum FROM addon.tbl_casetime_ti
 }
 
 // INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitaufzeichnung und SEQUENCE addon.tbl_casetime_zeitaufzeichnung_casetime_zeitaufzeichnung_id_seq
-if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitaufzeichnung' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
+if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitaufzeichnung' AND table_schema='addon' AND grantee='web' AND privilege_type='SELECT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
@@ -496,7 +496,7 @@ if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants 
 }
 
 // INSERT, UPDATE und DELETE permissions for web User for addon.tbl_casetime_zeitsperre und SEQUENCE addon.tbl_casetime_zeitsperre_casetime_zeitsperre_id_seq
-if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitsperre' AND table_schema='public' AND grantee='web' AND privilege_type='INSERT'"))
+if($result = @$db->db_query("SELECT * FROM information_schema.role_table_grants WHERE table_name='tbl_casetime_zeitsperre' AND table_schema='addon' AND grantee='web' AND privilege_type='SELECT'"))
 {
 	if($db->db_num_rows($result)==0)
 	{
@@ -560,6 +560,43 @@ if (!$result = @$db->db_query("SELECT * FROM addon.vw_homeoffice_ma LIMIT 1"))
 		echo '<br>addon.homeoffice_ma view created';
 }
 
+
+if(!$result = @$db->db_query("SELECT 1 FROM addon.tbl_casetime_zeitrohdaten"))
+{
+
+	$qry = "CREATE TABLE addon.tbl_casetime_zeitrohdaten
+			(
+				casetime_zeitrohdaten_id bigint NOT NULL,
+				uid varchar(32),
+				sollstunden numeric(5,2),
+				iststunden numeric(5,2),
+				datum date
+			);
+
+	ALTER TABLE addon.tbl_casetime_zeitrohdaten ADD CONSTRAINT pk_casetime_zeitrohdaten PRIMARY KEY (casetime_zeitrohdaten_id);
+
+	CREATE SEQUENCE addon.tbl_casetime_rohdaten_casetime_zeitrohdaten_id_seq
+	INCREMENT BY 1
+	NO MAXVALUE
+	NO MINVALUE
+	CACHE 1;
+
+	ALTER TABLE addon.tbl_casetime_zeitrohdaten ALTER COLUMN casetime_zeitrohdaten_id SET DEFAULT nextval('addon.tbl_casetime_rohdaten_casetime_zeitrohdaten_id_seq');
+
+	ALTER TABLE addon.tbl_casetime_zeitrohdaten ADD CONSTRAINT fk_benutzer_casetime_zeitrohdaten FOREIGN KEY (uid) REFERENCES public.tbl_benutzer(uid) ON DELETE RESTRICT ON UPDATE CASCADE;
+
+	GRANT SELECT, INSERT, UPDATE, DELETE ON addon.tbl_casetime_zeitrohdaten TO vilesci;
+	GRANT SELECT, UPDATE ON addon.tbl_casetime_rohdaten_casetime_zeitrohdaten_id_seq TO vilesci;
+	";
+
+	if(!$db->db_query($qry))
+		echo '<strong>addon.tbl_casetime_zeitrohdaten: '.$db->db_last_error().'</strong><br>';
+	else
+		echo '<br>addon.tbl_casetime_zeitrohdaten: Tabelle addon.tbl_casetime_zeitrohdaten hinzugefuegt!<br>';
+
+}
+
+
 echo '<br>Aktualisierung abgeschlossen<br><br>';
 echo '<h2>Gegenprüfung</h2>';
 
@@ -571,6 +608,7 @@ $tabellen=array(
 	"addon.tbl_casetime_zeitaufzeichnung"  => array("casetime_zeitaufzeichnung_id","uid","datum","zeit_start","zeit_ende","ext_id1","ext_id2","typ","sync","delete","zeitaufzeichnung_id", "datum_bis"),
 	"addon.tbl_casetime_timesheet"  => array("timesheet_id","uid","datum","insertamum","insertvon","abgeschicktamum","genehmigtamum", "genehmigtvon", "kontrolliertamum", "kontrolliertvon", "kontroll_notizen", "vorzeitig_abgeschickt"),
 	"addon.tbl_casetime_timesheet_dms"  => array("timesheet_dms_id","timesheet_id","dms_id","insertamum", "insertvon"),
+	"addon.tbl_casetime_zeitrohdaten"  => array("casetime_zeitrohdaten_id","uid","sollstunden","iststunden", "datum"),
 );
 
 
